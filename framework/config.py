@@ -1,3 +1,19 @@
+import json
+import logging
+import os
+import time
+from datetime import datetime, timedelta
+from functools import wraps
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import polars as pl
+import seaborn as sns
+from sklearn.metrics import log_loss, ndcg_score, roc_auc_score
+from tqdm.auto import tqdm
+
 class Config:
     """Configuration management for experiments"""
     
@@ -18,10 +34,12 @@ class Config:
                 'random_seed': 42
             },
             'preprocessing': {
-                'remove_duplicates': True,
-                'fill_nulls': True,
                 'normalize_timestamps': True,
                 'clean_text': False
+            },
+            'cleaning': {
+                'remove_duplicates': True,
+                'remove_sessions_only_views': False
             },
             'features': {
                 'basic': ['count_purchase', 'ctr'],
