@@ -32,25 +32,24 @@ class DataLoader:
         self.logger.debug("Loading data...")
         
         # Load train data
-        train_path = self.config.get('data', 'train_path')
+        train_path = self.config.get('data.train_path')
         self.train_df = pl.read_parquet(train_path)
         
         # Load test data
-        test_path = self.config.get('data', 'test_path')
+        test_path = self.config.get('data.test_path')
         self.test_df = pl.read_parquet(test_path)
         
         # Sample if needed
-        sample_size = self.config.get('data', 'sample_size')
+        sample_size = self.config.get('data.sample_size')
         if sample_size is not None:
             self.train_df = self.train_df.sample(
                 n=sample_size, 
-                seed=self.config.get('data', 'random_seed')
+                seed=self.config.get('data.random_seed')
             )
         
-        self.logger.info(f"Loaded train data: {len(self.train_df)} rows")
+        self.logger.info(f"Loaded train data: {len(self.train_df)} rows")        
+        self.train_df = self._clean(self._preprocess(self.train_df))
         self.logger.info(f"Loaded test data: {len(self.test_df)} rows")
-        
-        self.train_df = self._preprocess(self.train_df)
         self.test_df = self._preprocess(self.test_df)
         return self.train_df, self.test_df
     
@@ -106,15 +105,15 @@ class DataLoader:
         min_time = df['timestamp'].min()
         max_time = df['timestamp'].max()
         time_range = max_time - min_time
-        fold_duration = time_range / (n_folds + 1)  # +1 to leave first fold for train feature generation
+        fold_duration = time_range / (n_folds + 2)  # +2 as we need separate folds for feature generation and training
         
         folds = []
         for i in range(n_folds):
             # Calculate time boundaries
-            train_start_time = min_time + fold_duration
-            train_end_time = train_start_time + fold_duration
+            train_start_time = min_time + fold_duration * (i + 1)
+            train_end_time = train_start_time + fold_duration * (i + 1)
             val_start_time = train_end_time
-            val_end_time = val_start_time + fold_duration
+            val_end_time = val_start_time + fold_duration * (i + 1)
             
             # Create train and validation sets
             history_df = df.filter(pl.col('timestamp') < train_start_time)
@@ -129,12 +128,18 @@ class DataLoader:
         return folds
 
     
-    def _clean_data(self, df: pl.DataFrame) -> pl.DataFrame:
+    def _clean(self, df: pl.DataFrame) -> pl.DataFrame:
         """Clean training data based on configuration"""
-        if self.config.get('preprocessing.remove_duplicate_actions'):
+        if self.config.get('cleaning.remove_duplicate_actions'):
             columns_to_check = df.columns.remove('timestamp')
             mask = df.select(columns_to_check).is_duplicated()
             df = df.filter(~mask)
+            self.logger.info('Removed duplicate rows that differ only by timestamp')
+        if self.config.get('cleaning.remove_repeated_product_request'):
+            df = df.group_by(
+                ['product_id', 'request_id']
+            ).max()
+            self.logger.info('Removed repeated products in one request')
 
         #TODO – remove users who only watch
         return df

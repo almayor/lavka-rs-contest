@@ -16,7 +16,7 @@ class FeatureFactory:
     
     # Class-level registry of feature generators
     _feature_registry = {}
-    _target_registry = {}
+    _possible_targets = set()
     
     @classmethod
     def register(cls, feature_name: str, join_on: str | list[str],
@@ -32,6 +32,7 @@ class FeatureFactory:
                 'join_on': join_on,
                 'depends_on': depends_on,
             }
+
             
             @wraps(func)
             def wrapper(self, *args, **kwargs):
@@ -42,17 +43,20 @@ class FeatureFactory:
         return decorator
 
     @classmethod
-    def register_target(cls, target_name: str, depends_on: str | list[str] | None = None):
-        """Decorator to register a method as a target generator"""
+    def register_target(cls, feature_name: str,
+                 depends_on: str | List[str] | None = None):
+        """Decorator to register a method as a feature generator"""
         depends_on = depends_on or []
         if isinstance(depends_on, str):
             depends_on = [depends_on]
         
         def decorator(func):
-            cls._target_registry[target_name] = {
+            cls._feature_registry[feature_name] = {
                 'func': func,
                 'depends_on': depends_on,
             }
+            cls._possible_targets.add(feature_name)
+
             
             @wraps(func)
             def wrapper(self, *args, **kwargs):
@@ -67,6 +71,13 @@ class FeatureFactory:
         self.config = config
         self.logger = get_logger(self.__class__.__name__)
     
+    def generate_batch(self, history_df, target_df, requested_features=None, requested_target=None):
+        """Generate both features and target"""
+        features = self.generate_features(history_df, target_df, requested_features)
+        target = self.generate_target(history_df, target_df, requested_target)
+        mask = ~target.is_null()
+        return features.filter(mask), target.filter(mask)
+
     def generate_features(self, history_df, target_df, requested_features=None):
         """Generate only the requested features and their dependencies"""
         if requested_features is None:
@@ -82,6 +93,7 @@ class FeatureFactory:
         # Return only the requested features
         feature_data = [self.features[f] for f in requested_features if f in self.features]
         result_df = target_df
+        print(result_df.height)
         for df, feature_name in zip(feature_data, requested_features):
             join_on = self.__class__._feature_registry[feature_name]["join_on"]
             try:
@@ -93,18 +105,18 @@ class FeatureFactory:
                 raise e
         
         self.logger.debug("Joined features")
-        return result_df
+        return result_df.select(requested_features)
     
     def generate_target(self, history_df, target_df, requested_target: str | None = None):
         """Generate the target feature"""
         if requested_target is None:
             requested_target = self.config.get("target")
-        if requested_target not in self.__class__._target_registry:
+        if requested_target not in self.__class__._possible_targets:
             raise ValueError(f"Unknown target {requested_target}")
 
         self.features = {}
         self._generate_feature(requested_target, history_df, target_df)
-        return self.features[requested_target]
+        return self.features[requested_target]['target']
     
     def _generate_feature(self, feature_name, history_df, target_df):
         """Generate a single feature, handling dependencies"""

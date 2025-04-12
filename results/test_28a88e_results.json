@@ -1,0 +1,34 @@
+{
+    "experiment_name": "test_28a88e",
+    "config_file": "results/test_28a88e_config.json",
+    "timestamp": "2025-04-12 04:49:56",
+    "name": "test_28a88e",
+    "feature_names": [
+        "count_purchase",
+        "ctr"
+    ],
+    "model_type": "catboost",
+    "cv_results": {
+        "folds": [
+            {
+                "fold": 0,
+                "metrics": {
+                    "auc": 0.5857498304662134,
+                    "logloss": 0.38752211508651235,
+                    "ndcg@10": 0.0
+                },
+                "feature_importance": {
+                    "count_purchase": 0.0388165676981971,
+                    "ctr": 99.9611834323018
+                }
+            }
+        ],
+        "average_metrics": {
+            "auc": 0.5857498304662134,
+            "logloss": 0.38752211508651235,
+            "ndcg@10": 0.0
+        }
+    },
+    "test_predictions": null,
+    "runtime": 33.20338153839111
+}

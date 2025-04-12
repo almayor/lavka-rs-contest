@@ -203,13 +203,14 @@ class ModelFactory:
             # Add more models as needed
         }
     
-    def create_model(self, model_type):
+    def create_model(self):
         """Create a model instance based on type"""
+        model_type = self.config.get(('model', 'type'))
         if model_type not in self.models:
             raise ValueError(f"Unknown model type: {model_type}")
             
         # Get model parameters from config
-        model_params = self.config.get(('models', model_type))
+        model_params = self.config.get(('model', 'config', model_type))
         
         # Create and return model instance
         return self.models[model_type](**model_params)

@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import time
@@ -24,7 +25,10 @@ class Experiment:
     
     def __init__(self, name, config):
         """Initialize experiment with configuration"""
-        self.name = name
+        config_str = json.dumps(config.to_dict(), sort_keys=True).encode('utf-8')
+        config_hash = hashlib.md5(config_str).hexdigest()[:6]
+        self.config_hash = config_hash
+        self.name = f"{name}_{config_hash}"
         self.config = config
         self.data_loader = DataLoader(config)
         self.feature_factory = FeatureFactory(config)
@@ -52,14 +56,14 @@ class Experiment:
         # Even if the experiment fails, we'll have the configuration
         self._save_config()
     
-    def run(self):
+    def run(self, make_predictions=False):
         """Run a complete experiment with given feature sets and model"""
-        feature_set = self.config.get("features")
+        feature_names = self.config.get("features")
         target_name = self.config.get('target')
-        model_type = self.config.get("models.type")
+        model_type = self.config.get("model.type")
 
         self.logger.info(f"Starting experiment: {self.name}")
-        self.logger.info(f"Feature sets: {feature_set}")
+        self.logger.info(f"Feature names: {feature_names}")
         self.logger.info(f"Model type: {model_type}")
         
         start_time = time.time()
@@ -72,23 +76,23 @@ class Experiment:
         
         # Run cross-validation
         cv_results = self._run_cross_validation(
-            validation_splits, feature_set, target_name, model_type
+            validation_splits, feature_names, target_name, model_type
         )
         
-        # Train final model
-        final_model = self._train_final_model(
-            train_df, feature_set, model_type
-        )
-        
-        # Create test predictions
-        test_predictions = self._predict_test(
-            final_model, train_df, test_df, feature_set
-        )
+        if self.config.get('output.save_model') or self.config.get('output.save_predictions'):
+            final_model = self._train_final_model(
+                train_df, feature_names, target_name, model_type
+            )
+            test_predictions = self._predict_test(
+                final_model, train_df, test_df, feature_names
+            )
+        else:
+            test_predictions = None
         
         # Save results
         experiment_results = {
             'name': self.name,
-            'feature_sets': feature_set,
+            'feature_names': feature_names,
             'model_type': model_type,
             'cv_results': cv_results,
             'test_predictions': test_predictions,
@@ -110,27 +114,20 @@ class Experiment:
         for fold_idx, (train_history, train_df, val_df) in enumerate(tqdm(validation_splits, 'cv')):
             self.logger.info(f"Processing fold {fold_idx+1}/{len(validation_splits)}")
             
-            train_features = self.feature_factory.generate_features(
-                train_history, train_df, feature_sets
-            )
-            train_target = self.feature_factory.generate_target(
-                train_history, train_df, target_name
+            train_features, train_target = self.feature_factory.generate_batch(
+                train_history, train_df, feature_sets, target_name
             )
 
             val_history = pl.concat(
                 [train_history, train_df],
                 how='vertical'
             )
-            val_features = self.feature_factory.generate_features(
-                val_history, val_df, feature_sets
+            val_features, val_target = self.feature_factory.generate_batch(
+                val_history, val_df, feature_sets, target_name
             )
-            val_target = self.feature_factory.generate_target(
-                val_history, val_df, target_name
-            )
-
             
             # Create and train model
-            model = self.model_factory.create_model(model_type)
+            model = self.model_factory.create_model()
             model.train(
                 train_features, 
                 train_target,
@@ -163,31 +160,23 @@ class Experiment:
         self.logger.info(f"Cross-validation average metrics: {avg_metrics}")
         return cv_summary
     
-    def _train_final_model(self, train_df, feature_sets, model_type):
+    def _train_final_model(self, train_df, feature_sets, target_name, model_type):
         """Train final model on all training data"""
         self.logger.info("Training final model on all data")
         
         # Split data for feature generation
-        latest_cutoff = train_df['timestamp'].max() - timedelta(days=7)
+        latest_cutoff = train_df['timestamp'].max() - timedelta(days=21)
         history_df = train_df.filter(pl.col('timestamp') < latest_cutoff)
         target_df = train_df.filter(pl.col('timestamp') >= latest_cutoff)
         
         # Generate features
-        self.feature_factory.generate_features(
-            history_df, target_df, feature_sets
+        train_features, train_target = self.feature_factory.generate_batch(
+            history_df, target_df, feature_sets, target_name
         )
-        features_df = self.feature_factory.join_features()
-        
-        # Setup target variable
-        target = train_df.filter(
-            pl.col('action_type').is_in(["AT_View", "AT_CartUpdate"])
-        ).with_columns(
-            target=pl.when(pl.col('action_type') == "AT_View").then(0).otherwise(1)
-        )['target']
         
         # Create and train model
-        model = self.model_factory.create_model(model_type)
-        model.train(features_df, target)
+        model = self.model_factory.create_model()
+        model.train(train_features, train_target)
         
         # Save model if configured
         if self.config.get('output.save_models'):
@@ -205,13 +194,12 @@ class Experiment:
         self.logger.info("Generating test predictions")
         
         # Generate features for test data using all training data as history
-        self.feature_factory.generate_features(
+        test_features = self.feature_factory.generate_features(
             train_df, test_df, feature_sets
         )
-        test_features_df = self.feature_factory.join_features()
         
         # Make predictions
-        test_predictions = model.predict(test_features_df)
+        test_predictions = model.predict(test_features)
         
         # Create submission dataframe
         submission_df = test_df.select('index', 'request_id')

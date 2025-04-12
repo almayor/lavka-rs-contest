@@ -1,0 +1,80 @@
+{
+    "features": [
+        "count_purchase",
+        "ctr"
+    ],
+    "target": "CartUpdate_vs_View",
+    "data": {
+        "train_path": "train.parquet",
+        "test_path": "test.parquet",
+        "sample_size": null,
+        "random_seed": 42
+    },
+    "preprocessing": {
+        "normalize_timestamps": true,
+        "clean_text": false
+    },
+    "cleaning": {
+        "remove_duplicate_actions": true,
+        "remove_strict_viewers": false
+    },
+    "history_generation": {
+        "method": "basic",
+        "rolling_window": {
+            "window_size": 30
+        }
+    },
+    "models_config": {
+        "type": "catboost",
+        "catboost": {
+            "iterations": 300,
+            "learning_rate": 0.01,
+            "depth": 2,
+            "loss_function": "Logloss",
+            "eval_metric": "AUC",
+            "early_stopping_rounds": 50
+        },
+        "lightgbm": {
+            "num_iterations": 500,
+            "learning_rate": 0.05,
+            "max_depth": 6,
+            "objective": "binary",
+            "metric": "auc",
+            "early_stopping_rounds": 50,
+            "verbose": 100
+        },
+        "xgboost": {
+            "n_estimators": 500,
+            "learning_rate": 0.05,
+            "max_depth": 6,
+            "objective": "binary:logistic",
+            "eval_metric": "auc",
+            "early_stopping_rounds": 50,
+            "verbose": 100
+        },
+        "random_forest": {
+            "n_estimators": 100,
+            "max_depth": 10,
+            "min_samples_split": 2,
+            "random_state": 42
+        }
+    },
+    "validation": {
+        "method": "temporal",
+        "n_folds": 2
+    },
+    "metrics": [
+        "auc",
+        "ndcg@10",
+        "map@10",
+        "novelty@10",
+        "serendipity@10"
+    ],
+    "output": {
+        "results_dir": "results",
+        "save_models": true,
+        "save_features": false,
+        "save_predictions": true
+    },
+    "experiment_registry": "experiment_registry.json"
+}

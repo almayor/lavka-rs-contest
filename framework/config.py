@@ -1,41 +1,84 @@
+import os
 import json
 import dpath.util
-from .default_config import DEFAULT_CONFIG
+import yaml  # Make sure to install PyYAML: pip install pyyaml
+
+_SENTINEL = object()
 
 class Config:
-    """Configuration management for experiments using dpath for nested access."""
+    """Configuration management for experiments using dpath for nested access.
 
-    def __init__(self, config_dict=None):
-        """Initialize with default or provided configuration."""
+    This version loads default configuration from a YAML or JSON file.
+    """
+
+    def __init__(self, config_dict=None, default_config_path=None):
+        """
+        Initialize with provided configuration, merging with defaults loaded from a file.
+
+        Parameters:
+            config_dict (dict, optional): Custom configuration dictionary.
+            default_config_path (str, optional): Path to the default configuration file.
+                If not provided, it defaults to a file named 'default_config.yaml' in the same
+                directory as this module. It will fall back to 'default_config.json' if the YAML file
+                is not found.
+        """
         self.config = config_dict or {}
-        self._set_defaults()
+        self._set_defaults(default_config_path=default_config_path)
 
-    def _set_defaults(self):
+    def _set_defaults(self, default_config_path=None):
         """
-        Merge the default configuration into self.config using dpath.
+        Merge default configuration into self.config using dpath.
 
-        The merge is performed with overwrite=False, meaning that only missing keys
-        from DEFAULT_CONFIG will be added; existing keys in self.config remain unchanged.
+        This method loads the default configuration from a YAML or JSON file and merges them into
+        the existing configuration without overwriting keys that are already present.
+
+        Parameters:
+            default_config_path (str, optional): Path to the default config file.
+                If not provided, defaults to 'default_config.yaml' in the module directory.
         """
-        dpath.util.merge(self.config, DEFAULT_CONFIG, overwrite=False)
+        if default_config_path is None:
+            # Try default_config.yaml first; if not found, fall back to default_config.json.
+            yaml_path = os.path.join(os.getcwd(), 'default_config.yaml')
+            json_path = os.path.join(os.getcwd(), 'default_config.json')
+            if os.path.exists(yaml_path):
+                default_config_path = yaml_path
+            elif os.path.exists(json_path):
+                default_config_path = json_path
+            else:
+                raise FileNotFoundError("No default configuration file found (neither YAML nor JSON).")
+        
+        try:
+            with open(default_config_path, 'r') as f:
+                if default_config_path.lower().endswith(('.yaml', '.yml')):
+                    default_config = yaml.safe_load(f)
+                else:
+                    default_config = json.load(f)
+        except Exception as e:
+            raise FileNotFoundError(
+                f"Unable to load default configuration from {default_config_path}: {e}"
+            )
+        
+        # Merge defaults into the current configuration without overriding existing keys.
+        self.config = dpath.util.merge(self.config, default_config)
 
     def get(self, path, sep='.'):
         """
         Retrieve a configuration value from a nested dictionary using a unified path.
 
         Parameters:
-            path (str): A dot-separated string (or list/tuple) representing the nested key path,
+            path (str): A dot-separated string representing the nested key path,
                         e.g. 'database.credentials.user'.
-            sep (str): Separator used when path is a string (default is '.').
+            sep (str): Separator used (default is '.').
 
         Returns:
-            The value stored at the specified nested key.
-
-        Raises:
-            KeyError: If any part of the key path is missing.
+            The value stored at the specified key path.
         """
         try:
-            return dpath.util.get(self.config, path, separator=sep)
+            result = dpath.util.get(self.config, path, separator=sep, default=_SENTINEL)
+            if result is _SENTINEL:
+                raise KeyError(f"Key '{path}' not found in configuration")
+            else:
+                return result
         except KeyError as e:
             raise KeyError(f"Failed to get nested key '{path}': {e}")
 
@@ -44,48 +87,26 @@ class Config:
         Update a configuration value using a unified nested key.
 
         Parameters:
-            path (str): A dot-separated string (or list/tuple) representing the nested key path,
-                        e.g. 'database.credentials.user'.
+            path (str): A dot-separated string representing the nested key path.
             value: The new value to assign.
-            sep (str): Separator used when path is a string (default is '.').
-            override (bool): If True (default), the method will check that the key path exists
-                             and raise a KeyError if any part is missing.
-                             If False, missing keys will be created automatically.
-
-        Raises:
-            KeyError: If override is False and any portion of the key path is missing.
+            sep (str): Separator used (default is '.').
+            override (bool): If True, missing keys will be automatically created.
+                             If False, a KeyError is raised for missing keys.
         """
         if not override:
-            # Verify that the nested key exists; this will raise a KeyError if it doesn't.
             try:
                 dpath.util.get(self.config, path, separator=sep)
             except KeyError as e:
                 raise KeyError(f"Cannot set value for nested key '{path}' because it does not exist: {e}")
         
-        # dpath.util.set will create missing keys if override is True.
         dpath.util.set(self.config, path, value, separator=sep)
 
-    # Allow bracket-notation for getting values.
     def __getitem__(self, key):
-        """
-        Enable retrieval via bracket notation.
-        
-        Example:
-            config['database.credentials.user']  -> returns the nested value.
-        """
+        """Enable retrieval via bracket notation."""
         return self.get(key)
 
-    # Allow bracket-notation for setting values.
     def __setitem__(self, key, value):
-        """
-        Enable setting via bracket notation.
-        
-        Example:
-            config['database.credentials.user'] = "new_user"
-            
-        By default, this operation will fail if any portion of the path is missing.
-        To override and allow creating missing keys, you could call set with override=True.
-        """
+        """Enable setting via bracket notation."""
         self.set(key, value)
 
     def save(self, filename='experiment_config.json'):
@@ -100,6 +121,9 @@ class Config:
             config_dict = json.load(f)
         return cls(config_dict)
 
+    def to_dict(self):
+        return self.config
+
     def __str__(self):
         """Return a pretty-printed JSON representation of the configuration."""
-        return json.dumps(self.config, indent=4)
+        return json.dumps(self.config, sort_keys=True, indent=4)
