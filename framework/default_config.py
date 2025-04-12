@@ -10,13 +10,16 @@ DEFAULT_CONFIG = {
         'clean_text': False
     },
     'cleaning': {
-        'remove_duplicates': True,
-        'remove_sessions_only_views': False
+        'remove_duplicate_actions': False,
+        'remove_strict_viewers': False
     },
-    'feature_set': ['basic'],
-    'history_generation':{
+    'features': ['basic'],
+    'target': 'CartUpdate_vs_View',
+    'history_generation': {
         'method': 'basic',  # 'basic' or 'rolling_window'
-        'window_size': 30,
+        'rolling_window': {
+            'window_size': 30,
+        }
     },
     'models_config': {
         'type': 'catboost', # 'catboost' or 'lightgbm' or 'xgboost' or 'random_forest'
@@ -58,7 +61,6 @@ DEFAULT_CONFIG = {
         'type': 'temporal',
         'n_folds': 2,
     },
-    'target': 'simple', # 'simple', 'viewed
     'metrics': ['auc', 'ndcg@10', 'map@10', 'novelty@10', 'serendipity@10'],
     'output': {
         'results_dir': 'results',

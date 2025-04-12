@@ -62,11 +62,7 @@ class DataLoader:
         processed_df = df.clone()
         
         # Apply preprocessing steps based on config
-        if self.config.get('preprocessing', 'remove_duplicates'):
-            processed_df = processed_df.unique()
-            self.logger.info("Removed duplicates")
-        
-        if self.config.get('preprocessing', 'normalize_timestamps'):
+        if self.config.get('preprocessing.normalize_timestamps'):
             # Ensure timestamps are in a consistent format
             if 'timestamp' in processed_df.columns:
                 # Convert to datetime if it's not already
@@ -76,7 +72,7 @@ class DataLoader:
                     )
                 self.logger.info("Normalized timestamps")
         
-        if self.config.get('preprocessing', 'clean_text'):
+        if self.config.get('preprocessing.clean_text'):
             # Apply text cleaning to relevant columns
             text_columns = []
             
@@ -92,7 +88,7 @@ class DataLoader:
     
     def create_validation_splits(self):
         """Create training/validation splits based on config"""
-        validation_method = self.config.get('validation', 'method')
+        validation_method = self.config.get('validation.method')
         
         if validation_method == 'temporal':
             return self._create_temporal_splits()
@@ -101,7 +97,7 @@ class DataLoader:
     
     def _create_temporal_splits(self):
         """Create time-based validation folds"""
-        n_folds = self.config.get('validation', 'n_folds')
+        n_folds = self.config.get('validation.n_folds')
         
         # Ensure data is sorted by timestamp
         df = self.train_df.sort('timestamp')
@@ -135,6 +131,10 @@ class DataLoader:
     
     def _clean_data(self, df: pl.DataFrame) -> pl.DataFrame:
         """Clean training data based on configuration"""
-        #TODO – remove duplicated actions
+        if self.config.get('preprocessing.remove_duplicate_actions'):
+            columns_to_check = df.columns.remove('timestamp')
+            mask = df.select(columns_to_check).is_duplicated()
+            df = df.filter(~mask)
+
         #TODO – remove users who only watch
         return df

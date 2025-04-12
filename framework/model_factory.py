@@ -1,7 +1,3 @@
-import json
-import logging
-import os
-import time
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -15,6 +11,7 @@ from sklearn.metrics import log_loss, ndcg_score, roc_auc_score
 from tqdm.auto import tqdm
 
 from .custom_logging import get_logger
+from .config import Config
 
 
 class Model:
@@ -51,22 +48,12 @@ class Model:
 class CatBoostModel(Model):
     """CatBoost model implementation"""
     
-    def __init__(self, params=None):
+    def __init__(self, **params):
         super().__init__('catboost', params)
         
         from catboost import CatBoostClassifier
         
-        default_params = {
-            'iterations': 500,
-            'learning_rate': 0.05,
-            'depth': 6,
-            'loss_function': 'Logloss',
-            'eval_metric': 'AUC',
-            'early_stopping_rounds': 50,
-            'verbose': 100
-        }
-        
-        self.params = {**default_params, **(params or {})}
+        self.params = params
         self.model = CatBoostClassifier(**self.params)
     
     def train(self, train_features, train_labels, eval_set=None):
@@ -134,22 +121,12 @@ class CatBoostModel(Model):
 class LightGBMModel(Model):
     """LightGBM model implementation"""
     
-    def __init__(self, params=None):
+    def __init__(self, **params):
         super().__init__('lightgbm', params)
         
         import lightgbm as lgb
-        
-        default_params = {
-            'num_iterations': 500,
-            'learning_rate': 0.05,
-            'max_depth': 6,
-            'objective': 'binary',
-            'metric': 'auc',
-            'early_stopping_rounds': 50,
-            'verbose': 100
-        }
-        
-        self.params = {**default_params, **(params or {})}
+
+        self.params = params
         self.model = None  # Will be created during training
     
     def train(self, train_features, train_labels, eval_set=None):
@@ -218,7 +195,7 @@ class LightGBMModel(Model):
 class ModelFactory:
     """Factory for creating and managing models"""
     
-    def __init__(self, config):
+    def __init__(self, config: Config):
         self.config = config
         self.models = {
             'catboost': CatBoostModel,
@@ -232,7 +209,7 @@ class ModelFactory:
             raise ValueError(f"Unknown model type: {model_type}")
             
         # Get model parameters from config
-        model_params = self.config.get('models', model_type)
+        model_params = self.config.get(('models', model_type))
         
         # Create and return model instance
-        return self.models[model_type](model_params)
+        return self.models[model_type](**model_params)

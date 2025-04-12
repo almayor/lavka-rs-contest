@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import time
 from datetime import datetime, timedelta
@@ -28,14 +27,13 @@ class Experiment:
         self.name = name
         self.config = config
         self.data_loader = DataLoader(config)
-        self.feature_factory = FeatureFactory()
-        self.feature_factory.set_config(config)
+        self.feature_factory = FeatureFactory(config)
         self.model_factory = ModelFactory(config)
         self.results = {}
         self.start_time = datetime.now()
         
         # Create output directory if needed
-        results_dir = config.get('output', 'results_dir')
+        results_dir = config.get('output.results_dir')
         os.makedirs(results_dir, exist_ok=True)
         
         # # Setup experiment-specific logging
@@ -56,8 +54,9 @@ class Experiment:
     
     def run(self):
         """Run a complete experiment with given feature sets and model"""
-        feature_set = self.config.get("feature_set")
-        model_type = self.config.get("models", "type")
+        feature_set = self.config.get("features")
+        target_name = self.config.get('target')
+        model_type = self.config.get("models.type")
 
         self.logger.info(f"Starting experiment: {self.name}")
         self.logger.info(f"Feature sets: {feature_set}")
@@ -73,7 +72,7 @@ class Experiment:
         
         # Run cross-validation
         cv_results = self._run_cross_validation(
-            validation_splits, feature_set, model_type
+            validation_splits, feature_set, target_name, model_type
         )
         
         # Train final model
@@ -93,7 +92,7 @@ class Experiment:
             'model_type': model_type,
             'cv_results': cv_results,
             'test_predictions': test_predictions,
-            'runtime': time.time() - start_time
+            'runtime': time.time() - start_time,
         }
         
         self.results = experiment_results
@@ -104,57 +103,40 @@ class Experiment:
         self.logger.info(f"Experiment completed in {time.time() - start_time:.2f} seconds")
         return experiment_results
     
-    def _run_cross_validation(self, validation_splits, feature_sets, model_type):
+    def _run_cross_validation(self, validation_splits, feature_sets, target_name, model_type):
         """Run cross-validation on validation splits"""
         cv_results = []
         
-        for fold_idx, (train_df, val_df) in enumerate(validation_splits):
+        for fold_idx, (train_history, train_df, val_df) in enumerate(tqdm(validation_splits, 'cv')):
             self.logger.info(f"Processing fold {fold_idx+1}/{len(validation_splits)}")
             
-            # Split each fold into history and target periods for feature generation
-            train_history = train_df.filter(
-                pl.col('timestamp') < train_df['timestamp'].max() - timedelta(days=7)
-            )
-            train_target = train_df.filter(
-                pl.col('timestamp') >= train_df['timestamp'].max() - timedelta(days=7)
-            )
-            
-            # Generate features
             train_features = self.feature_factory.generate_features(
-                train_history, train_target, feature_sets
+                train_history, train_df, feature_sets
             )
-            train_features_df = self.feature_factory.join_features()
-            
-            # Setup target variable
-            train_target = train_df.filter(
-                pl.col('action_type').is_in(["AT_View", "AT_CartUpdate"])
-            ).with_columns(
-                target=pl.when(pl.col('action_type') == "AT_View").then(0).otherwise(1)
-            )['target']
-            
-            # Generate validation features
+            train_target = self.feature_factory.generate_target(
+                train_history, train_df, target_name
+            )
+
+            val_history = pl.concat(
+                [train_history, train_df],
+                how='vertical'
+            )
             val_features = self.feature_factory.generate_features(
-                train_df, val_df, feature_sets
+                val_history, val_df, feature_sets
             )
-            val_features_df = self.feature_factory.join_features()
-            
-            # Setup validation target
-            val_target = val_df.filter(
-                pl.col('action_type').is_in(["AT_View", "AT_CartUpdate"])
-            ).with_columns(
-                target=pl.when(pl.col('action_type') == "AT_View").then(0).otherwise(1)
-            )['target']
+            val_target = self.feature_factory.generate_target(
+                val_history, val_df, target_name
+            )
+
             
             # Create and train model
             model = self.model_factory.create_model(model_type)
             model.train(
-                train_features_df, 
+                train_features, 
                 train_target,
-                eval_set=(val_features_df, val_target)
+                eval_set=(val_features, val_target)
             )
-            
-            # Make predictions
-            val_preds = model.predict(val_features_df)
+            val_preds = model.predict(val_features)
             
             # Calculate metrics
             fold_metrics = self._calculate_metrics(val_target, val_preds)
@@ -208,9 +190,9 @@ class Experiment:
         model.train(features_df, target)
         
         # Save model if configured
-        if self.config.get('output', 'save_models'):
+        if self.config.get('output.save_models'):
             model_path = os.path.join(
-                self.config.get('output', 'results_dir'),
+                self.config.get('output.results_dir'),
                 f"{self.name}_final_model.model"
             )
             model.save(model_path)
@@ -242,9 +224,9 @@ class Experiment:
         )
         
         # Save predictions if configured
-        if self.config.get('output', 'save_predictions'):
+        if self.config.get('output.save_predictions'):
             submission_path = os.path.join(
-                self.config.get('output', 'results_dir'),
+                self.config.get('output.results_dir'),
                 f"{self.name}_submission.csv"
             )
             submission_df.write_csv(submission_path)
@@ -272,7 +254,7 @@ class Experiment:
     
     def _save_config(self):
         """Save experiment configuration to file"""
-        results_dir = self.config.get('output', 'results_dir')
+        results_dir = self.config.get('output.results_dir')
         config_path = os.path.join(
             results_dir,
             f"{self.name}_config.json"
@@ -287,7 +269,7 @@ class Experiment:
             self.logger.warning("No results to save")
             return
         
-        results_dir = self.config.get('output', 'results_dir')
+        results_dir = self.config.get('output.results_dir')
         
         # 1. Make sure configuration is saved
         config_path = os.path.join(

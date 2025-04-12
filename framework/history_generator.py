@@ -1,11 +1,13 @@
 import polars as pl
 
+from .config import Config
+
 class HistoryGenerator:
     """Handles history generation based on temporal constraints"""
     
-    def __init__(self, config):
+    def __init__(self, config: Config):
         self.config = config
-        self.method = config.get('history_generation', 'method')
+        self.method = config.get('history_generation.method')
 
     def get_history(self, full_data, target_data):
         """
