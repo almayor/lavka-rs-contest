@@ -21,7 +21,7 @@ history_generation:
   method: "basic"  # "basic" or "rolling_window"
   rolling_window:
     window_size: 30
-  final_target_ndays: 30  # number of days to use as target when training model on all data 
+  final_target_n_days: 30  # number of days to use as target when training model on all data 
 
 model:
   type: "catboost"  # "catboost", "lightgbm", "xgboost", or "random_forest"

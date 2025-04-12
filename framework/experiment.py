@@ -168,7 +168,8 @@ class Experiment:
         """Train final model on all training data"""
         self.logger.info("Training final model on all data")
         
-        [(train_history, train_df, val_df)] = self.data_loader._create_temporal_splits(n_folds=1)
+        target_n_days = self.config.get("history_generation.final_target_n_days")
+        train_history, train_df, val_df = self.data_loader.create_fixed_split(target_n_days)
         train_features, train_target, cat_columns, _ = self.feature_factory.generate_batch(
             train_history, train_df, feature_sets, target_name
         )
@@ -183,6 +184,10 @@ class Experiment:
         
         # Create and train model
         model = self.model_factory.create_model()
+        self.logger.info(
+            f"Training final model with {train_features.height} training rows " +
+            f"{val_features.height} validation rows"
+        )
         model.train(
             train_features, train_target,
             cat_columns=cat_columns,

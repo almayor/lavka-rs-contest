@@ -139,6 +139,7 @@ class FeatureFactory:
             )
             all_columns.update(columns)
             cat_columns = self.__class__._feature_registry[feature_name]['categorical_cols']
+            all_columns.update(cat_columns) # preserve categorical features even if they already existed
             all_cat_columns.update(cat_columns)
         
         all_cat_columns = list(all_cat_columns) if len(all_cat_columns) else None

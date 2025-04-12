@@ -95,6 +95,16 @@ class DataLoader:
         
         return processed_df
     
+    def create_fixed_splits(self, target_n_days: int):
+        """
+        Create a split into history, training and validation where both
+        training and validation targets encompass a fixed number of days.
+        Args:
+            target_ndats (int): Number of days to use for targetting
+        """
+        pass
+        
+
     def create_validation_splits(self, n_folds: None|int = None) -> List[Tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]]:
         """
         Create validation splits based on the configuration.

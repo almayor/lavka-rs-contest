@@ -1,0 +1,72 @@
+{
+    "experiment_name": "test_031570",
+    "config_file": "results/test_031570_config.json",
+    "timestamp": "2025-04-12 16:29:38",
+    "name": "test_031570",
+    "feature_names": [
+        "count_purchase_user_product",
+        "ctr_product",
+        "user_stats",
+        "product_stats",
+        "store_stats"
+    ],
+    "model_type": "catboost",
+    "cv_results": {
+        "folds": [
+            {
+                "fold": 0,
+                "metrics": {
+                    "auc": 0.6310757430166809,
+                    "logloss": 0.2410654588218449,
+                    "ndcg@10": 0.5508095940041027
+                },
+                "feature_importance": {
+                    "count_purchase_u_p": 88.83723680604595,
+                    "user_total_purchases": 1.717319665615496,
+                    "store_unique_products": 0.16150315577239413,
+                    "user_total_interactions": 0.9812031373815145,
+                    "store_total_purchases": 0.41658737251236966,
+                    "user_total_views": 0.2573488287288171,
+                    "user_unique_products": 0.2331897930041188,
+                    "store_total_views": 0.17848086536257407,
+                    "product_unique_users": 0.02347083191566713,
+                    "store_total_interactions": 0.1070780216752612,
+                    "ctr_product": 1.465785682633871,
+                    "product_total_interactions": 0.12801796852231453,
+                    "product_total_purchases": 5.257889815332402,
+                    "product_total_views": 0.23488805549721167
+                }
+            },
+            {
+                "fold": 1,
+                "metrics": {
+                    "auc": 0.6064075841578743,
+                    "logloss": 0.21424998807541756,
+                    "ndcg@10": 0.9361705073520014
+                },
+                "feature_importance": {
+                    "count_purchase_u_p": 28.38141276951496,
+                    "user_total_purchases": 0.0630317839089224,
+                    "store_unique_products": 0.02394116049826769,
+                    "user_total_interactions": 0.3395979897830929,
+                    "store_total_purchases": 0.07283694497962516,
+                    "user_total_views": 0.5053328304929542,
+                    "user_unique_products": 0.06960628470834271,
+                    "store_total_views": 0.0045620539626338875,
+                    "product_unique_users": 0.4187004802744491,
+                    "store_total_interactions": 0.02977989001582495,
+                    "ctr_product": 1.7909909875898333,
+                    "product_total_interactions": 1.6441489199725152,
+                    "product_total_purchases": 60.93497581200269,
+                    "product_total_views": 5.721082092295898
+                }
+            }
+        ],
+        "average_metrics": {
+            "auc": 0.6187416635872776,
+            "logloss": 0.22765772344863122,
+            "ndcg@10": 0.743490050678052
+        }
+    },
+    "runtime": 108.29720878601074
+}
