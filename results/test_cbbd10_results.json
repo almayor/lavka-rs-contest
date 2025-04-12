@@ -1,7 +1,7 @@
 {
     "experiment_name": "test_cbbd10",
     "config_file": "results/test_cbbd10_config.json",
-    "timestamp": "2025-04-12 06:22:32",
+    "timestamp": "2025-04-12 06:38:00",
     "name": "test_cbbd10",
     "feature_names": [
         "count_purchase",
@@ -13,9 +13,9 @@
             {
                 "fold": 0,
                 "metrics": {
-                    "auc": NaN,
-                    "logloss": 2.1249694926955867,
-                    "ndcg@10": 0.5628892844104026
+                    "auc": 0.6162383385008414,
+                    "logloss": 0.3559427654409844,
+                    "ndcg@10": 0.9999361088156342
                 },
                 "feature_importance": {
                     "count_purchase": 95.18999601909032,
@@ -24,11 +24,11 @@
             }
         ],
         "average_metrics": {
-            "auc": NaN,
-            "logloss": 2.1249694926955867,
-            "ndcg@10": 0.5628892844104026
+            "auc": 0.6162383385008414,
+            "logloss": 0.3559427654409844,
+            "ndcg@10": 0.9999361088156342
         }
     },
     "test_predictions": null,
-    "runtime": 92.92689824104309
+    "runtime": 41.89045262336731
 }

@@ -18,6 +18,7 @@ from .custom_logging import get_logger
 from .data_loader import DataLoader
 from .feature_factory import FeatureFactory
 from .model_factory import ModelFactory
+from .metrics import RankingMetrics
 
 
 class Experiment:
@@ -134,6 +135,7 @@ class Experiment:
                 eval_set=(val_features, val_target)
             )
             val_preds = model.predict(val_features)
+            val_preds = pl.Series(val_preds)
             
             # Calculate metrics
             fold_metrics = self._calculate_metrics(val_target, val_preds, val_request_ids)
@@ -225,34 +227,15 @@ class Experiment:
     
     def _calculate_metrics(self, true_labels, predictions, request_ids):
         """Calculate evaluation metrics"""
-        s_preds = pl.Series("pred", predictions)
-        pred_df = pl.DataFrame({
-            'request_id': request_ids,
-            'target': true_labels,
-            'predict': s_preds
-        })
-
-        true = []
-        pred = []
-
-        for i in pred_df.group_by('request_id'):
-            value = i[1].sort('target', descending=True)[:10]
-            if sum(value['target']) == 0:
-                continue
-            l = [0] * (10 - len(value['target']))
-            true.append(value['target'].to_list() + l)
-            pred.append(value['predict'].to_list() + l)
-
         metrics_dict = {}
-
+    
         # Basic classification metrics
-        metrics_dict['auc'] = roc_auc_score(true, pred)
-        metrics_dict['logloss'] = log_loss(true, pred)
+        metrics_dict['auc'] = roc_auc_score(true_labels, predictions)
+        metrics_dict['logloss'] = log_loss(true_labels, predictions)
         
-        # Calculate ranking metrics if specified
         if 'ndcg@10' in self.config.get('metrics'):
-            metrics_dict['ndcg@10'] = ndcg_score(
-                true, pred, k=10, ignore_ties=True
+            metrics_dict['ndcg@10'] = RankingMetrics.ndcg_at_k(
+                true_labels, predictions, request_ids
             )
         
         # Add more metrics as needed

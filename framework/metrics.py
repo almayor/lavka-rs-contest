@@ -20,14 +20,56 @@ class RankingMetrics:
     """Ranking metrics for recommender systems"""
     
     @staticmethod
-    def map_at_k(true_relevance, predicted_scores, k=10):
+    def _convert_to_matrix(true_relevance: pl.Series, predicted_scores: pl.Series, group_idx: pl.Series, k=10):
+        """
+        Convert to padded matrices, where each row corresponds to a group id.
+        """
+        pred_df = pl.DataFrame({
+            'request_id': group_idx,
+            'target': true_relevance,
+            'predict': predicted_scores
+        })
+        
+        true_li = []
+        pred_li = []
+        
+        # Process each group efficiently
+        for _, group in pred_df.group_by('request_id'):
+            # Sort by target in descending order and take top 10
+            top_rows = group.sort('target', descending=True).head(10)
+            
+            # Skip if sum of targets is 0
+            if top_rows['target'].sum() == 0:
+                continue
+            
+            # Get values as numpy arrays
+            t_values = top_rows['target'].to_numpy()
+            p_values = top_rows['predict'].to_numpy()
+            
+            # Pad to length 10 if needed
+            padding = k - len(t_values)
+            if padding > 0:
+                t_values = np.pad(t_values, (0, padding), mode='constant', constant_values=0)
+                p_values = np.pad(p_values, (0, padding), mode='constant', constant_values=0)
+            
+            true_li.append(t_values)
+            pred_li.append(p_values)
+
+            if not true_li:
+                return None
+            else:
+                return np.array(true_li), np.array(pred_li)
+
+    @staticmethod
+    def map_at_k(true_relevance, predicted_scores, group_idx, k=10):
         """
         Calculate MAP@K (Mean Average Precision at K)
         
         Parameters:
         -----------
-        true_relevance: List of lists of binary relevance values
-        predicted_scores: List of lists of predicted scores
+        true_relevance: List of binary relevance values
+        predicted_scores: List of predicted scores
+        group_idx: List of group id for each row
         k: Cutoff for evaluation
         
         Returns:
@@ -62,21 +104,28 @@ class RankingMetrics:
         return np.mean(aps)
     
     @staticmethod
-    def ndcg_at_k(true_relevance, predicted_scores, k=10):
+    def ndcg_at_k(true_relevance, predicted_scores, group_idx, k=10):
         """
         Calculate NDCG@K (Normalized Discounted Cumulative Gain at K)
         
         Parameters:
         -----------
-        true_relevance: List of lists of binary or graded relevance values
-        predicted_scores: List of lists of predicted scores
+        true_relevance: List of binary or graded relevance values
+        predicted_scores: List of predicted scores
+        group_idx: List of group id for each row
         k: Cutoff for evaluation
         
         Returns:
         --------
         NDCG@K score
         """
-        return ndcg_score(true_relevance, predicted_scores, k=k)
+        true_array, pred_array = RankingMetrics._convert_to_matrix(
+            true_relevance,
+            predicted_scores,
+            group_idx,
+            k=k
+        )
+        return ndcg_score(true_array, pred_array, k=k)
     
     @staticmethod
     def novelty_at_k(recommendations, popularity_df, k=10):
