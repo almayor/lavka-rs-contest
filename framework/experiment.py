@@ -114,7 +114,7 @@ class Experiment:
         for fold_idx, (train_history, train_df, val_df) in enumerate(tqdm(validation_splits, 'cv')):
             self.logger.info(f"Processing fold {fold_idx+1}/{len(validation_splits)}")
             
-            train_features, train_target = self.feature_factory.generate_batch(
+            train_features, train_target, _ = self.feature_factory.generate_batch(
                 train_history, train_df, feature_sets, target_name
             )
 
@@ -122,7 +122,7 @@ class Experiment:
                 [train_history, train_df],
                 how='vertical'
             )
-            val_features, val_target = self.feature_factory.generate_batch(
+            val_features, val_target, val_request_ids = self.feature_factory.generate_batch(
                 val_history, val_df, feature_sets, target_name
             )
             
@@ -136,7 +136,7 @@ class Experiment:
             val_preds = model.predict(val_features)
             
             # Calculate metrics
-            fold_metrics = self._calculate_metrics(val_target, val_preds)
+            fold_metrics = self._calculate_metrics(val_target, val_preds, val_request_ids)
             
             # Add fold results
             cv_results.append({
@@ -171,7 +171,7 @@ class Experiment:
         target_df = train_df.filter(pl.col('timestamp') >= latest_cutoff)
         
         # Generate features
-        train_features, train_target = self.feature_factory.generate_batch(
+        train_features, train_target, _ = self.feature_factory.generate_batch(
             history_df, target_df, feature_sets, target_name
         )
         
@@ -223,18 +223,36 @@ class Experiment:
         
         return submission_df
     
-    def _calculate_metrics(self, true_labels, predictions):
+    def _calculate_metrics(self, true_labels, predictions, request_ids):
         """Calculate evaluation metrics"""
+        s_preds = pl.Series("pred", predictions)
+        pred_df = pl.DataFrame({
+            'request_id': request_ids,
+            'target': true_labels,
+            'predict': s_preds
+        })
+
+        true = []
+        pred = []
+
+        for i in pred_df.group_by('request_id'):
+            value = i[1].sort('target', descending=True)[:10]
+            if sum(value['target']) == 0:
+                continue
+            l = [0] * (10 - len(value['target']))
+            true.append(value['target'].to_list() + l)
+            pred.append(value['predict'].to_list() + l)
+
         metrics_dict = {}
-        
+
         # Basic classification metrics
-        metrics_dict['auc'] = roc_auc_score(true_labels, predictions)
-        metrics_dict['logloss'] = log_loss(true_labels, predictions)
+        metrics_dict['auc'] = roc_auc_score(true, pred)
+        metrics_dict['logloss'] = log_loss(true, pred)
         
         # Calculate ranking metrics if specified
         if 'ndcg@10' in self.config.get('metrics'):
             metrics_dict['ndcg@10'] = ndcg_score(
-                [true_labels], [predictions], k=10
+                true, pred, k=10, ignore_ties=True
             )
         
         # Add more metrics as needed

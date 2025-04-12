@@ -66,8 +66,8 @@ class DataLoader:
             if 'timestamp' in processed_df.columns:
                 # Convert to datetime if it's not already
                 if processed_df['timestamp'].dtype != pl.Datetime:
-                    processed_df = processed_df.with_columns(
-                        pl.col('timestamp').cast(pl.Datetime)
+                    processed_df.with_columns(
+                        (pl.col("timestamp") * 1_000).cast(pl.Datetime("ms")).alias("timestamp")
                     )
                 self.logger.info("Normalized timestamps")
         

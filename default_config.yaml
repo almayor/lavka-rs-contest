@@ -17,7 +17,7 @@ preprocessing:
 cleaning:
   remove_duplicate_actions: false
   remove_strict_viewers: false
-  remove_repeated_product_request: true
+  remove_repeated_product_request: false
 
 history_generation:
   method: "basic"  # "basic" or "rolling_window"

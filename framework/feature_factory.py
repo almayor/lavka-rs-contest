@@ -71,10 +71,11 @@ class FeatureFactory:
     
     def generate_batch(self, history_df, target_df, requested_features=None, requested_target=None):
         """Generate both features and target"""
+        request_ids = target_df['request_id']
         features = self.generate_features(history_df, target_df, requested_features)
         target = self.generate_target(history_df, target_df, requested_target)
         mask = ~target.is_null()
-        return features.filter(mask), target.filter(mask)
+        return features.filter(mask), target.filter(mask), request_ids.filter(mask)
 
     def generate_features(self, history_df, target_df, requested_features=None):
         """Generate only the requested features and their dependencies"""
