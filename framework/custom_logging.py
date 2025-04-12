@@ -32,6 +32,7 @@ def setup_logging(log_file='lavka_recsys.log', file_level=logging.DEBUG, console
 def get_logger(name=None):
     """
     Get a logger with the appropriate name that inherits settings from the root logger.
+    If name is None, return the root logger.
     """
     if name:
         # This creates a child logger that inherits handlers from the root logger

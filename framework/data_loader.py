@@ -21,14 +21,22 @@ class DataLoader:
     """Data loading and preprocessing"""
     
     def __init__(self, config: Config):
-        """Initialize with configuration"""
+        """
+        Initialize with configuration
+        Args:
+            config (Config): Configuration object containing paths and settings.
+        """
         self.config = config
         self.train_df = None
         self.test_df = None
         self.logger = get_logger(self.__class__.__name__)
     
-    def load_data(self) -> tuple[pl.DataFrame, pl.DataFrame]:
-        """Load training and testing data"""
+    def load_data(self) -> Tuple[pl.DataFrame, pl.DataFrame]:
+        """
+        Load training and testing data.
+        Returns:
+            Tuple[pl.DataFrame, pl.DataFrame]: Tuple containing training and testing DataFrames.
+        """
         self.logger.debug("Loading data...")
         
         # Load train data
@@ -54,7 +62,9 @@ class DataLoader:
         return self.train_df, self.test_df
     
     def _preprocess(self, df: pl.DataFrame) -> pl.DataFrame:
-        """Apply preprocessing steps based on configuration"""
+        """
+        Apply preprocessing steps based on configuration. 
+        """
         self.logger.debug("Preprocessing data...")
         
         # Make a copy to avoid modifying the original
@@ -86,7 +96,12 @@ class DataLoader:
         return processed_df
     
     def create_validation_splits(self):
-        """Create training/validation splits based on config"""
+        """
+        Create validation splits based on the configuration.
+        Returns:
+            List[Tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]]: List of tuples containing
+                history, training, and validation DataFrames.
+        """
         validation_method = self.config.get('validation.method')
         
         if validation_method == 'temporal':
@@ -95,7 +110,12 @@ class DataLoader:
             raise ValueError(f"Unknown validation method: {validation_method}")
     
     def _create_temporal_splits(self):
-        """Create time-based validation folds"""
+        """
+        Create time-based validation folds.
+        Returns:
+            List[Tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]]: List of tuples containing
+                history, training, and validation DataFrames.
+        """
         n_folds = self.config.get('validation.n_folds')
         
         # Ensure data is sorted by timestamp

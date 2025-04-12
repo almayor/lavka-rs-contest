@@ -122,6 +122,7 @@ class Config:
         return cls(config_dict)
 
     def to_dict(self):
+        """Return the configuration as a dictionary."""
         return self.config
 
     def __str__(self):

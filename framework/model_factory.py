@@ -23,16 +23,32 @@ class Model:
         self.model = None
         self.logger = get_logger(self.__class__.__name__)
     
-    def train(self, train_features, train_labels, cat_col_names=None):
-        """Train model (to be implemented by subclasses)"""
+    def train(self, train_features, train_labels, cat_col_names=None, **kwargs):
+        """
+        Train model (to be implemented by subclasses).
+        Args:
+            train_features (pd.DataFrame or pl.DataFrame): Training features.
+            train_labels (pd.Series or pl.Series): Training labels.
+            cat_col_names (list): Categorical column names.
+            kwargs: Additional parameters for training.
+        """
         raise NotImplementedError
     
-    def predict(self, features):
-        """Make predictions (to be implemented by subclasses)"""
+    def predict(self, features, **kwargs):
+        """
+        Make relevance predictions (to be implemented by subclasses).
+        Args:
+            features (pd.DataFrame or pl.DataFrame): Features for prediction.
+            kwargs: Additional parameters for prediction.
+        """
         raise NotImplementedError
     
     def get_feature_importance(self):
-        """Get feature importance if available"""
+        """
+        Get feature importance if available.
+        Returns:
+            dict: Feature importance scores.
+        """
         return {}
     
     def save(self, filename):
@@ -50,16 +66,21 @@ class CatBoostModel(Model):
     
     def __init__(self, **params):
         super().__init__('catboost', params)
-        
         from catboost import CatBoostClassifier
         
         self.params = params
         self.model = CatBoostClassifier(**self.params)
     
     def train(self, train_features, train_labels, eval_set=None, cat_col_names=None):
-        """Train CatBoost model"""
+        """Train CatBoost model.
+        Args:
+            train_features (pd.DataFrame or pl.DataFrame): Training features.
+            train_labels (pd.Series or pl.Series): Training labels.
+            eval_set (tuple): Tuple of evaluation features and labels.
+            cat_col_names (list): Categorical column names.
+        """
         from catboost import Pool
-        
+    
         # Convert to pandas for CatBoost
         if isinstance(train_features, pl.DataFrame):
             train_features = train_features.to_pandas()
@@ -91,7 +112,7 @@ class CatBoostModel(Model):
         return self
     
     def predict(self, features):
-        """Make predictions with CatBoost"""
+        """Make probability predictions with CatBoost"""
         # Convert to pandas for CatBoost
         if isinstance(features, pl.DataFrame):
             features = features.to_pandas()

@@ -65,16 +65,14 @@ class RankingMetrics:
         """
         Calculate MAP@K (Mean Average Precision at K)
         
-        Parameters:
-        -----------
-        true_relevance: List of binary relevance values
-        predicted_scores: List of predicted scores
-        group_idx: List of group id for each row
-        k: Cutoff for evaluation
+        Args:
+            true_relevance: List of binary relevance values
+            predicted_scores: List of predicted scores
+            group_idx: List of group id for each row
+            k: Cutoff for evaluation
         
         Returns:
-        --------
-        MAP@K score
+            MAP@K score
         """
         def ap_at_k(y_true, y_pred, k):
             """Calculate AP@K for a single query"""
@@ -108,16 +106,14 @@ class RankingMetrics:
         """
         Calculate NDCG@K (Normalized Discounted Cumulative Gain at K)
         
-        Parameters:
-        -----------
-        true_relevance: List of binary or graded relevance values
-        predicted_scores: List of predicted scores
-        group_idx: List of group id for each row
-        k: Cutoff for evaluation
+        Args:
+            true_relevance: List of binary or graded relevance values
+            predicted_scores: List of predicted scores
+            group_idx: List of group id for each row
+            k: Cutoff for evaluation
         
         Returns:
-        --------
-        NDCG@K score
+            NDCG@K score
         """
         true_array, pred_array = RankingMetrics._convert_to_matrix(
             true_relevance,
@@ -132,15 +128,13 @@ class RankingMetrics:
         """
         Calculate Novelty@K
         
-        Parameters:
-        -----------
-        recommendations: DataFrame with user_id, product_id, and predicted scores
-        popularity_df: DataFrame with product_id and popularity
-        k: Cutoff for evaluation
+        Args:
+            recommendations: DataFrame with user_id, product_id, and predicted scores
+            popularity_df: DataFrame with product_id and popularity
+            k: Cutoff for evaluation
         
         Returns:
-        --------
-        Novelty@K score
+            Novelty@K score
         """
         # Join recommendations with popularity
         recs_with_pop = recommendations.join(
@@ -166,15 +160,13 @@ class RankingMetrics:
         """
         Calculate Serendipity@K
         
-        Parameters:
-        -----------
-        recommendations: DataFrame with user_id, product_id, and predicted scores
-        user_history: DataFrame with user purchase history
-        k: Cutoff for evaluation
+        Args:
+            recommendations: DataFrame with user_id, product_id, and predicted scores
+            user_history: DataFrame with user purchase history
+            k: Cutoff for evaluation
         
         Returns:
-        --------
-        Serendipity@K score
+            Serendipity@K score
         """
         # Join recommendations with user history
         recs_with_history = recommendations.join(
