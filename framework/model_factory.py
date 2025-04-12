@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+import dpath.util
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -88,6 +89,11 @@ class CatBoostModel(Model):
         if isinstance(train_labels, pl.Series):
             train_labels = train_labels.to_list()
         
+        self.logger.info(
+            "Training CatBoost model with features: "
+            f"{train_features.columns.tolist()} "
+            f"(cat_features: {cat_columns})"
+        )
         # Create pool
         train_pool = Pool(
             train_features, train_labels,
@@ -104,7 +110,7 @@ class CatBoostModel(Model):
             if isinstance(eval_labels, pl.Series):
                 eval_labels = eval_labels.to_list()
                 
-            eval_pool = Pool(eval_features, eval_labels)
+            eval_pool = Pool(eval_features, eval_labels, cat_features=cat_columns)
             
             # Train with evaluation
             self.model.fit(train_pool, eval_set=eval_pool)
@@ -227,7 +233,7 @@ class ModelFactory:
             # Add more models as needed
         }
     
-    def create_model(self) -> Model:
+    def create_model(self, override_params=None) -> Model:
         """Create a model instance based on type"""
         model_type = self.config.get(('model', 'type'))
         if model_type not in self.models:
@@ -235,6 +241,8 @@ class ModelFactory:
             
         # Get model parameters from config
         model_params = self.config.get(('model', 'config', model_type))
-        
+        if override_params:
+            model_params = model_params.update(override_params)
+    
         # Create and return model instance
         return self.models[model_type](**model_params)

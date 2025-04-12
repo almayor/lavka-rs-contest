@@ -71,7 +71,7 @@ class Experiment:
         start_time = time.time()
                 
         # Create validation splits
-        validation_splits = self.data_loader.create_validation_splits()
+        validation_splits = self.data_loader.create_validation_folds()
         cv_results = self._run_cross_validation(
             validation_splits, feature_names, target_name
         )
@@ -91,8 +91,14 @@ class Experiment:
         self.logger.info(f"Experiment completed in {time.time() - start_time:.2f} seconds")
         return experiment_results
 
-    def predict(self):
-        """Predict relevancies for submission"""
+    def predict(self, override_model_params=None):
+        """
+        Predict relevancies for submission
+        Args:
+            override_model_params (dict): Model parameters overriding config. (optional)
+        Returns:
+            test_predictions (pd.DataFrame): DataFrame with predictions.
+        """
         feature_names = self.config.get("features")
         target_name = self.config.get('target')
         model_type = self.config.get("model.type")
@@ -103,7 +109,7 @@ class Experiment:
         
         start_time = time.time()
                 
-        final_model = self._train_final_model(feature_names, target_name)
+        final_model = self._train_final_model(feature_names, target_name, override_model_params)
         test_predictions = self._predict_test(final_model, feature_names)
         
         self.logger.info(f"Experiment completed in {time.time() - start_time:.2f} seconds")
@@ -128,7 +134,14 @@ class Experiment:
                 val_history, val_df, feature_sets, target_name
             )
             
-            # Create and train model
+
+            self.logger.debug(f"Training features shape: {train_features.shape}")
+            self.logger.debug(f"Validation features shape: {val_features.shape}")
+            # Avoid time leaks
+            self.logger.info(f"History features timestamp: {datetime.fromtimestamp(train_history['timestamp'].min())} - {datetime.fromtimestamp(train_history['timestamp'].max())}")
+            self.logger.info(f"Training features timestamp: {datetime.fromtimestamp(train_df['timestamp'].min())} - {datetime.fromtimestamp(train_df['timestamp'].max())}")
+            self.logger.info(f"Validation features timestamp: {datetime.fromtimestamp(val_df['timestamp'].min())} - {datetime.fromtimestamp(val_df['timestamp'].max())}")
+
             model = self.model_factory.create_model()
             model.train(
                 train_features, 
@@ -164,34 +177,29 @@ class Experiment:
         self.logger.info(f"Cross-validation average metrics: {avg_metrics}")
         return cv_summary
     
-    def _train_final_model(self, feature_sets, target_name):
-        """Train final model on all training data"""
+    def _train_final_model(self, feature_sets, target_name, best_model_params=None):
+        """
+        Train final model on all training data and possibly save it.
+        Args:
+            feature_sets (list): List of feature sets to use.
+            target_name (str): Name of the target variable.
+            best_model_params (dict): Best model parameters overriding config. (optional)
+        Returns:
+            model: Trained model.
+        """
         self.logger.info("Training final model on all data")
         
-        target_n_days = self.config.get("history_generation.final_target_n_days")
-        train_history, train_df, val_df = self.data_loader.create_fixed_split(target_n_days)
+        final_ratio = self.config.get("history_generation.final_ratio")
+        train_history, train_df = self.data_loader.split_data(final_ratio)
         train_features, train_target, cat_columns, _ = self.feature_factory.generate_batch(
             train_history, train_df, feature_sets, target_name
         )
 
-        val_history = pl.concat(
-            [train_history, train_df],
-            how='vertical'
-        )
-        val_features, val_target, _, _ = self.feature_factory.generate_batch(
-            val_history, val_df, feature_sets, target_name
-        )
-        
         # Create and train model
-        model = self.model_factory.create_model()
-        self.logger.info(
-            f"Training final model with {train_features.height} training rows " +
-            f"{val_features.height} validation rows"
-        )
+        model = self.model_factory.create_model(best_model_params)
         model.train(
             train_features, train_target,
             cat_columns=cat_columns,
-            eval_set=(val_features, val_target)
         )
         
         # Save model if configured
