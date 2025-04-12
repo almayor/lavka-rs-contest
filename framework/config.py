@@ -14,6 +14,8 @@ import seaborn as sns
 from sklearn.metrics import log_loss, ndcg_score, roc_auc_score
 from tqdm.auto import tqdm
 
+from .default_config import DEFAULT_CONFIG
+
 class Config:
     """Configuration management for experiments"""
     
@@ -26,80 +28,8 @@ class Config:
         
     def _set_defaults(self):
         """Set default configuration values"""
-        defaults = {
-            'data': {
-                'train_path': 'train.parquet',
-                'test_path': 'test.parquet',
-                'sample_size': None,  # None = use all data
-                'random_seed': 42
-            },
-            'preprocessing': {
-                'normalize_timestamps': True,
-                'clean_text': False
-            },
-            'cleaning': {
-                'remove_duplicates': True,
-                'remove_sessions_only_views': False
-            },
-            'features': {
-                'basic': ['count_purchase', 'ctr'],
-                'temporal': ['recency', 'frequency', 'time_window'],
-                'user': ['user_stats', 'user_preferences'],
-                'product': ['product_stats', 'category_stats'],
-                'advanced': ['novelty', 'serendipity']
-            },
-            'models': {
-                'catboost': {
-                    'iterations': 500,
-                    'learning_rate': 0.05,
-                    'depth': 6,
-                    'loss_function': 'Logloss',
-                    'eval_metric': 'AUC',
-                    'early_stopping_rounds': 50,
-                    'verbose': 100
-                },
-                'lightgbm': {
-                    'num_iterations': 500,
-                    'learning_rate': 0.05,
-                    'max_depth': 6,
-                    'objective': 'binary',
-                    'metric': 'auc',
-                    'early_stopping_rounds': 50,
-                    'verbose': 100
-                },
-                'xgboost': {
-                    'n_estimators': 500,
-                    'learning_rate': 0.05,
-                    'max_depth': 6,
-                    'objective': 'binary:logistic',
-                    'eval_metric': 'auc',
-                    'early_stopping_rounds': 50,
-                    'verbose': 100
-                },
-                'random_forest': {
-                    'n_estimators': 100,
-                    'max_depth': 10,
-                    'min_samples_split': 2,
-                    'random_state': 42
-                }
-            },
-            'validation': {
-                'method': 'temporal',  # 'temporal', 'kaggle', 'random'
-                'n_folds': 3,
-                'gap_days': 0,
-                'test_size': 0.2
-            },
-            'metrics': ['auc', 'ndcg@10', 'map@10', 'novelty@10', 'serendipity@10'],
-            'output': {
-                'results_dir': 'results',
-                'save_models': True,
-                'save_features': False,
-                'save_predictions': True
-            }
-        }
-        
         # Update config with defaults for missing values
-        for section, values in defaults.items():
+        for section, values in DEFAULT_CONFIG.items():
             if section not in self.config:
                 self.config[section] = values
             else:

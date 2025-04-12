@@ -14,6 +14,12 @@ import seaborn as sns
 from sklearn.metrics import log_loss, ndcg_score, roc_auc_score
 from tqdm.auto import tqdm
 
+from .custom_logging import get_logger
+from .data_loader import DataLoader
+from .feature_factory import FeatureFactory
+from .model_factory import ModelFactory
+
+
 class Experiment:
     """Experiment framework for running and tracking recommender experiments"""
     
@@ -26,57 +32,64 @@ class Experiment:
         self.feature_factory.set_config(config)
         self.model_factory = ModelFactory(config)
         self.results = {}
+        self.start_time = datetime.now()
         
         # Create output directory if needed
         results_dir = config.get('output', 'results_dir')
         os.makedirs(results_dir, exist_ok=True)
         
-        # Setup experiment-specific logging
-        self.logger = logging.getLogger(f'experiment-{name}')
+        # # Setup experiment-specific logging
+        # self.logger = logging.getLogger(f'experiment-{name}')
         
-        # Add file handler for experiment
-        log_file = os.path.join(results_dir, f"{name}.log")
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        ))
-        self.logger.addHandler(file_handler)
+        # # Add file handler for experiment
+        # log_file = os.path.join(results_dir, f"{name}.log")
+        # file_handler = logging.FileHandler(log_file)
+        # file_handler.setFormatter(logging.Formatter(
+        #     '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        # ))
+        # self.logger.addHandler(file_handler)
+        self.logger = get_logger(f'experiment={name}')
+        
+        # Save initial configuration immediately for reproducibility
+        # Even if the experiment fails, we'll have the configuration
+        self._save_config()
     
-    def run(self, feature_sets, model_type):
+    def run(self):
         """Run a complete experiment with given feature sets and model"""
+        feature_set = self.config.get("feature_set")
+        model_type = self.config.get("models", "type")
+
         self.logger.info(f"Starting experiment: {self.name}")
-        self.logger.info(f"Feature sets: {feature_sets}")
+        self.logger.info(f"Feature sets: {feature_set}")
         self.logger.info(f"Model type: {model_type}")
         
         start_time = time.time()
         
         # Load and preprocess data
         train_df, test_df = self.data_loader.load_data()
-        train_df = self.data_loader.preprocess(train_df)
-        test_df = self.data_loader.preprocess(test_df)
         
         # Create validation splits
         validation_splits = self.data_loader.create_validation_splits()
         
         # Run cross-validation
         cv_results = self._run_cross_validation(
-            validation_splits, feature_sets, model_type
+            validation_splits, feature_set, model_type
         )
         
         # Train final model
         final_model = self._train_final_model(
-            train_df, feature_sets, model_type
+            train_df, feature_set, model_type
         )
         
         # Create test predictions
         test_predictions = self._predict_test(
-            final_model, train_df, test_df, feature_sets
+            final_model, train_df, test_df, feature_set
         )
         
         # Save results
         experiment_results = {
             'name': self.name,
-            'feature_sets': feature_sets,
+            'feature_sets': feature_set,
             'model_type': model_type,
             'cv_results': cv_results,
             'test_predictions': test_predictions,
@@ -257,14 +270,34 @@ class Experiment:
         
         return metrics_dict
     
+    def _save_config(self):
+        """Save experiment configuration to file"""
+        results_dir = self.config.get('output', 'results_dir')
+        config_path = os.path.join(
+            results_dir,
+            f"{self.name}_config.json"
+        )
+        self.config.save(config_path)
+        self.logger.info(f"Saved experiment configuration to {config_path}")
+        return config_path
+    
     def _save_results(self):
         """Save experiment results to file"""
         if not self.results:
             self.logger.warning("No results to save")
             return
         
+        results_dir = self.config.get('output', 'results_dir')
+        
+        # 1. Make sure configuration is saved
+        config_path = os.path.join(
+            results_dir,
+            f"{self.name}_config.json"
+        )
+        
+        # 2. Save results with reference to configuration
         results_path = os.path.join(
-            self.config.get('output', 'results_dir'),
+            results_dir,
             f"{self.name}_results.json"
         )
         
@@ -281,7 +314,12 @@ class Experiment:
             return obj
         
         # Deep copy and convert results
-        serializable_results = {}
+        serializable_results = {
+            'experiment_name': self.name,
+            'config_file': config_path,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
         for k, v in self.results.items():
             if isinstance(v, dict):
                 serializable_results[k] = {

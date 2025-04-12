@@ -1,8 +1,3 @@
-from functools import wraps
-import json
-import logging
-import os
-import time
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -11,29 +6,32 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import polars as pl
-import seaborn as sns
-from sklearn.metrics import log_loss, ndcg_score, roc_auc_score
 from tqdm.auto import tqdm
 
 from .custom_logging import get_logger
+from .config import Config
 
 class FeatureFactory:
     """Feature generation with selective feature creation"""
     
     # Class-level registry of feature generators
     _feature_registry = {}
+    _category_registry = {}
     
     @classmethod
-    def register(cls, feature_name, depends_on=None, category=None):
+    def register(cls, feature_name: str, join_on: str | list[str],
+                 depends_on: str | List[str] | None = None, category: str | None = None):
         """Decorator to register a method as a feature generator"""
         depends_on = depends_on or []
         
         def decorator(func):
             cls._feature_registry[feature_name] = {
                 'func': func,
+                'join_on': join_on,
                 'depends_on': depends_on,
-                'category': category
             }
+            if category is not None:
+                cls._category_registry.setdefault(category, []).append(feature_name)
             
             @wraps(func)
             def wrapper(self, *args, **kwargs):
@@ -43,22 +41,14 @@ class FeatureFactory:
         
         return decorator
 
-    def __init__(self):
+    def __init__(self, config: Config):
         """Initialize feature factory"""
-        self.features = {}  # Cache for generated features
         self.config = None
         self.logger = get_logger(self.__class__.__name__)
-    
-    def set_config(self, config):
-        """Set configuration"""
-        self.config = config
     
     def generate_features(self, history_df, target_df, requested_features):
         """Generate only the requested features and their dependencies"""
         self.logger.info(f"Generating features: {', '.join(requested_features)}")
-        
-        # Reset cache for new request
-        self.features = {}
         
         # Expand feature groups if needed
         expanded_features = self._expand_feature_groups(requested_features)
@@ -68,7 +58,20 @@ class FeatureFactory:
             self._generate_feature(feature_name, history_df, target_df)
         
         # Return only the requested features
-        return {f: self.features[f] for f in expanded_features if f in self.features}
+        feature_data = [self.features[f] for f in expanded_features if f in self.features]
+        result_df = target_df
+        for df, feature_name in zip(feature_data, requested_features):
+            join_on = self.__class__._feature_registry[feature_name]["join_on"]
+            try:
+                result_df = result_df.join(
+                    df, on=join_on, how='left'
+                )
+            except Exception as e:
+                self.logger.error(f"Error joining feature {feature_name}: {e}")
+                raise e
+        
+        self.logger.debug("Joined features")
+        return result_df
     
     def _expand_feature_groups(self, requested_features):
         """Expand feature group names into individual features"""
@@ -76,12 +79,11 @@ class FeatureFactory:
             return requested_features
             
         expanded = []
-        feature_groups = self.config.get('features')
         
         for feature in requested_features:
-            if feature in feature_groups:
+            if feature in self.__class__._category_registry:
                 # This is a feature group
-                expanded.extend(feature_groups[feature])
+                expanded.extend(self.__class__._category_registry[feature])
             else:
                 # This is an individual feature
                 expanded.append(feature)
@@ -116,31 +118,4 @@ class FeatureFactory:
         # Cache and return
         self.features[feature_name] = feature_df
         return feature_df
-    
-    def join_features(self, base_df=None, common_keys=None):
-        """Join all generated features into a single dataframe"""
-        if not self.features:
-            logger.warning("No features to join")
-            return None
-        
-        if common_keys is None:
-            common_keys = ['user_id', 'product_id']
-            
-        # Start with base_df or the first feature
-        if base_df is not None:
-            result = base_df
-        else:
-            result = list(self.features.values())[0]
-        
-        # Join the rest
-        for feature_name, feature_df in self.features.items():
-            if feature_df is not result:  # Don't join with itself
-                try:
-                    result = result.join(
-                        feature_df, on=common_keys, how='left'
-                    )
-                except Exception as e:
-                    self.logger.error(f"Error joining feature {feature_name}: {e}")
-                    
-        return result
     

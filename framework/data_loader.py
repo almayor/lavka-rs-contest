@@ -102,7 +102,6 @@ class DataLoader:
     def _create_temporal_splits(self):
         """Create time-based validation folds"""
         n_folds = self.config.get('validation', 'n_folds')
-        gap_days = self.config.get('validation', 'gap_days')
         
         # Ensure data is sorted by timestamp
         df = self.train_df.sort('timestamp')
@@ -111,31 +110,31 @@ class DataLoader:
         min_time = df['timestamp'].min()
         max_time = df['timestamp'].max()
         time_range = max_time - min_time
-        fold_duration = time_range / (n_folds + 1)  # +1 to leave last fold for final validation
+        fold_duration = time_range / (n_folds + 1)  # +1 to leave first fold for train feature generation
         
         folds = []
         for i in range(n_folds):
             # Calculate time boundaries
-            train_end_time = min_time + fold_duration * (i + 1)
-            
-            # Add gap if specified
-            if gap_days > 0:
-                val_start_time = train_end_time + timedelta(days=gap_days)
-            else:
-                val_start_time = train_end_time
-                
+            train_start_time = min_time + fold_duration
+            train_end_time = train_start_time + fold_duration
+            val_start_time = train_end_time
             val_end_time = val_start_time + fold_duration
             
             # Create train and validation sets
-            train_df = df.filter(pl.col('timestamp') < train_end_time)
+            history_df = df.filter(pl.col('timestamp') < train_start_time)
+            train_df = df.filter((pl.col('timestamp') >= train_start_time) &
+                                 (pl.col('timestamp') < train_end_time))
             val_df = df.filter((pl.col('timestamp') >= val_start_time) & 
                               (pl.col('timestamp') < val_end_time))
             
-            folds.append((train_df, val_df))
+            folds.append((history_df, train_df, val_df))
         
         self.logger.info(f"Created {len(folds)} temporal validation folds")
         return folds
+
     
     def _clean_data(self, df: pl.DataFrame) -> pl.DataFrame:
         """Clean training data based on configuration"""
+        #TODO – remove duplicated actions
+        #TODO – remove users who only watch
         return df
