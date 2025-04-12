@@ -1,9 +1,12 @@
 {
     "features": [
-        "count_purchase",
-        "ctr"
+        "count_purchase_user_product",
+        "ctr_product",
+        "user_stats",
+        "product_stats",
+        "store_stats"
     ],
-    "target": "CartUpdate_vs_View",
+    "target": "CartUpdate_Purchase_vs_View",
     "data": {
         "train_path": "train.parquet",
         "test_path": "test.parquet",
@@ -14,17 +17,15 @@
         "normalize_timestamps": true,
         "clean_text": false
     },
-    "cleaning": {
-        "remove_duplicate_actions": false,
-        "remove_strict_viewers": false,
-        "remove_repeated_product_request": true
+    "history_cleaning": {
+        "remove_lurkers": true
     },
     "history_generation": {
         "method": "basic",
         "rolling_window": {
             "window_size": 30
         },
-        "final_train_ndays": 30
+        "final_target_ndays": 30
     },
     "model": {
         "type": "catboost",
@@ -76,9 +77,7 @@
     ],
     "output": {
         "results_dir": "results",
-        "save_model": false,
-        "save_features": false,
-        "save_predictions": false
-    },
-    "experiment_registry": "experiment_registry.json"
+        "save_model": true,
+        "save_predictions": true
+    }
 }

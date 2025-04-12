@@ -56,7 +56,7 @@ class DataLoader:
             )
         
         self.logger.info(f"Loaded train data: {len(self.train_df)} rows")        
-        self.train_df = self._clean(self._preprocess(self.train_df))
+        self.train_df = self._preprocess(self.train_df)
         self.logger.info(f"Loaded test data: {len(self.test_df)} rows")
         self.test_df = self._preprocess(self.test_df)
         return self.train_df, self.test_df
@@ -95,29 +95,32 @@ class DataLoader:
         
         return processed_df
     
-    def create_validation_splits(self):
+    def create_validation_splits(self, n_folds: None|int = None) -> List[Tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]]:
         """
         Create validation splits based on the configuration.
+        Args:
+            n_folds (Union[int, None]): Number of folds (if None, taken from config)
         Returns:
             List[Tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]]: List of tuples containing
                 history, training, and validation DataFrames.
         """
+        n_folds = n_folds or self.config.get('validation.n_folds')
         validation_method = self.config.get('validation.method')
         
         if validation_method == 'temporal':
-            return self._create_temporal_splits()
+            return self._create_temporal_splits(n_folds)
         else:
             raise ValueError(f"Unknown validation method: {validation_method}")
     
-    def _create_temporal_splits(self):
+    def _create_temporal_splits(self, n_folds: int):
         """
         Create time-based validation folds.
+        Args:
+            n_folds (int): Number of folds
         Returns:
             List[Tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]]: List of tuples containing
                 history, training, and validation DataFrames.
-        """
-        n_folds = self.config.get('validation.n_folds')
-        
+        """        
         # Ensure data is sorted by timestamp
         df = self.train_df.sort('timestamp')
         
@@ -143,30 +146,30 @@ class DataLoader:
             val_df = df.filter((pl.col('timestamp') >= val_start_time) & 
                               (pl.col('timestamp') < val_end_time))
             
+            history_df = self._clean_history(history_df)
             folds.append((history_df, train_df, val_df))
         
         self.logger.info(f"Created {len(folds)} temporal validation folds")
         return folds
 
     
-    def _clean(self, df: pl.DataFrame) -> pl.DataFrame:
-        """Clean training data based on configuration"""
-
-        if self.config.get('cleaning.remove_duplicate_actions'):
+    def _clean_history(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Clean training history based on configuration"""
+        if self.config.get('history_cleaning.remove_lurkers'):
             n_old = df.height
-            columns_to_check = df.columns.remove('timestamp')
-            mask = df.select(columns_to_check).is_duplicated()
-            df = df.filter(~mask)
-            n_new = df.height
-            self.logger.info(f'Removed duplicate rows that differ only by timestamp (reduced rows from {n_old} to {n_new})')
+            valid_users = (
+                df.filter(pl.col("action_type") != "AT_View")
+                .select("user_id")
+                .unique()
+            )
+            df = df.join(valid_users, on="user_id", how="inner")
 
-        if self.config.get('cleaning.remove_repeated_product_request'):
-            n_old = df.height
-            df = df.group_by(
-                ['product_id', 'request_id']
-            ).max()
             n_new = df.height
-            self.logger.info(f'Removed repeated products in one request (reduced rows from {n_old} to {n_new})')
+            total_user_count = df.select("user_id").n_unique()
+            invalid_user_count = total_user_count - valid_users.height
+            self.logger.info(
+                f'Removed {invalid_user_count} users who only watch (lurkers); ' +
+                f'rows reduced from {n_old} to {n_new}'
+            )
 
-        #TODO – remove users who only watch
         return df

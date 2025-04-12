@@ -20,12 +20,14 @@ class FeatureFactory:
     
     @classmethod
     def register(cls, feature_name: str,
-                 depends_on: str | List[str] | None = None):
+                 depends_on: str | List[str] | None = None,
+                 categorical_cols: List[str] | None = None):
         """
         Decorator to register a method as a feature generator and to specify its dependencies. The method
-        must accept two arguments: history_df and target_df, and return a tuple of (target_df, categorical_col_names).
+        must accept two arguments: history_df and target_df, and return a target_df with new columns.
         Args:
             feature_name (str): Name of the feature to be generated.
+            categorical_cols (List[str] | None): List of categorical columns this feature produces.
             depends_on (str | List[str] | None): List of features that this feature depends on.
         """
         depends_on = depends_on or []
@@ -33,15 +35,15 @@ class FeatureFactory:
             depends_on = [depends_on]
         
         def decorator(func):
-            cls._feature_registry[feature_name] = {
-                'func': func,
-                'depends_on': depends_on,
-            }
-            
             @wraps(func)
-            def wrapper(self, *args, **kwargs):
-                return func(self, *args, **kwargs)
+            def wrapper(*args, **kwargs):
+                return func(*args, **kwargs)
             
+            cls._feature_registry[feature_name] = {
+                'func': wrapper,
+                'depends_on': depends_on,
+                'categorical_cols': categorical_cols or [],
+            }
             return wrapper
         
         return decorator
@@ -62,19 +64,18 @@ class FeatureFactory:
             depends_on = [depends_on]
         
         def decorator(func):
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                result = func(*args, **kwargs)
+                return result, []
+        
             cls._feature_registry[feature_name] = {
-                'func': func,
+                'func': wrapper,
                 'depends_on': depends_on,
+                'categorical_cols': [],
             }
             cls._possible_targets.add(feature_name)
 
-            
-            @wraps(func)
-            def wrapper(self, *args, **kwargs):
-                # Return an empty list for categorical columns
-                # for compatibility with the feature generation
-                return func(self, *args, **kwargs), []
-            
             return wrapper
         
         return decorator
@@ -102,13 +103,13 @@ class FeatureFactory:
                 - Request IDs per row (pl.Series)
         """
         request_ids = target_df['request_id']
-        features, cat_col_names = self.generate_features(history_df, target_df, requested_features)
-        target = self.generate_target(history_df, target_df, requested_target)
+        features, cat_columns = self.generate_features(history_df, target_df, requested_features)
+        target, _ = self.generate_target(history_df, target_df, requested_target)
         mask = ~target.is_null()
         return (
             features.filter(mask),
             target.filter(mask),
-            cat_col_names,
+            cat_columns,
             request_ids.filter(mask),
         )
 
@@ -131,18 +132,20 @@ class FeatureFactory:
         self.logger.info(f"Generating features: {', '.join(requested_features)}")
                 
         # Generate each requested feature (and dependencies)
-        all_col_names, all_cat_col_names = set(), set()
+        all_columns, all_cat_columns = set(), set()
         for feature_name in requested_features:
-            target_df, col_names, cat_col_names = self._generate_feature(
+            target_df, columns = self._generate_feature(
                 feature_name, history_df, target_df
             )
-            all_col_names.update(col_names)
-            all_cat_col_names.update(cat_col_names)
+            all_columns.update(columns)
+            cat_columns = self.__class__._feature_registry[feature_name]['categorical_cols']
+            all_cat_columns.update(cat_columns)
         
+        all_cat_columns = list(all_cat_columns) if len(all_cat_columns) else None
         self.logger.info("Joined features")
-        self.logger.info(f"All column names: {all_col_names}")
-        self.logger.info(f"All categorical column names: {all_cat_col_names}")
-        return target_df.select(all_col_names), all_cat_col_names
+        self.logger.info(f"All column names: {all_columns}")
+        self.logger.info(f"All categorical column names: {all_cat_columns}")
+        return target_df.select(all_columns), all_cat_columns
     
     def generate_target(self, history_df, target_df, requested_target: str | None = None) -> pl.Series:
         """
@@ -159,7 +162,8 @@ class FeatureFactory:
         if requested_target not in self.__class__._possible_targets:
             raise ValueError(f"Unknown target {requested_target}")
 
-        return self._generate_feature(requested_target, history_df, target_df)
+        feature, _ = self._generate_feature(requested_target, history_df, target_df)
+        return feature
     
     def _generate_feature(
             self, feature_name: str, history_df: pl.DataFrame, target_df: pl.DataFrame,
@@ -173,9 +177,9 @@ class FeatureFactory:
             target_df (pl.DataFrame): Target data.
             generated_features (set | None): Set of already generated features (for caching).
         Returns:
-            Tuple[pl.DataFrame, List[str]]: Tuple containing:
+            Tuple[pl.DataFrame, List[str], List[str]]: Tuple containing:
                 - Generated features (pl.DataFrame)
-                - Categorical column names in the generated features (List[str])
+                - Newly added column names
         """
         # Return from cache if already generated
         if generated_features and feature_name in generated_features:
@@ -200,16 +204,15 @@ class FeatureFactory:
         # Generate this feature
         self.logger.debug(f"Generating feature: {feature_name}")
         old_columns = target_df.columns
-        features, cat_col_names = generator_func(history_df, target_df)
+        features = generator_func(history_df, target_df)
     
         if isinstance(features, pl.DataFrame):
-            new_col_names = list(set(target_df.columns).difference(old_columns))
+            new_columns = list(set(features.columns).difference(old_columns))
         else:
-            new_col_names = [feature_name]
-        self.logger.debug(f"New column names: {new_col_names}")
-        self.logger.debug(f"New categorical columns: {cat_col_names}")
+            new_columns = [feature_name]
+        self.logger.debug(f"New column names: {new_columns}")
         generated_features.add(feature_name)
         
         # Cache and return
-        return target_df, new_col_names, cat_col_names
+        return features, new_columns
     

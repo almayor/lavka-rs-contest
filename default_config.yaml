@@ -14,16 +14,14 @@ preprocessing:
   normalize_timestamps: true
   clean_text: false
 
-cleaning:
-  remove_duplicate_actions: false
-  remove_strict_viewers: false
-  remove_repeated_product_request: false
+history_cleaning:
+  remove_lurkers: false
 
 history_generation:
   method: "basic"  # "basic" or "rolling_window"
   rolling_window:
     window_size: 30
-  final_train_ndays: 30  # number of days to train the model on at the end 
+  final_target_ndays: 30  # number of days to use as target when training model on all data 
 
 model:
   type: "catboost"  # "catboost", "lightgbm", "xgboost", or "random_forest"
@@ -70,8 +68,5 @@ metrics:
 
 output:
   results_dir: "results"
-  save_model: false
-  save_features: false
-  save_predictions: false
-
-experiment_registry: "experiment_registry.json"
+  save_model: true
+  save_predictions: true

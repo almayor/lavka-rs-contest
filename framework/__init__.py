@@ -6,3 +6,4 @@ from .experiment import Experiment
 from .metrics import RankingMetrics
 from .visualizer import Visualizer
 from .metrics import RankingMetrics
+from .model_factory import ModelFactory

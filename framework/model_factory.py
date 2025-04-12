@@ -23,13 +23,13 @@ class Model:
         self.model = None
         self.logger = get_logger(self.__class__.__name__)
     
-    def train(self, train_features, train_labels, cat_col_names=None, **kwargs):
+    def train(self, train_features, train_labels, cat_columns=None, **kwargs):
         """
         Train model (to be implemented by subclasses).
         Args:
             train_features (pd.DataFrame or pl.DataFrame): Training features.
             train_labels (pd.Series or pl.Series): Training labels.
-            cat_col_names (list): Categorical column names.
+            cat_columns (list): Categorical column names.
             kwargs: Additional parameters for training.
         """
         raise NotImplementedError
@@ -71,7 +71,7 @@ class CatBoostModel(Model):
         self.params = params
         self.model = CatBoostClassifier(**self.params)
     
-    def train(self, train_features, train_labels, eval_set=None, cat_col_names=None):
+    def train(self, train_features, train_labels, eval_set=None, cat_columns=None):
         """Train CatBoost model.
         Args:
             train_features (pd.DataFrame or pl.DataFrame): Training features.
@@ -89,7 +89,10 @@ class CatBoostModel(Model):
             train_labels = train_labels.to_list()
         
         # Create pool
-        train_pool = Pool(train_features, train_labels)
+        train_pool = Pool(
+            train_features, train_labels,
+            cat_features=cat_columns
+        )
         
         # Prepare eval set if provided
         if eval_set is not None:
@@ -104,10 +107,10 @@ class CatBoostModel(Model):
             eval_pool = Pool(eval_features, eval_labels)
             
             # Train with evaluation
-            self.model.fit(train_pool, eval_set=eval_pool, cat_features=cat_col_names)
+            self.model.fit(train_pool, eval_set=eval_pool)
         else:
             # Train without evaluation
-            self.model.fit(train_pool, cat_features=cat_col_names)
+            self.model.fit(train_pool)
         
         return self
     
@@ -224,7 +227,7 @@ class ModelFactory:
             # Add more models as needed
         }
     
-    def create_model(self):
+    def create_model(self) -> Model:
         """Create a model instance based on type"""
         model_type = self.config.get(('model', 'type'))
         if model_type not in self.models:
