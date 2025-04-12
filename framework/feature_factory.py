@@ -72,10 +72,15 @@ class FeatureFactory:
     def generate_batch(self, history_df, target_df, requested_features=None, requested_target=None):
         """Generate both features and target"""
         request_ids = target_df['request_id']
-        features = self.generate_features(history_df, target_df, requested_features)
+        features, cat_col_names = self.generate_features(history_df, target_df, requested_features)
         target = self.generate_target(history_df, target_df, requested_target)
         mask = ~target.is_null()
-        return features.filter(mask), target.filter(mask), request_ids.filter(mask)
+        return (
+            features.filter(mask),
+            target.filter(mask),
+            cat_col_names,
+            request_ids.filter(mask),
+        )
 
     def generate_features(self, history_df, target_df, requested_features=None):
         """Generate only the requested features and their dependencies"""
@@ -84,11 +89,18 @@ class FeatureFactory:
         self.logger.info(f"Generating features: {', '.join(requested_features)}")
                 
         # Generate each requested feature (and dependencies)
+        all_col_names, all_cat_col_names = [], []
         for feature_name in requested_features:
-            target_df = self._generate_feature(feature_name, history_df, target_df)
+            target_df, col_names, cat_col_names = self._generate_feature(
+                feature_name, history_df, target_df
+            )
+            all_col_names.extend(col_names)
+            all_cat_col_names.extend(cat_col_names)
         
-        self.logger.debug("Joined features")
-        return target_df.select(requested_features)
+        self.logger.info("Joined features")
+        self.logger.info(f"All column names: {all_col_names}")
+        self.logger.info(f"All categorical column names: {all_cat_col_names}")
+        return target_df.select(all_col_names), all_cat_col_names
     
     def generate_target(self, history_df, target_df, requested_target: str | None = None):
         """Generate the target feature"""
@@ -123,9 +135,13 @@ class FeatureFactory:
         
         # Generate this feature
         self.logger.debug(f"Generating feature: {feature_name}")
-        target_df = generator_func(history_df, target_df)
+        old_columns = target_df.columns
+        target_df, cat_col_names = generator_func(history_df, target_df)
         generated_features.add(feature_name)
+        new_col_names = list(set(target_df.columns).difference(old_columns))
+        self.logger.debug(f"New column names: {new_col_names}")
+        self.logger.debug(f"New categorical columns: {cat_col_names}")
         
         # Cache and return
-        return target_df
+        return target_df, new_col_names, cat_col_names
     

@@ -123,7 +123,7 @@ class Experiment:
                 [train_history, train_df],
                 how='vertical'
             )
-            val_features, val_target, val_request_ids = self.feature_factory.generate_batch(
+            val_features, val_target, cat_col_names, val_request_ids = self.feature_factory.generate_batch(
                 val_history, val_df, feature_sets, target_name
             )
             
@@ -132,6 +132,7 @@ class Experiment:
             model.train(
                 train_features, 
                 train_target,
+                cat_col_names=cat_col_names,
                 eval_set=(val_features, val_target)
             )
             val_preds = model.predict(val_features)
@@ -173,13 +174,13 @@ class Experiment:
         target_df = train_df.filter(pl.col('timestamp') >= latest_cutoff)
         
         # Generate features
-        train_features, train_target, _ = self.feature_factory.generate_batch(
+        train_features, train_target, cat_col_names, _ = self.feature_factory.generate_batch(
             history_df, target_df, feature_sets, target_name
         )
         
         # Create and train model
         model = self.model_factory.create_model()
-        model.train(train_features, train_target)
+        model.train(train_features, train_target, cat_col_names=cat_col_names)
         
         # Save model if configured
         if self.config.get('output.save_model'):
@@ -197,7 +198,7 @@ class Experiment:
         self.logger.info("Generating test predictions")
         
         # Generate features for test data using all training data as history
-        test_features = self.feature_factory.generate_features(
+        test_features, cat_col_names = self.feature_factory.generate_features(
             train_df, test_df, feature_sets
         )
         

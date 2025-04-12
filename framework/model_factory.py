@@ -23,7 +23,7 @@ class Model:
         self.model = None
         self.logger = get_logger(self.__class__.__name__)
     
-    def train(self, train_features, train_labels):
+    def train(self, train_features, train_labels, cat_col_names=None):
         """Train model (to be implemented by subclasses)"""
         raise NotImplementedError
     
@@ -56,7 +56,7 @@ class CatBoostModel(Model):
         self.params = params
         self.model = CatBoostClassifier(**self.params)
     
-    def train(self, train_features, train_labels, eval_set=None):
+    def train(self, train_features, train_labels, eval_set=None, cat_col_names=None):
         """Train CatBoost model"""
         from catboost import Pool
         
@@ -83,10 +83,10 @@ class CatBoostModel(Model):
             eval_pool = Pool(eval_features, eval_labels)
             
             # Train with evaluation
-            self.model.fit(train_pool, eval_set=eval_pool)
+            self.model.fit(train_pool, eval_set=eval_pool, cat_features=cat_col_names)
         else:
             # Train without evaluation
-            self.model.fit(train_pool)
+            self.model.fit(train_pool, cat_features=cat_col_names)
         
         return self
     
