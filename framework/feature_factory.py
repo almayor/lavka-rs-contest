@@ -19,7 +19,7 @@ class FeatureFactory:
     _possible_targets = set()
     
     @classmethod
-    def register(cls, feature_name: str, join_on: str | list[str],
+    def register(cls, feature_name: str,
                  depends_on: str | List[str] | None = None):
         """Decorator to register a method as a feature generator"""
         depends_on = depends_on or []
@@ -29,10 +29,8 @@ class FeatureFactory:
         def decorator(func):
             cls._feature_registry[feature_name] = {
                 'func': func,
-                'join_on': join_on,
                 'depends_on': depends_on,
             }
-
             
             @wraps(func)
             def wrapper(self, *args, **kwargs):
@@ -83,29 +81,13 @@ class FeatureFactory:
         if requested_features is None:
             requested_features = self.config.get("features")
         self.logger.info(f"Generating features: {', '.join(requested_features)}")
-
-        self.features = {}
                 
         # Generate each requested feature (and dependencies)
         for feature_name in requested_features:
-            self._generate_feature(feature_name, history_df, target_df)
-        
-        # Return only the requested features
-        feature_data = [self.features[f] for f in requested_features if f in self.features]
-        result_df = target_df
-        print(result_df.height)
-        for df, feature_name in zip(feature_data, requested_features):
-            join_on = self.__class__._feature_registry[feature_name]["join_on"]
-            try:
-                result_df = result_df.join(
-                    df, on=join_on, how='left'
-                )
-            except Exception as e:
-                self.logger.error(f"Error joining feature {feature_name}: {e}")
-                raise e
+            target_df = self._generate_feature(feature_name, history_df, target_df)
         
         self.logger.debug("Joined features")
-        return result_df.select(requested_features)
+        return target_df.select(requested_features)
     
     def generate_target(self, history_df, target_df, requested_target: str | None = None):
         """Generate the target feature"""
@@ -114,15 +96,13 @@ class FeatureFactory:
         if requested_target not in self.__class__._possible_targets:
             raise ValueError(f"Unknown target {requested_target}")
 
-        self.features = {}
-        self._generate_feature(requested_target, history_df, target_df)
-        return self.features[requested_target]['target']
+        return self._generate_feature(requested_target, history_df, target_df)
     
-    def _generate_feature(self, feature_name, history_df, target_df):
+    def _generate_feature(self, feature_name, history_df, target_df, generated_features=None):
         """Generate a single feature, handling dependencies"""
         # Return from cache if already generated
-        if feature_name in self.features:
-            return self.features[feature_name]
+        if generated_features and feature_name in generated_features:
+            return target_df
         
         # Check if feature exists
         if feature_name not in self.__class__._feature_registry:
@@ -136,14 +116,15 @@ class FeatureFactory:
         dependencies = feature_info['depends_on']
         
         # Generate dependencies first
+        generated_features = generated_features or set()
         for dep in dependencies:
-            self._generate_feature(dep, history_df, target_df)
+            self._generate_feature(dep, history_df, target_df, generated_features)
         
         # Generate this feature
         self.logger.debug(f"Generating feature: {feature_name}")
-        feature_df = generator_func(history_df, target_df)
+        target_df = generator_func(history_df, target_df)
+        generated_features.add(feature_name)
         
         # Cache and return
-        self.features[feature_name] = feature_df
-        return feature_df
+        return target_df
     

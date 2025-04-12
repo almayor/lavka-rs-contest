@@ -7,7 +7,8 @@ REMOTE_HOST="imladris"
 REMOTE_DIR="/data/majoroval/jupyter/RS-25/homework/week02"
 
 # Exclusions
-EXCLUDES="--exclude=.DS_Store --exclude=._.DS_Store --exclude=*.tmp --exclude=__pycache__/ --exclude=.ipynb_checkpoints/ --exclude=.git/ --exclude=.gitignore --exclude=.gitattributes --exclude=wandb/ --exclude=lightning_logs/"
+EXCLUDES="--exclude=.DS_Store --exclude=._.DS_Store --exclude=*.tmp --exclude=__pycache__/ --exclude=.ipynb_checkpoints/ --exclude=.git/ --exclude=.gitignore --exclude=.gitattributes --exclude=wandb/ --exclude=lightning_logs/ --exclude=*.git/*
+    --exclude=*.zip"
 
 # Size thresholds
 MAX_SIZE_MB=100

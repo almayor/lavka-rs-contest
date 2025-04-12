@@ -1,0 +1,34 @@
+{
+    "experiment_name": "test_644370",
+    "config_file": "results/test_644370_config.json",
+    "timestamp": "2025-04-12 04:51:06",
+    "name": "test_644370",
+    "feature_names": [
+        "count_purchase",
+        "ctr"
+    ],
+    "model_type": "catboost",
+    "cv_results": {
+        "folds": [
+            {
+                "fold": 0,
+                "metrics": {
+                    "auc": 0.5857132829770768,
+                    "logloss": 0.30436144437984036,
+                    "ndcg@10": 0.0
+                },
+                "feature_importance": {
+                    "count_purchase": 0.044721574262683465,
+                    "ctr": 99.9552784257373
+                }
+            }
+        ],
+        "average_metrics": {
+            "auc": 0.5857132829770768,
+            "logloss": 0.30436144437984036,
+            "ndcg@10": 0.0
+        }
+    },
+    "test_predictions": null,
+    "runtime": 34.37423825263977
+}

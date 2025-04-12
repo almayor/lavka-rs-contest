@@ -165,7 +165,8 @@ class Experiment:
         self.logger.info("Training final model on all data")
         
         # Split data for feature generation
-        latest_cutoff = train_df['timestamp'].max() - timedelta(days=21)
+        final_train_ndays = self.config.get("history_generation.final_train_ndays")
+        latest_cutoff = train_df['timestamp'].max() - timedelta(days=final_train_ndays)
         history_df = train_df.filter(pl.col('timestamp') < latest_cutoff)
         target_df = train_df.filter(pl.col('timestamp') >= latest_cutoff)
         
@@ -179,7 +180,7 @@ class Experiment:
         model.train(train_features, train_target)
         
         # Save model if configured
-        if self.config.get('output.save_models'):
+        if self.config.get('output.save_model'):
             model_path = os.path.join(
                 self.config.get('output.results_dir'),
                 f"{self.name}_final_model.model"

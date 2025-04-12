@@ -23,6 +23,7 @@ history_generation:
   method: "basic"  # "basic" or "rolling_window"
   rolling_window:
     window_size: 30
+  final_train_ndays: 30  # number of days to train the model on at the end 
 
 model:
   type: "catboost"  # "catboost", "lightgbm", "xgboost", or "random_forest"

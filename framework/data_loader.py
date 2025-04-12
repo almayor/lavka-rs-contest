@@ -110,15 +110,16 @@ class DataLoader:
         folds = []
         for i in range(n_folds):
             # Calculate time boundaries
-            train_start_time = min_time + fold_duration * (i + 1)
-            train_end_time = train_start_time + fold_duration * (i + 1)
-            val_start_time = train_end_time
-            val_end_time = val_start_time + fold_duration * (i + 1)
+            history_start_time = min_time + fold_duration * i
+            train_start_time = history_start_time + fold_duration 
+            val_start_time = train_start_time + fold_duration
+            val_end_time = val_start_time + fold_duration
             
             # Create train and validation sets
-            history_df = df.filter(pl.col('timestamp') < train_start_time)
+            history_df = df.filter((pl.col('timestamp') >= history_start_time) &
+                                   (pl.col('timestamp') < train_start_time))
             train_df = df.filter((pl.col('timestamp') >= train_start_time) &
-                                 (pl.col('timestamp') < train_end_time))
+                                 (pl.col('timestamp') < val_start_time))
             val_df = df.filter((pl.col('timestamp') >= val_start_time) & 
                               (pl.col('timestamp') < val_end_time))
             
@@ -130,16 +131,22 @@ class DataLoader:
     
     def _clean(self, df: pl.DataFrame) -> pl.DataFrame:
         """Clean training data based on configuration"""
+
         if self.config.get('cleaning.remove_duplicate_actions'):
+            n_old = df.height
             columns_to_check = df.columns.remove('timestamp')
             mask = df.select(columns_to_check).is_duplicated()
             df = df.filter(~mask)
-            self.logger.info('Removed duplicate rows that differ only by timestamp')
+            n_new = df.height
+            self.logger.info(f'Removed duplicate rows that differ only by timestamp (reduced rows from {n_old} to {n_new})')
+
         if self.config.get('cleaning.remove_repeated_product_request'):
+            n_old = df.height
             df = df.group_by(
                 ['product_id', 'request_id']
             ).max()
-            self.logger.info('Removed repeated products in one request')
+            n_new = df.height
+            self.logger.info(f'Removed repeated products in one request (reduced rows from {n_old} to {n_new})')
 
         #TODO – remove users who only watch
         return df
