@@ -5,3 +5,7 @@ from .metrics import RankingMetrics
 from .visualizer import Visualizer
 from .metrics import RankingMetrics
 from .text_processor import register_text_embedding_features
+from .collaborative_filtering import register_cf_features
+
+register_text_embedding_features()
+register_cf_features()

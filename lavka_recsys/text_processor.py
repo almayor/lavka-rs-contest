@@ -285,5 +285,3 @@ def register_text_embedding_features():
         raise NotImplementedError()
 
     return True
-
-register_text_embedding_features()

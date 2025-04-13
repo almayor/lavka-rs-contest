@@ -116,7 +116,7 @@ class FeatureFactory:
 
     def generate_features(
             self, history_df: pl.DataFrame, target_df: pl.DataFrame, requested_features: List[str] | None = None
-        ) -> Tuple[pl.DataFrame, List[str]]:
+        ) -> pl.DataFrame:
         """
         Generate only the requested features and their dependencies
         Args:
@@ -227,7 +227,7 @@ class FeatureFactory:
 @FeatureFactory.register('count_purchase_user_product')
 def generate_count_purchase_user_product(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """Count purchases by user-product pairs"""
     return history_df.filter(
         pl.col('action_type') == "AT_Purchase"
@@ -244,7 +244,7 @@ def generate_count_purchase_user_product(
 @FeatureFactory.register('count_purchase_user_store')
 def generate_count_purchase_user_store(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """Count purchases by user-store pairs"""
     return history_df.filter(
         pl.col('action_type') == "AT_Purchase"
@@ -261,7 +261,7 @@ def generate_count_purchase_user_store(
 @FeatureFactory.register('ctr_product')
 def generate_ctr_product(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """Calculate CTR (Click-Through Rate) for products"""
     actions = history_df.group_by(
         'action_type', 'product_id'
@@ -288,7 +288,7 @@ def generate_ctr_product(
 @FeatureFactory.register('recency_user_product')
 def generate_recency_user_product(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """Generate recency features for user-product pairs"""
     latest_time = history_df['timestamp'].max()
     
@@ -306,7 +306,7 @@ def generate_recency_user_product(
 @FeatureFactory.register('recency_user_store')
 def generate_recency_user_store(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """Generate recency features for user-store pairs"""
     latest_time = history_df['timestamp'].max()
     
@@ -324,7 +324,7 @@ def generate_recency_user_store(
 @FeatureFactory.register('user_stats')
 def generate_user_stats(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """Generate user-level statistics"""
     feature = history_df.group_by('user_id').agg([
         pl.len().alias('user_total_interactions'),
@@ -341,7 +341,7 @@ def generate_user_stats(
 @FeatureFactory.register('product_stats')
 def generate_product_stats(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """Generate product-level statistics"""
     features = history_df.group_by('product_id').agg([
         pl.len().alias('product_total_interactions'),
@@ -357,7 +357,7 @@ def generate_product_stats(
 @FeatureFactory.register('store_stats')
 def generate_store_stats(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """Generate store-level statistics"""
     feature = history_df.group_by('store_id').agg([
         pl.len().alias('store_total_interactions'),
@@ -373,7 +373,7 @@ def generate_store_stats(
 @FeatureFactory.register('city_stats', categorical_cols=['city_name'])
 def generate_city_stats(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """Generate city-level statistics"""
     feature = history_df.group_by('city_name').agg([
         pl.len().alias('city_total_interactions'),
@@ -401,7 +401,7 @@ def generate_city_stats(
 @FeatureFactory.register('time_features')
 def generate_time_features(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """Generate time-related features (hour of day, day of week, etc.)"""
     target_df = target_df.with_columns(
         pl.col('timestamp').cast(pl.Datetime("ms"))
@@ -419,7 +419,7 @@ def generate_time_features(
 @FeatureFactory.register('product_temporal_patterns')
 def generate_product_temporal_patterns(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """Generate features related to typical purchase times and days for products"""
     # Filter to only purchase events
     purchases = history_df.filter(pl.col('action_type') == "AT_Purchase")
@@ -491,7 +491,7 @@ def generate_product_temporal_patterns(
 @FeatureFactory.register('time_window_user_product')
 def generate_time_window_features(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """Generate time-window based features for user-product pairs"""
     latest_time = history_df['timestamp'].max()
     
@@ -526,7 +526,7 @@ def generate_time_window_features(
 @FeatureFactory.register('session_features')
 def generate_session_features(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """
     Generate session-based features.
     A session is defined as a sequence of actions by the same user within a time window.
@@ -593,7 +593,7 @@ def generate_session_features(
 @FeatureFactory.register('frequency_features')
 def generate_frequency_features(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """Generate frequency-based features"""
     # Get timestamps of all interactions for each user-product pair
     interactions = history_df.filter(
@@ -650,7 +650,7 @@ def generate_frequency_features(
 @FeatureFactory.register('product_popularity_trend')
 def generate_product_popularity_trend(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """Generate product popularity trend features"""
     # Get the earliest and latest timestamp
     min_time = history_df['timestamp'].min()
@@ -703,7 +703,7 @@ def generate_product_popularity_trend(
 @FeatureFactory.register('cross_features', depends_on=['user_stats', 'product_stats', 'store_stats', 'city_stats'])
 def generate_cross_features(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """Generate cross-features (interactions between existing features)"""
     # First ensure the base features exist
     features_needed = ['user_total_purchases', 'product_total_purchases', 
@@ -743,7 +743,7 @@ def generate_cross_features(
 @FeatureFactory.register('user_segments', categorical_cols=['user_segment'])
 def generate_user_segments(
     history_df: pl.DataFrame, target_df: pl.DataFrame
-) -> tuple[pl.DataFrame, list[str]]:
+) -> pl.DataFrame:
     """Segment users based on their behavior"""
     # Calculate user metrics
     user_metrics = history_df.group_by('user_id').agg([

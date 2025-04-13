@@ -33,6 +33,7 @@ features:
   # - "product_popularity_trend"
   # - "cross_features"
   # - "user_segments"
+  # - "memory-based-cf" # Collaborative filtering
   # - "product_embeddings"  # NLP feature
   # - "category_embeddings"  # NLP faturee
 
