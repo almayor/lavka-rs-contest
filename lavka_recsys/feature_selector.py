@@ -123,6 +123,7 @@ class FeatureSelector:
             verbose=True
         )
         rf.fit(X, y)
+        self.logger.info(f"Feature importances: {rf.feature_importances_}")
         
         if n_features is not None:
             # Select top N features
