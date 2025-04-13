@@ -14,7 +14,7 @@ model:
       eval_metric: "AUC"
       early_stopping_rounds: 50
 
-# Essential features
+# Features
 features:
   - "count_purchase_user_product"
   - "count_purchase_user_store"
