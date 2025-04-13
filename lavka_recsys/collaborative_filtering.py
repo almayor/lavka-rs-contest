@@ -252,7 +252,7 @@ def register_cf_features():
             user_idx = user2idx.get(row["user_id"])
             product_idx = product2idx.get(row["product_id"])
             if user_idx is None or product_idx is None:
-                return np.nan
+                return None
             return scores[user_idx, product_idx]
 
         return target_df.with_columns(
@@ -308,7 +308,7 @@ def register_cf_features():
             product_idx = product2idx.get(product_id)
             
             if user_idx is None or product_idx is None:
-                return np.nan
+                return None
                 
             return all_user_scores[user_id][product_idx]
         
@@ -355,7 +355,7 @@ def register_cf_features():
         # Get interaction matrix and mappings
         interaction_matrix, user2idx, product2idx = get_interaction_matrix(df_interact)
         interaction_matrix = interaction_matrix.astype(np.float64)
-        
+
         # Compute SVD factors
         user_factors, singular_values, item_factors_t = compute_svd_factors(
             interaction_matrix, n_factors, normalize
@@ -372,7 +372,7 @@ def register_cf_features():
             product_idx = product2idx.get(product_id)
             
             if user_idx is None or product_idx is None:
-                return np.nan
+                return None
             
             # Compute dot product between user and item factors
             return np.dot(user_factors[user_idx], item_factors[product_idx])
@@ -467,7 +467,7 @@ def register_cf_features():
             product_idx = product2idx.get(product_id)
             
             if user_idx is None or product_idx is None:
-                return np.nan
+                return None
             
             # Compute dot product between user and item factors
             return np.dot(weighted_user_factors[user_idx], item_factors[product_idx])

@@ -26,6 +26,10 @@ class DataLoader:
         # Load test data
         test_path = self.config.get('data.test_path')
         self.test_df = pl.read_parquet(test_path)
+
+        # Preprocess data
+        self.logger.debug("Preprocessing data...")
+        self._preprocess_data()
         
         # Sample if needed (for faster debugging)
         sample_size = self.config.get('data.sample_size')
@@ -118,3 +122,13 @@ class DataLoader:
         self.logger.info(f"Final split data: {len(history_df)} history, {len(train_df)} train rows")
         
         return history_df, train_df
+    
+    def _preprocess_data(self):
+        """
+        Preprocess data for training and testing by doing necessary data type conversions
+        and transformations.
+        """
+        self.train_df.with_columns(
+            pl.col('timestamp').mul(1000).cast(pl.Datetime("ms"))
+        )
+        self.logger.debug("Converted timestamp to datetime")

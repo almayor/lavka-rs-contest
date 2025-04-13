@@ -403,16 +403,13 @@ def generate_time_features(
     history_df: pl.DataFrame, target_df: pl.DataFrame
 ) -> pl.DataFrame:
     """Generate time-related features (hour of day, day of week, etc.)"""
-    target_df = target_df.with_columns(
-        pl.col('timestamp').cast(pl.Datetime("ms"))
-    )
     return target_df.with_columns([
         pl.col('timestamp').dt.hour().alias('hour_of_day'),
         pl.col('timestamp').dt.weekday().alias('day_of_week'),
         pl.col('timestamp').dt.month().alias('month'),
         pl.col('timestamp')
             .dt.weekday()
-                    .is_in([5, 6])  # 5=Saturday, 6=Sunday
+                    .is_in([6, 7])  # 5=Saturday, 6=Sunday
                     .alias('is_weekend')
     ])
 
@@ -426,8 +423,8 @@ def generate_product_temporal_patterns(
     
     # Extract temporal features
     purchases = purchases.with_columns(
-        pl.col('timestamp').cast(pl.Datetime("ms")).dt.hour().alias('hour_of_day'),
-        pl.col('timestamp').cast(pl.Datetime("ms")).dt.weekday().alias('day_of_week')
+        pl.col('timestamp').dt.hour().alias('hour_of_day'),
+        pl.col('timestamp').dt.weekday().alias('day_of_week')
     )
     
     # Calculate hourly patterns for each product
@@ -458,8 +455,8 @@ def generate_product_temporal_patterns(
     
     # Add current temporal information
     result = result.with_columns(
-        pl.col('timestamp').cast(pl.Datetime("ms")).dt.hour().alias('current_hour'),
-        pl.col('timestamp').cast(pl.Datetime("ms")).dt.weekday().alias('current_day')
+        pl.col('timestamp').dt.hour().alias('current_hour'),
+        pl.col('timestamp').dt.weekday().alias('current_day')
     )
     
     # Calculate differences (using abs() on the column)
