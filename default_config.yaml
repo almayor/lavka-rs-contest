@@ -21,7 +21,7 @@ history_generation:
   method: "basic"  # "basic" or "rolling_window"
   rolling_window:
     window_size: 30
-  final_target_n_days: 30  # number of days to use as target when training model on all data 
+  final_ratio: 0.2  # amount of data to use for feature generation during final training
 
 model:
   type: "catboost"  # "catboost", "lightgbm", "xgboost", or "random_forest"
@@ -55,9 +55,22 @@ model:
       min_samples_split: 2
       random_state: 42
 
+# Add this to your default_config.yaml file
+
 validation:
-  method: "temporal"
-  n_folds: 1
+  method: "temporal"  # Options: temporal, temporal_classic
+  n_folds: 3
+  time_window_days: 7  # Size of validation window in days
+
+history_generation:
+  method: "time_window"  # Options: basic, sliding_window, all_history, time_window
+  window_days: 30  # Window size for sliding_window method
+  recent_window_days: 7  # Recent window size for time_window method
+  mid_window_days: 30  # Mid-term window size for time_window method
+  long_window_days: 90  # Long-term window size for time_window method
+  final_ratio: 0.2  # Ratio for final model training (only used if not time-based)
+  use_time_based_final: true  # Whether to use time-based split for final model
+  final_days_for_test: 7  # Days to use for test in final model training
 
 metrics:
   - "auc"

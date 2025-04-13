@@ -95,21 +95,59 @@ class DataLoader:
         
         return processed_df
     
-    def create_fixed_splits(self, target_n_days: int):
+    def split_data(self, ratio: float = 0.2, time_based: bool = False, days_for_test: int = 7) -> Tuple[pl.DataFrame, pl.DataFrame]:
         """
-        Create a split into history, training and validation where both
-        training and validation targets encompass a fixed number of days.
-        Args:
-            target_ndats (int): Number of days to use for targetting
-        """
-        pass
+        Split data into history and training sets temporally.
         
+        Args:
+            ratio (float): Ratio of data to be used for validation (ignored if time_based is True).
+            time_based (bool): Whether to use time-based splitting instead of ratio-based.
+            days_for_test (int): Number of days to use for testing when using time-based splitting.
+            
+        Returns:
+            Tuple[pl.DataFrame, pl.DataFrame]: Tuple containing history and training DataFrames.
+        """
+        self.logger.debug("Splitting data into history and training sets...")
+        
+        # Ensure data is sorted by timestamp
+        df = self.train_df.sort('timestamp')
+        
+        if time_based:
+            # Time-based splitting - use the last N days for testing
+            max_timestamp = df['timestamp'].max()
+            # Convert days to seconds
+            days_in_seconds = days_for_test * 24 * 60 * 60
+            # Calculate the cutoff time
+            cutoff_time = max_timestamp - days_in_seconds
+            
+            # Split based on timestamp
+            history_df = df.filter(pl.col('timestamp') < cutoff_time)
+            train_df = df.filter(pl.col('timestamp') >= cutoff_time)
+            
+            self.logger.info(f"Time-based split: using data before {datetime.fromtimestamp(cutoff_time)} for history")
+            self.logger.info(f"Time-based split: using last {days_for_test} days for training")
+        else:
+            # Ratio-based splitting (original method)
+            split_index = int(len(df) * (1 - ratio))
+            
+            # Split data
+            history_df = df[:split_index]
+            train_df = df[split_index:]
+        
+        # Clean history if needed
+        history_df = self._clean_history(history_df)
+        
+        self.logger.info(f"Split data into {len(history_df)} history rows and {len(train_df)} training rows")
+        return history_df, train_df
 
-    def create_validation_splits(self, n_folds: None|int = None) -> List[Tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]]:
+    def create_validation_folds(self, n_folds: None|int = None, time_window_days: None|int = None) -> List[Tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]]:
         """
         Create validation splits based on the configuration.
+        
         Args:
             n_folds (Union[int, None]): Number of folds (if None, taken from config)
+            time_window_days (Union[int, None]): Size of time window in days for time-based validation
+            
         Returns:
             List[Tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]]: List of tuples containing
                 history, training, and validation DataFrames.
@@ -118,11 +156,16 @@ class DataLoader:
         validation_method = self.config.get('validation.method')
         
         if validation_method == 'temporal':
-            return self._create_temporal_splits(n_folds)
+            if time_window_days is None:
+                time_window_days = self.config.get('validation.time_window_days', 7)
+            
+            return self._create_temporal_folds_with_window(n_folds, time_window_days)
+        elif validation_method == 'temporal_classic':
+            return self._create_temporal_folds(n_folds)
         else:
             raise ValueError(f"Unknown validation method: {validation_method}")
     
-    def _create_temporal_splits(self, n_folds: int):
+    def _create_temporal_folds(self, n_folds: int):
         """
         Create time-based validation folds.
         Args:
@@ -138,35 +181,43 @@ class DataLoader:
         min_time = df['timestamp'].min()
         max_time = df['timestamp'].max()
         time_range = max_time - min_time
-        fold_duration = time_range / (n_folds + 2)  # +2 as we need separate folds for feature generation and training
+        
+        # Each fold needs 3 segments (history, train, validation)
+        # We want n_folds complete sets, so divide the time range into n_folds * 3 segments
+        segment_duration = time_range / (n_folds * 3)
         
         folds = []
         for i in range(n_folds):
+            # Calculate segment indices - each fold starts 3 segments later
+            base_segment = i * 3
+            
             # Calculate time boundaries
-            history_start_time = min_time + fold_duration * i
-            train_start_time = history_start_time + fold_duration 
-            val_start_time = train_start_time + fold_duration
-            val_end_time = val_start_time + fold_duration
+            history_start_time = min_time + segment_duration * base_segment
+            history_end_time = min_time + segment_duration * (base_segment + 1)
+            train_start_time = min_time + segment_duration * (base_segment + 1)
+            train_end_time = min_time + segment_duration * (base_segment + 2)
+            val_start_time = min_time + segment_duration * (base_segment + 2)
+            val_end_time = min_time + segment_duration * (base_segment + 3)
             
             # Create train and validation sets
             history_df = df.filter((pl.col('timestamp') >= history_start_time) &
-                                   (pl.col('timestamp') < train_start_time))
+                                (pl.col('timestamp') < history_end_time))
             train_df = df.filter((pl.col('timestamp') >= train_start_time) &
-                                 (pl.col('timestamp') < val_start_time))
+                                (pl.col('timestamp') < train_end_time))
             val_df = df.filter((pl.col('timestamp') >= val_start_time) & 
-                              (pl.col('timestamp') < val_end_time))
+                            (pl.col('timestamp') < val_end_time))
             
             history_df = self._clean_history(history_df)
             folds.append((history_df, train_df, val_df))
         
         self.logger.info(f"Created {len(folds)} temporal validation folds")
         return folds
-
     
     def _clean_history(self, df: pl.DataFrame) -> pl.DataFrame:
         """Clean training history based on configuration"""
         if self.config.get('history_cleaning.remove_lurkers'):
             n_old = df.height
+            total_user_count = df.select("user_id").n_unique()
             valid_users = (
                 df.filter(pl.col("action_type") != "AT_View")
                 .select("user_id")
@@ -175,7 +226,6 @@ class DataLoader:
             df = df.join(valid_users, on="user_id", how="inner")
 
             n_new = df.height
-            total_user_count = df.select("user_id").n_unique()
             invalid_user_count = total_user_count - valid_users.height
             self.logger.info(
                 f'Removed {invalid_user_count} users who only watch (lurkers); ' +
