@@ -15,8 +15,24 @@ class FeatureSelector:
         """Initialize feature selector with configuration"""
         self.config = config
         self.logger = get_logger(self.__class__.__name__)
-        
-    def select_features(
+
+        self.trained = False
+        self.cat_columns = None # Placeholder for categorical columns
+        self.selected_features = None # Placeholder for selected features
+
+    def __call__(self, features: pl.DataFrame) -> pl.DataFrame:
+        """Call method to select features"""
+        if not self.trained:
+            self.logger.error("FeatureSelector not trained. Call train() first.")
+            raise RuntimeError("FeatureSelector not trained. Call train() first.")
+
+        self.logger.debug("Applying feature selection")
+        if self.cat_columns is not None:
+            return features.select(self.cat_columns + self.selected_features)
+        else:
+            return features.select(self.selected_features)
+
+    def train(
             self, 
             train_features: pl.DataFrame, 
             train_target: pl.Series,
@@ -54,20 +70,20 @@ class FeatureSelector:
         if threshold is not None and threshold < 0:
             self.logger.error("Threshold must be non-negative.")
             raise ValueError("Threshold must be non-negative.")
+                
         
-        self.logger.info(f"Selecting features using method: {method}, threshold: {threshold}, n_features: {n_features}")
-        
-        # Convert to numpy for sklearn
         feature_names = train_features.columns
-        
         if cat_columns is not None:
+            self.cat_columns = cat_columns
             train_features = train_features.drop(cat_columns)
             feature_names = [col for col in feature_names if col not in cat_columns]
         
+        # Convert to numpy for sklearn
         train_features_np = train_features.to_numpy()
         train_target_np = train_target.to_numpy()
 
         # Apply feature selection method
+        self.logger.info(f"Selecting features using method: {method}, threshold: {threshold}, n_features: {n_features}")
         if method == 'variance':
             selected_indices = self._select_by_variance(train_features_np, feature_names, threshold)
         elif method == 'importance':
@@ -90,6 +106,10 @@ class FeatureSelector:
         self.logger.info(f"Removed features: {set(feature_names) - set(selected_features)}")
         self.logger.info(f"Selected features: {selected_features}")
         
+        self.trained = True
+        self.selected_features = selected_features
+        self.cat_columns = cat_columns
+
         return selected_features
         
     def _select_by_variance(

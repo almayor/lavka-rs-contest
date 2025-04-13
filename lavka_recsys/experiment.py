@@ -26,13 +26,13 @@ class Experiment:
         
         self.name = f"{name}_{config_hash}"
         self.config = config
-        self.logger = get_logger(f'experiment={name}')
+        self.logger = get_logger(f"{self.__class__.__name__}({self.name})")
         
         # Initialize components
         self.data_loader = DataLoader(config)
-        self.feature_factory = FeatureFactory(config)
         self.model_factory = ModelFactory(config)
         self.feature_selector = FeatureSelector(config) if config.get('feature_selection.enabled', False) else None
+        self.feature_factory = FeatureFactory(config)
         self.results = {}
         
         # Create output directory if needed
@@ -41,9 +41,30 @@ class Experiment:
         
         # Save initial configuration
         self._save_config()
-        
-        # Load data
+    
+    def setup(self):
+        """Prepare the experiment by loading data and initializing components"""
         self.data_loader.load_data()
+
+        # Train feature selector if enabled
+        if self.feature_selector:
+            self.logger.info("Training feature selector")
+        
+            history_df, train_df = self.data_loader.create_final_split()
+            train_features, train_target, cat_columns, _ = self.feature_factory.generate_batch(
+                history_df, train_df
+            )
+            
+            # Train the feature selector
+            self.feature_selector.train(
+                train_features,
+                train_target,
+                cat_columns=cat_columns,
+            )
+            self.feature_factory.register_feature_selector(self.feature_selector)
+            self.logger.info("Feature selector trained")
+        else:
+            self.logger.info("Feature selector disabled")
     
     def run(self):
         """
@@ -69,26 +90,6 @@ class Experiment:
             history_df, train_df, feature_names, target_name
         )
         
-        # Apply feature selection if enabled
-        if self.feature_selector is not None:
-            self.logger.info("Performing feature selection")
-            self.selected_columns = self.feature_selector.select_features(
-                train_features,
-                train_target,
-            )
-            
-            # Filter training features to only use selected ones
-            train_features = train_features.select(self.selected_columns)
-            
-            # Update categorical columns
-            if cat_columns:
-                cat_columns = [col for col in cat_columns if col in self.selected_columns]
-            
-            self.logger.info(f"Selected {len(self.selected_columns)} columns out of {len(feature_names)}")
-            
-            # Save selected features in results
-            self.results['selected_features'] = self.selected_columns
-
         val_history = pl.concat([history_df, train_df], how='vertical')
         val_features, val_target, _, val_request_ids = self.feature_factory.generate_batch(
             val_history, val_df, feature_names, target_name

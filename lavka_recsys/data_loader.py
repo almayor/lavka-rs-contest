@@ -32,10 +32,11 @@ class DataLoader:
         self._preprocess_data()
         
         # Sample if needed (for faster debugging)
-        sample_size = self.config.get('data.sample_size')
-        if sample_size is not None:
+        sample_fraction = self.config.get('data.sample_fraction')
+        if sample_fraction is not None:
             self.train_df = self.train_df.sample(
-                n=sample_size, 
+                fraction=sample_fraction,
+                with_replacement=False,
                 seed=42
             )
         

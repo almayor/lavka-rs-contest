@@ -81,10 +81,20 @@ class FeatureFactory:
         
         return decorator
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, feature_selector: Optional[Callable] = None):
         """Initialize feature factory"""
         self.config = config
         self.logger = get_logger(self.__class__.__name__)
+        self.feature_selector = feature_selector
+
+    def register_feature_selector(self, feature_selector: Callable):
+        """
+        Register a feature selector function to be applied after feature generation.
+        Args:
+            feature_selector (Callable): Function to select features.
+        """
+        self.logger.debug("Registering feature selector")
+        self.feature_selector = feature_selector
     
     def generate_batch(
             self, history_df, target_df, requested_features=None, requested_target=None
@@ -107,6 +117,8 @@ class FeatureFactory:
         features, cat_columns = self.generate_features(history_df, target_df, requested_features)
         target, _ = self.generate_target(history_df, target_df, requested_target)
         mask = ~target.is_null()
+        if self.feature_selector:
+            features = self.feature_selector(features)
         return (
             features.filter(mask),
             target.filter(mask),
@@ -150,7 +162,12 @@ class FeatureFactory:
         self.logger.info("Joined features")
         self.logger.info(f"All column names: {all_columns}")
         self.logger.info(f"All categorical column names: {all_cat_columns}")
-        return target_df.select(all_columns), all_cat_columns
+        
+        target_df = target_df.select(all_columns)
+        if self.feature_selector:
+            target_df = self.feature_selector(target_df)
+        
+        return target_df, all_cat_columns
     
     def generate_target(self, history_df, target_df, requested_target: str | None = None) -> pl.Series:
         """
@@ -595,7 +612,7 @@ def generate_frequency_features(
 ) -> pl.DataFrame:
     """Generate frequency-based features"""
     #TODO interactions may span both history and target data!
-    
+
     # Get timestamps of all interactions for each user-product pair
     interactions = history_df.filter(
         ~pl.col('action_type').is_in(['AT_View'])  # Exclude views for meaningful frequency

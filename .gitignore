@@ -1,3 +1,5 @@
 catboost_info/
 data/
 results/
+playground.ipynb
+debugging_fs.pkl

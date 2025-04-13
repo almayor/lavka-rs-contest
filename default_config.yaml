@@ -77,5 +77,7 @@ preprocessing:
 
 # Feature selection
 feature_selection:
-  method: "variance"
-  threshold: 0.16
+  enabled: false
+  method: "importance"
+  # threshold: 0.05
+  n_features: 20
