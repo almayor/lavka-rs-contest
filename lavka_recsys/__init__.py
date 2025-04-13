@@ -9,6 +9,7 @@ from .collaborative_filtering import register_cf_features
 
 from .feature_selector import FeatureSelector
 from .feature_factory import FeatureFactory
+from .data_loader import DataLoader
 
 register_text_embedding_features()
 register_cf_features()

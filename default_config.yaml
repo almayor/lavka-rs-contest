@@ -74,3 +74,8 @@ logging:
 # Optional preprocessing
 preprocessing:
   normalize_timestamps: true
+
+# Feature selection
+feature_selection:
+  method: "variance"
+  threshold: 0.16

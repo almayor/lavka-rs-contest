@@ -295,13 +295,13 @@ def generate_recency_user_product(
     feature = history_df.group_by(['user_id', 'product_id']).agg(
         pl.max('timestamp').alias('last_interaction_u_p')
     ).with_columns(
-        days_since_interaction_u_p=(latest_time - pl.col('last_interaction_u_p')) / (24 * 60 * 60)
+        days_since_interaction_u_p=(latest_time - pl.col('last_interaction_u_p')).dt.total_days()
     )
     return target_df.join(
         feature,
         on=['user_id', 'product_id'],
         how='left'
-    )
+    ).drop('last_interaction_u_p')
 
 @FeatureFactory.register('recency_user_store')
 def generate_recency_user_store(
@@ -313,13 +313,13 @@ def generate_recency_user_store(
     feature = history_df.group_by(['user_id', 'store_id']).agg(
         pl.max('timestamp').alias('last_interaction_u_s')
     ).with_columns(
-        days_since_interaction_u_s=(latest_time - pl.col('last_interaction_u_s')) / (24 * 60 * 60)
+        days_since_interaction_u_s=(latest_time - pl.col('last_interaction_u_s')).dt.total_days()
     )
     return target_df.join(
         feature,
         on=['user_id', 'store_id'],
         how='left'
-    )
+    ).drop('last_interaction_u_s')
 
 @FeatureFactory.register('user_stats')
 def generate_user_stats(
@@ -409,7 +409,8 @@ def generate_time_features(
         pl.col('timestamp').dt.month().alias('month'),
         pl.col('timestamp')
             .dt.weekday()
-                    .is_in([6, 7])  # 5=Saturday, 6=Sunday
+                    .cast(pl.Int32)
+                    .is_in([6, 7])
                     .alias('is_weekend')
     ])
 
@@ -493,11 +494,10 @@ def generate_time_window_features(
     latest_time = history_df['timestamp'].max()
     
     # 1-day, 7-day, and 30-day windows (in seconds)
-    day_seconds = 24 * 60 * 60
     windows = {
-        'day': day_seconds,
-        'week': 7 * day_seconds,
-        'month': 30 * day_seconds
+        'day': pl.duration(days=1),
+        'week': pl.duration(weeks=1),
+        'month': pl.duration(days=30)
     }
     
     result = target_df
@@ -528,8 +528,10 @@ def generate_session_features(
     Generate session-based features.
     A session is defined as a sequence of actions by the same user within a time window.
     """
+    #TODO Sessions may span both history and target data!
+
     # Define session window (30 minutes in seconds)
-    session_window = 30 * 60
+    session_window = pl.duration(minutes=30)
     
     # Sort history by user and timestamp
     sorted_history = history_df.sort(['user_id', 'timestamp'])
@@ -561,7 +563,7 @@ def generate_session_features(
     
     # Calculate session duration
     session_features = session_features.with_columns([
-        (pl.col('session_end') - pl.col('session_start')).alias('session_duration_seconds')
+        (pl.col('session_end') - pl.col('session_start')).dt.total_seconds().alias('session_duration_seconds')
     ])
     
     # Get the most recent session for each user
@@ -592,6 +594,8 @@ def generate_frequency_features(
     history_df: pl.DataFrame, target_df: pl.DataFrame
 ) -> pl.DataFrame:
     """Generate frequency-based features"""
+    #TODO interactions may span both history and target data!
+    
     # Get timestamps of all interactions for each user-product pair
     interactions = history_df.filter(
         ~pl.col('action_type').is_in(['AT_View'])  # Exclude views for meaningful frequency
@@ -603,10 +607,18 @@ def generate_frequency_features(
     def calculate_intervals(times):
         if len(times) <= 1:
             return None
-        intervals = [times[i] - times[i-1] for i in range(1, len(times))]
+        
+        # When working with datetime objects, we need to calculate time differences
+        # that result in timedelta objects and then convert to seconds
+        intervals = []
+        for i in range(1, len(times)):
+            # Get difference between consecutive timestamps in seconds
+            diff = (times[i] - times[i-1]).total_seconds()
+            intervals.append(diff)
+        
         return intervals
     
-    # Add return_dtype to the first map_elements
+    # Add return_dtype to the first map_elements - intervals will be a list of seconds (float)
     interactions = interactions.with_columns([
         pl.col('interaction_times')
           .map_elements(calculate_intervals, return_dtype=pl.List(pl.Float64))
@@ -619,7 +631,7 @@ def generate_frequency_features(
             return None
         return sum(intervals) / len(intervals)
     
-    # Add return_dtype to the second map_elements
+    # Calculate mean interval in seconds
     interactions = interactions.with_columns([
         pl.col('intervals')
           .map_elements(mean_interval, return_dtype=pl.Float64)
@@ -753,7 +765,7 @@ def generate_user_segments(
     # Calculate purchase rate
     user_metrics = user_metrics.with_columns([
         (pl.col('total_purchases') / pl.max_horizontal(pl.lit(1), pl.col('total_views'))).alias('purchase_rate'),
-        (pl.col('activity_span') / (24 * 60 * 60)).alias('activity_span_days')
+        pl.col('activity_span').dt.total_days().alias('activity_span_days')
     ])
     
     # Define segments

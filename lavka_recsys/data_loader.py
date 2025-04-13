@@ -1,6 +1,6 @@
 import polars as pl
 from typing import Tuple, List
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .config import Config
 from .custom_logging import get_logger
@@ -46,8 +46,8 @@ class DataLoader:
     
     def create_validation_split(
             self,
-            validation_days: int = 14,
-            train_days: int = 40
+            validation_days: int = 30,
+            train_days: int = 30
         ) -> Tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
         """
         Create a single validation split using the last X days of data.
@@ -65,12 +65,10 @@ class DataLoader:
         
         # Use last N days for validation
         max_time = df['timestamp'].max()
-        days_in_seconds = validation_days * 24 * 60 * 60
-        val_start_time = max_time - days_in_seconds
+        val_start_time = max_time - pl.duration(days=validation_days)
         
         # Use previous M days for training
-        train_window_seconds = train_days * 24 * 60 * 60
-        train_start_time = val_start_time - train_window_seconds
+        train_start_time = val_start_time - pl.duration(days=train_days)
         
         # Split data
         history_df = df.filter(pl.col('timestamp') < train_start_time)
@@ -81,13 +79,9 @@ class DataLoader:
         val_df = df.filter(pl.col('timestamp') >= val_start_time)
         
         # Log the split details
-        history_end = datetime.fromtimestamp(train_start_time)
-        train_end = datetime.fromtimestamp(val_start_time)
-        val_end = datetime.fromtimestamp(max_time)
-        
-        self.logger.info(f"Validation split: history until {history_end}")
-        self.logger.info(f"Training: {history_end} to {train_end}")
-        self.logger.info(f"Validation: {train_end} to {val_end}")
+        self.logger.info(f"Validation split: history until {train_start_time}")
+        self.logger.info(f"Training: {train_start_time} to {val_start_time}")
+        self.logger.info(f"Validation: {val_start_time} to {max_time}")
         self.logger.info(f"Split data: {len(history_df)} history, {len(train_df)} train, {len(val_df)} validation rows")
         
         return history_df, train_df, val_df
@@ -95,7 +89,7 @@ class DataLoader:
     def create_final_split(self) -> Tuple[pl.DataFrame, pl.DataFrame]:
         """
         Create a final split for training the production model.
-        Uses all data until the last 14 days for history, and the last 14 days for training.
+        Uses all data until the last 30 days for history, and the last 30 days for training.
         
         Returns:
             Tuple[pl.DataFrame, pl.DataFrame]: Tuple of (history_df, train_df)
@@ -105,20 +99,17 @@ class DataLoader:
         # Ensure data is sorted by timestamp
         df = self.train_df.sort('timestamp')
         
-        # Use last 14 days for final training
+        # Use last 30 days for final training
         max_time = df['timestamp'].max()
-        days_in_seconds = 14 * 24 * 60 * 60
-        split_time = max_time - days_in_seconds
+        split_time = max_time - pl.duration(days=30)
         
         # Split data
         history_df = df.filter(pl.col('timestamp') < split_time)
         train_df = df.filter(pl.col('timestamp') >= split_time)
         
         # Log the split details
-        split_date = datetime.fromtimestamp(split_time)
-        
-        self.logger.info(f"Final split: history until {split_date}")
-        self.logger.info(f"Final training: {split_date} to {datetime.fromtimestamp(max_time)}")
+        self.logger.info(f"Final split: history until {split_time}")
+        self.logger.info(f"Final training: {split_time} to {max_time}")
         self.logger.info(f"Final split data: {len(history_df)} history, {len(train_df)} train rows")
         
         return history_df, train_df
@@ -128,7 +119,15 @@ class DataLoader:
         Preprocess data for training and testing by doing necessary data type conversions
         and transformations.
         """
-        self.train_df.with_columns(
+        # Convert timestamp column to datetime
+        self.train_df = self.train_df.with_columns(
             pl.col('timestamp').mul(1000).cast(pl.Datetime("ms"))
         )
-        self.logger.debug("Converted timestamp to datetime")
+        
+        # Do the same for test data if it exists
+        if self.test_df is not None:
+            self.test_df = self.test_df.with_columns(
+                pl.col('timestamp').mul(1000).cast(pl.Datetime("ms"))
+            )
+            
+        self.logger.debug("Converted timestamp to datetime format")
