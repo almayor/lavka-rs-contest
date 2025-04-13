@@ -8,8 +8,9 @@ import pandas as pd
 import polars as pl
 from tqdm.auto import tqdm
 
-from .custom_logging import get_logger
 from .config import Config
+from .custom_logging import get_logger
+
 
 class FeatureFactory:
     """Feature generation with selective feature creation"""
@@ -129,6 +130,9 @@ class FeatureFactory:
         """
         if requested_features is None:
             requested_features = self.config.get("features")
+        if len(requested_features) != len(set(requested_features)):
+            self.logger.error("Duplicate feature names in requested_features")
+            raise ValueError("Duplicate feature names in requested_features")
         self.logger.info(f"Generating features: {', '.join(requested_features)}")
                 
         # Generate each requested feature (and dependencies)
@@ -411,6 +415,76 @@ def generate_time_features(
                     .is_in([5, 6])  # 5=Saturday, 6=Sunday
                     .alias('is_weekend')
     ])
+
+@FeatureFactory.register('product_temporal_patterns')
+def generate_product_temporal_patterns(
+    history_df: pl.DataFrame, target_df: pl.DataFrame
+) -> tuple[pl.DataFrame, list[str]]:
+    """Generate features related to typical purchase times and days for products"""
+    # Filter to only purchase events
+    purchases = history_df.filter(pl.col('action_type') == "AT_Purchase")
+    
+    # Extract temporal features
+    purchases = purchases.with_columns(
+        pl.col('timestamp').cast(pl.Datetime("ms")).dt.hour().alias('hour_of_day'),
+        pl.col('timestamp').cast(pl.Datetime("ms")).dt.weekday().alias('day_of_week')
+    )
+    
+    # Calculate hourly patterns for each product
+    hour_stats = purchases.group_by('product_id').agg(
+        pl.mean('hour_of_day').alias('avg_purchase_hour'),
+        pl.std('hour_of_day').alias('std_purchase_hour')
+    )
+    
+    # Calculate day of week patterns for each product
+    day_stats = purchases.group_by(['product_id', 'day_of_week']).agg(
+        pl.count().alias('purchase_count')
+    )
+    
+    # Find the most common purchase day for each product
+    most_common_day = day_stats.sort(['product_id', 'purchase_count'], descending=[False, True]) \
+        .group_by('product_id') \
+        .agg(pl.first('day_of_week').alias('most_common_purchase_day'))
+    
+    # Join hour and day stats
+    temporal_stats = hour_stats.join(most_common_day, on='product_id')
+    
+    # Join with target data
+    result = target_df.join(
+        temporal_stats,
+        on=['product_id'],
+        how='left'
+    )
+    
+    # Add current temporal information
+    result = result.with_columns(
+        pl.col('timestamp').cast(pl.Datetime("ms")).dt.hour().alias('current_hour'),
+        pl.col('timestamp').cast(pl.Datetime("ms")).dt.weekday().alias('current_day')
+    )
+    
+    # Calculate differences (using abs() on the column)
+    result = result.with_columns(
+        (pl.col('current_hour') - pl.col('avg_purchase_hour')).abs().alias('hour_diff'),
+        (pl.col('current_day') - pl.col('most_common_purchase_day')).abs().alias('day_diff')
+    )
+    
+    # Apply circular distance formula 
+    result = result.with_columns(
+        pl.min_horizontal(pl.col('hour_diff'), 24 - pl.col('hour_diff')).alias('hour_distance'),
+        pl.min_horizontal(pl.col('day_diff'), 7 - pl.col('day_diff')).alias('day_distance')
+    )
+    
+    # Convert to relevance scores (0 to 1)
+    result = result.with_columns(
+        (1 - pl.col('hour_distance') / 12).alias('hour_relevance'),
+        (1 - pl.col('day_distance') / 3.5).alias('day_of_week_relevance')
+    )
+    
+    # Keep only the relevant columns
+    final_cols = target_df.columns + ['avg_purchase_hour', 'std_purchase_hour', 
+                                     'most_common_purchase_day', 'hour_relevance', 
+                                     'day_of_week_relevance']
+    return result.select(final_cols)
 
 # ========== TIME WINDOW FEATURES ===========
 

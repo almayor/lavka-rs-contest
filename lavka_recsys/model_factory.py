@@ -232,6 +232,7 @@ class ModelFactory:
             'lightgbm': LightGBMModel,
             # Add more models as needed
         }
+        self.logger = get_logger(self.__class__.__name__)
     
     def create_model(self, override_params=None) -> Model:
         """Create a model instance based on type"""
@@ -245,4 +246,5 @@ class ModelFactory:
             model_params.update(override_params)
     
         # Create and return model instance
+        self.logger.info(f"Creating {model_type} model with params: {model_params}")
         return self.models[model_type](**model_params)

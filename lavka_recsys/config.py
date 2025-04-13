@@ -56,8 +56,8 @@ class Config:
                 f"Unable to load default configuration from {default_config_path}: {e}"
             )
         
-        # Merge defaults into the current configuration without overriding existing keys.
-        self.config = dpath.util.merge(self.config, default_config)
+        # Merge defaults into the current configuration.
+        self.config = dpath.merge(default_config, self.config, flags=dpath.MergeType.REPLACE)
 
     def get(self, path, default=None, sep='.'):
         """

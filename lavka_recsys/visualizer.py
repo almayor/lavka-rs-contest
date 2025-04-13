@@ -77,7 +77,7 @@ class Visualizer:
                                 key=lambda x: x[1], reverse=True)
         
         # Take top N features
-        top_features = sorted_features[:top_n]
+        top_features = reversed(sorted_features[:top_n])
         
         # Unpack feature names and importance values
         feature_names, importance_values = zip(*top_features)

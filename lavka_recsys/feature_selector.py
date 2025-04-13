@@ -20,8 +20,8 @@ class FeatureSelector:
             self, 
             train_features: pl.DataFrame, 
             train_target: pl.Series,
-            method: str = 'importance',
-            threshold: float = 0.05,
+            method: str = None,
+            threshold: float = None,
             n_features: int = None
         ) -> List[str]:
         """
@@ -30,14 +30,30 @@ class FeatureSelector:
         Args:
             train_features: Training features DataFrame
             train_target: Target values Series
-            method: Feature selection method ('variance', 'importance', 'correlation')
-            threshold: Threshold for feature selection
-            n_features: Number of features to select (if None, use threshold)
-            
+            method (optional, use config if None): Feature selection method ('variance', 'importance', 'correlation').
+                1. 'variance' - Select features with variance above the threshold.
+                2. 'importance' - Select features based on feature importance from a Random Forest model.
+                3. 'correlation' - Select features based on correlation with target and remove highly intercorrelated features.
+            threshold (optional, use config if None): Threshold for feature selection
+            n_features (optional, use config if None): Number of features to select (if None, use threshold)  
         Returns:
             List of selected feature names
         """
-        self.logger.info(f"Selecting features using method: {method}")
+        method = self.config.get('feature_selection.method', method)
+        threshold = self.config.get('feature_selection.threshold', threshold)
+        n_features = self.config.get('feature_selection.n_features', n_features)
+
+        if method not in ['variance', 'importance', 'correlation']:
+            self.logger.error(f"Unknown feature selection method: {method}.")
+            raise ValueError(f"Unknown feature selection method: {method}")
+        if n_features is not None and n_features <= 0:
+            self.logger.error("Number of features to select must be greater than 0.")
+            raise ValueError("Number of features to select must be greater than 0.")
+        if threshold is not None and threshold < 0:
+            self.logger.error("Threshold must be non-negative.")
+            raise ValueError("Threshold must be non-negative.")
+        
+        self.logger.info(f"Selecting features using method: {method}, threshold: {threshold}, n_features: {n_features}")
         
         # Convert to numpy for sklearn
         if isinstance(train_features, pl.DataFrame):
@@ -64,16 +80,14 @@ class FeatureSelector:
                 train_features_np, train_target_np, threshold, n_features
             )
         else:
-            self.logger.warning(f"Unknown feature selection method: {method}. Using importance.")
-            selected_indices = self._select_by_importance(
-                train_features_np, train_target_np, threshold, n_features
-            )
+            self.logger.error(f"Unknown feature selection method: {method}.")
+            raise ValueError(f"Unknown feature selection method: {method}")
             
         # Get selected feature names
         selected_features = [feature_names[i] for i in selected_indices]
         
         self.logger.info(f"Selected {len(selected_features)} features out of {len(feature_names)}")
-        self.logger.debug(f"Selected features: {selected_features}")
+        self.logger.info(f"Selected features: {selected_features}")
         
         return selected_features
         

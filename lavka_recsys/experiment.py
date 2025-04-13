@@ -13,6 +13,7 @@ from .data_loader import DataLoader
 from .feature_factory import FeatureFactory
 from .model_factory import ModelFactory
 from .hyperparameter_tuner import HyperparameterTuner
+from .feature_selector import FeatureSelector
 
 class Experiment:
     """Simplified experiment framework for recommender systems"""
@@ -31,10 +32,11 @@ class Experiment:
         self.data_loader = DataLoader(config)
         self.feature_factory = FeatureFactory(config)
         self.model_factory = ModelFactory(config)
+        self.feature_selector = FeatureSelector(config) if config.get('feature_selection.enabled', False) else None
         self.results = {}
         
         # Create output directory if needed
-        results_dir = config.get('output.results_dir')
+        results_dir = config.get('output.results_dir', 'results')
         os.makedirs(results_dir, exist_ok=True)
         
         # Save initial configuration
@@ -62,11 +64,31 @@ class Experiment:
         # Create validation split
         history_df, train_df, val_df = self.data_loader.create_validation_split()
         
-        # Generate features
+        # Generate features for training
         train_features, train_target, cat_columns, _ = self.feature_factory.generate_batch(
             history_df, train_df, feature_names, target_name
         )
         
+        # Apply feature selection if enabled
+        if self.feature_selector is not None:
+            self.logger.info("Performing feature selection")
+            self.selected_columns = self.feature_selector.select_features(
+                train_features,
+                train_target,
+            )
+            
+            # Filter training features to only use selected ones
+            train_features = train_features.select(self.selected_columns)
+            
+            # Update categorical columns
+            if cat_columns:
+                cat_columns = [col for col in cat_columns if col in self.selected_columns]
+            
+            self.logger.info(f"Selected {len(self.selected_columns)} columns out of {len(feature_names)}")
+            
+            # Save selected features in results
+            self.results['selected_features'] = self.selected_columns
+
         val_history = pl.concat([history_df, train_df], how='vertical')
         val_features, val_target, _, val_request_ids = self.feature_factory.generate_batch(
             val_history, val_df, feature_names, target_name

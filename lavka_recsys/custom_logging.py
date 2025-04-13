@@ -2,8 +2,42 @@ import logging
 import sys
 import os
 
-def setup_logging(log_file='lavka_recsys.log', file_level=logging.DEBUG, console_level=logging.INFO):
-    """Configure logging to write to both file and console."""
+def setup_logging(config=None):
+    """
+    Configure logging to write to both file and console based on config.
+    
+    Parameters:
+        config: Configuration object. If provided, logging settings will be read from config.
+    """
+    # Default values
+    log_file = 'lavka_recsys.log'
+    file_level = logging.DEBUG
+    console_level = logging.INFO
+    
+    # Override with config values if available
+    if config:
+        log_config = config.get('logging', {})
+        
+        # Get log file path from config
+        config_log_file = log_config.get('file')
+        if config_log_file:
+            log_file = config_log_file
+        
+        # Get log level from config
+        level_map = {
+            'DEBUG': logging.DEBUG,
+            'INFO': logging.INFO,
+            'WARNING': logging.WARNING,
+            'ERROR': logging.ERROR,
+            'CRITICAL': logging.CRITICAL
+        }  
+        config_console_level = log_config.get('console_level')
+        if config_console_level:
+            console_level = level_map.get(config_console_level.upper(), logging.INFO)
+        config_file_level = log_config.get('file_level')
+        if config_file_level:
+            file_level = level_map.get(config_file_level.upper(), logging.DEBUG)
+    
     # Create logger
     root_logger = logging.getLogger('lavka_recsys')
     root_logger.setLevel(min(file_level, console_level))
@@ -38,6 +72,3 @@ def get_logger(name=None):
         # This creates a child logger that inherits handlers from the root logger
         return logging.getLogger(f'lavka_recsys.{name}')
     return logging.getLogger('lavka_recsys')
-
-# Create and configure logger
-logger = setup_logging()

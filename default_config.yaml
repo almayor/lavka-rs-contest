@@ -24,6 +24,7 @@ features:
   - "product_stats"
   - "store_stats"
   - "city_stats"
+  - "product_temporal_patterns"
   # - "recency_user_store"
   # - "time_features"
   # - "time_window_user_product"
@@ -62,7 +63,8 @@ history_cleaning:
 
 # Logging configuration
 logging:
-  level: "INFO"
+  console_level: "INFO"
+  file_level: "DEBUG"
   file: "lavka_recsys.log"
 
 # Optional preprocessing

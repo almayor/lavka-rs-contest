@@ -286,4 +286,4 @@ def register_text_embedding_features():
 
     return True
 
-
+register_text_embedding_features()
