@@ -4,6 +4,7 @@ from typing import Tuple
 import numpy as np
 import polars as pl
 from scipy.sparse import csr_matrix
+from scipy.sparse.linalg import svds
 
 from lavka_recsys.feature_factory import FeatureFactory
 
@@ -163,6 +164,57 @@ def get_npmi_item_scores(
     
     return scores
 
+def compute_svd_factors(
+    interaction_matrix: csr_matrix, 
+    n_factors: int = 50,
+    normalize: bool = True
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Compute SVD decomposition of the interaction matrix.
+    
+    Parameters:
+        interaction_matrix: csr_matrix of shape (n_users, n_products)
+            Interaction matrix where each entry indicates user-product interactions.
+        n_factors: int
+            Number of latent factors to use (k in truncated SVD).
+        normalize: bool
+            Whether to normalize the scores by dividing by the singular values.
+            
+    Returns:
+        u: np.ndarray of shape (n_users, n_factors)
+            User factors matrix.
+        s: np.ndarray of shape (n_factors,)
+            Singular values.
+        vt: np.ndarray of shape (n_factors, n_products)
+            Transpose of the item factors matrix.
+    """
+    # Ensure we don't request more factors than possible
+    n_factors = min(n_factors, min(interaction_matrix.shape) - 1)
+    
+    # Mean-center the data (optional but often improves results)
+    # For sparse matrices, we can use the row means for centering
+    row_means = np.array(interaction_matrix.sum(axis=1) / interaction_matrix.getnnz(axis=1))[:,0]
+    # Create a copy to avoid modifying the original
+    centered_matrix = interaction_matrix.copy()
+    
+    # Apply centering for non-zero elements
+    for i in range(interaction_matrix.shape[0]):
+        centered_matrix[i].data = centered_matrix[i].data - row_means[i]
+    
+    # Compute truncated SVD
+    u, s, vt = svds(centered_matrix, k=n_factors)
+    
+    # Sort by singular values in descending order
+    idx = np.argsort(s)[::-1]
+    s = s[idx]
+    u = u[:, idx]
+    vt = vt[idx, :]
+    
+    # Optionally normalize (divide user factors by singular values)
+    if normalize:
+        u = u * s
+    
+    return u, s, vt
 
 # Add methods to FeatureFactory for collaborative filtering
 def register_cf_features():
@@ -265,4 +317,164 @@ def register_cf_features():
             pl.struct("user_id", "product_id")
                 .map_elements(get_score, return_dtype=pl.Float64)
                 .alias("npmi_cf_score")
+        )
+
+    @FeatureFactory.register('svd-cf')
+    def compute_svd_cf_scores(
+        history_df: pl.DataFrame, 
+        target_df: pl.DataFrame,
+        n_factors: int = 50,
+        normalize: bool = True
+    ) -> pl.DataFrame:
+        """
+        Computes SVD-based collaborative filtering scores.
+        
+        SVD decomposes the user-item interaction matrix into three matrices:
+        R ≈ U·Σ·V^T where U and V represent latent factors for users and items,
+        and Σ is a diagonal matrix of singular values.
+        
+        Parameters:
+            history_df: pl.DataFrame
+                DataFrame containing user-product interaction history.
+            target_df: pl.DataFrame
+                DataFrame containing user-product pairs to score.
+            n_factors: int
+                Number of latent factors to use.
+            normalize: bool
+                Whether to weight user factors by singular values.
+                
+        Returns:
+            target_df: pl.DataFrame
+                The input DataFrame with an additional column 'svd_cf_score'.
+        """
+        # Filter to relevant interactions
+        df_interact = history_df.filter(
+            pl.col("action_type").is_in(["AT_Purchase", "AT_CartUpdate"])
+        )
+        
+        # Get interaction matrix and mappings
+        interaction_matrix, user2idx, product2idx = get_interaction_matrix(df_interact)
+        interaction_matrix = interaction_matrix.astype(np.float64)
+        
+        # Compute SVD factors
+        user_factors, singular_values, item_factors_t = compute_svd_factors(
+            interaction_matrix, n_factors, normalize
+        )
+        
+        # Transpose item factors for easier dot product
+        item_factors = item_factors_t.T
+        
+        def get_score(row: pl.Series) -> float:
+            user_id = row["user_id"]
+            product_id = row["product_id"]
+            
+            user_idx = user2idx.get(user_id)
+            product_idx = product2idx.get(product_id)
+            
+            if user_idx is None or product_idx is None:
+                return np.nan
+            
+            # Compute dot product between user and item factors
+            return np.dot(user_factors[user_idx], item_factors[product_idx])
+        
+        # Add SVD scores to target DataFrame
+        return target_df.with_columns(
+            pl.struct("user_id", "product_id")
+                .map_elements(get_score, return_dtype=pl.Float64)
+                .alias("svd_cf_score")
+        )
+
+    @FeatureFactory.register('puresvd-cf')
+    def compute_puresvd_cf_scores(
+        history_df: pl.DataFrame, 
+        target_df: pl.DataFrame,
+        n_factors: int = 50,
+        implicit: bool = True,
+        normalize_users: bool = False
+    ) -> pl.DataFrame:
+        """
+        Computes PureSVD collaborative filtering scores with binary interaction matrix.
+        
+        PureSVD is a variant that uses a binary interaction matrix and is particularly
+        effective for implicit feedback datasets.
+        
+        Parameters:
+            history_df: pl.DataFrame
+                DataFrame containing user-product interaction history.
+            target_df: pl.DataFrame
+                DataFrame containing user-product pairs to score.
+            n_factors: int
+                Number of latent factors to use.
+            implicit: bool
+                Whether to use binary (True) or count-based (False) interaction data.
+            normalize_users: bool
+                Whether to normalize user vectors to unit length.
+                
+        Returns:
+            target_df: pl.DataFrame
+                The input DataFrame with an additional column 'puresvd_cf_score'.
+        """
+        # Filter to relevant interactions
+        df_interact = history_df.filter(
+            pl.col("action_type").is_in(["AT_Purchase", "AT_CartUpdate", "AT_Click"])
+        )
+        
+        # Get interaction matrix and mappings
+        interaction_matrix, user2idx, product2idx = get_interaction_matrix(df_interact)
+        interaction_matrix = interaction_matrix.astype(np.float64)
+        
+        # For PureSVD with implicit feedback, ensure binary matrix
+        if implicit:
+            interaction_matrix = interaction_matrix.copy()
+            interaction_matrix.data = np.ones_like(interaction_matrix.data)
+            
+        # Apply IDF weighting (optional enhancement)
+        # This weights items inversely by their popularity
+        n_users = interaction_matrix.shape[0]
+        item_counts = np.array(interaction_matrix.sum(axis=0)).flatten()
+        idf = np.log(n_users / (item_counts + 1))
+        
+        # Apply IDF weighting to interaction matrix
+        for i in range(interaction_matrix.shape[1]):
+            if interaction_matrix[:, i].nnz > 0:
+                interaction_matrix[:, i] = interaction_matrix[:, i] * idf[i]
+        
+        # Compute SVD
+        u, s, vt = svds(interaction_matrix, k=n_factors)
+        
+        # Sort by singular values in descending order
+        idx = np.argsort(s)[::-1]
+        s = s[idx]
+        u = u[:, idx]
+        vt = vt[idx, :]
+        
+        # Weight user factors by singular values
+        weighted_user_factors = u * s
+        
+        # Normalize user vectors to unit length if requested
+        if normalize_users:
+            norms = np.linalg.norm(weighted_user_factors, axis=1)
+            weighted_user_factors = weighted_user_factors / norms[:, np.newaxis]
+        
+        # Get item factors
+        item_factors = vt.T
+        
+        def get_score(row: pl.Series) -> float:
+            user_id = row["user_id"]
+            product_id = row["product_id"]
+            
+            user_idx = user2idx.get(user_id)
+            product_idx = product2idx.get(product_id)
+            
+            if user_idx is None or product_idx is None:
+                return np.nan
+            
+            # Compute dot product between user and item factors
+            return np.dot(weighted_user_factors[user_idx], item_factors[product_idx])
+        
+        # Add PureSVD scores to target DataFrame
+        return target_df.with_columns(
+            pl.struct("user_id", "product_id")
+                .map_elements(get_score, return_dtype=pl.Float64)
+                .alias("puresvd_cf_score")
         )

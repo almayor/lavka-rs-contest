@@ -33,10 +33,12 @@ features:
   # - "product_popularity_trend"
   # - "cross_features"
   # - "user_segments"
-  # - "memory-based-cf" # Collaborative filtering
-  # - "npmi-cf" # Collaborative filtering
-  # - "product_embeddings"  # NLP feature
-  # - "category_embeddings"  # NLP faturee
+  # - "memory-based-cf"       # Collaborative filtering
+  # - "npmi-cf"               # Collaborative filtering
+  # - "puresvd-cf"            # Collaborative filtering
+  # - "svd-cf"                # Collaborative filtering
+  # - "product_embeddings"    # NLP feature
+  # - "category_embeddings"   # NLP faturee
 
 # Target definition
 target: "CartUpdate_Purchase_vs_View"
