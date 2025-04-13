@@ -34,6 +34,7 @@ features:
   # - "cross_features"
   # - "user_segments"
   # - "memory-based-cf" # Collaborative filtering
+  # - "npmi-cf" # Collaborative filtering
   # - "product_embeddings"  # NLP feature
   # - "category_embeddings"  # NLP faturee
 
