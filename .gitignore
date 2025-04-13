@@ -1,5 +1,2 @@
 catboost_info/
 data/*.parquet
-*.parquet
-*.zip
-results/

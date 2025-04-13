@@ -1,85 +1,70 @@
-features:
-  - "count_purchase"
-  - "ctr"
+# Default configuration for recommender system
 
-target: "CartUpdate_vs_View"
-
-data:
-  train_path: "train.parquet"
-  test_path: "test.parquet"
-  sample_size: null  # null means use all data
-  random_seed: 42
-
-preprocessing:
-  normalize_timestamps: true
-  clean_text: false
-
-history_cleaning:
-  remove_lurkers: false
-
-history_generation:
-  method: "basic"  # "basic" or "rolling_window"
-  rolling_window:
-    window_size: 30
-  final_ratio: 0.2  # amount of data to use for feature generation during final training
-
+# Model configuration
 model:
-  type: "catboost"  # "catboost", "lightgbm", "xgboost", or "random_forest"
+  type: "catboost"
   config:
     catboost:
-      iterations: 300
-      learning_rate: 0.01
-      depth: 2
+      iterations: 500
+      learning_rate: 0.1
+      depth: 6
+      l2_leaf_reg: 3.0
+      verbose: 100
       loss_function: "Logloss"
       eval_metric: "AUC"
       early_stopping_rounds: 50
-    lightgbm:
-      num_iterations: 500
-      learning_rate: 0.05
-      max_depth: 6
-      objective: "binary"
-      metric: "auc"
-      early_stopping_rounds: 50
-      verbose: 100
-    xgboost:
-      n_estimators: 500
-      learning_rate: 0.05
-      max_depth: 6
-      objective: "binary:logistic"
-      eval_metric: "auc"
-      early_stopping_rounds: 50
-      verbose: 100
-    random_forest:
-      n_estimators: 100
-      max_depth: 10
-      min_samples_split: 2
-      random_state: 42
 
-# Add this to your default_config.yaml file
+# Essential features
+features:
+  - "count_purchase_user_product"
+  - "count_purchase_user_store"
+  - "ctr_product"
+  - "recency_user_product"
+  - "user_stats"
+  - "product_stats"
+  - "store_stats"
+  - "city_stats"
+  # - "recency_user_store"
+  # - "time_features"
+  # - "time_window_user_product"
+  # - "session_features"
+  # - "frequency_features"
+  # - "product_popularity_trend"
+  # - "cross_features"
+  # - "user_segments"
+  # - "product_embeddings"  # NLP feature
+  # - "category_embeddings"  # NLP faturee
 
-validation:
-  method: "temporal"  # Options: temporal, temporal_classic
-  n_folds: 3
-  time_window_days: 7  # Size of validation window in days
+# Target definition
+target: "CartUpdate_Purchase_vs_View"
 
-history_generation:
-  method: "time_window"  # Options: basic, sliding_window, all_history, time_window
-  window_days: 30  # Window size for sliding_window method
-  recent_window_days: 7  # Recent window size for time_window method
-  mid_window_days: 30  # Mid-term window size for time_window method
-  long_window_days: 90  # Long-term window size for time_window method
-  final_ratio: 0.2  # Ratio for final model training (only used if not time-based)
-  use_time_based_final: true  # Whether to use time-based split for final model
-  final_days_for_test: 7  # Days to use for test in final model training
+# Data paths
+data:
+  train_path: "data/train.parquet"
+  test_path: "data/test.parquet"
+  sample_size: null  # Set to a number for debugging (e.g., 10000)
 
-metrics:
-  - "auc"
-  - "ndcg@10"
-  - "map@10"
-  - "novelty@10"
-  - "serendipity@10"
+# Text processing configuration
+text_processing:
+  model_type: "sentence-transformers"
+  model_name: "paraphrase-multilingual-MiniLM-L12-v2"  # Small but effective model
+  embedding_dimensions: 20  # Reduce dimensionality for efficiency
 
+# Output settings
 output:
   results_dir: "results"
   save_model: true
   save_predictions: true
+
+# History cleaning
+history_cleaning:
+  remove_lurkers: true
+
+# Logging configuration
+logging:
+  level: "INFO"
+  file: "lavka_recsys.log"
+
+# Optional preprocessing
+preprocessing:
+  normalize_timestamps: true
