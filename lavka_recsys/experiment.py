@@ -62,7 +62,7 @@ class Experiment:
         # TimeSplitter is now used indirectly through Trainer
         
         # Initialize feature selector if enabled
-        use_feature_selection = config.get('experiment.use_feature_selection', False) or config.get('feature_selection.enabled', False)
+        use_feature_selection = config.get('feature_selection.enabled', False)
         self.feature_selector = FeatureSelector(config) if use_feature_selection else None
         
         # Initialize hyperparameter tuner if enabled
@@ -225,7 +225,19 @@ class Experiment:
         # Use the trainer to evaluate the model
         self.logger.info("Evaluating model using the trainer...")
         
-        score, metrics = self.trainer.evaluate_model(model)
+        # Force reload data to make sure we have fresh data for evaluation
+        try:
+            self.data_loader.load_data()
+            if self.data_loader.train_df is None or self.data_loader.train_df.is_empty():
+                self.logger.error("Training data is empty or None. Cannot evaluate model.")
+                metrics = {"error": "Training data is empty or None"}
+                score = 0
+            else:
+                score, metrics = self.trainer.evaluate_model(model)
+        except Exception as e:
+            self.logger.error(f"Error loading data for evaluation: {str(e)}")
+            metrics = {"error": f"Error loading data: {str(e)}"}
+            score = 0
         
         if score == 0 and "error" in metrics:
             self.logger.warning(f"Model evaluation failed: {metrics.get('error')}")
@@ -233,7 +245,15 @@ class Experiment:
             metrics = {}
         
         # Get feature importance if the model supports it
-        feature_importance = model.get_feature_importance() if model else {}
+        feature_importance = {}
+        if model:
+            try:
+                feature_importance = model.get_feature_importance()
+                if not feature_importance:
+                    self.logger.warning("Model returned empty feature importance dictionary")
+            except Exception as e:
+                self.logger.error(f"Error getting feature importance: {str(e)}")
+                # Continue with empty feature importance
         
         # Store results
         experiment_results = {
@@ -261,13 +281,28 @@ class Experiment:
         # Log top features if we have feature importance
         if feature_importance:
             self.logger.info("Top 10 most important features:")
-            top_features = sorted(
-                feature_importance.items(), 
-                key=lambda x: x[1], 
-                reverse=True
-            )[:10]
-            for feature, importance in top_features:
-                self.logger.info(f"  {feature}: {importance:.6f}")
+            try:
+                # First filter out None values
+                valid_importances = {k: v for k, v in feature_importance.items() if v is not None}
+                top_features = sorted(
+                    valid_importances.items(), 
+                    key=lambda x: x[1], 
+                    reverse=True
+                )[:10]
+                for feature, importance in top_features:
+                    # Handle different types of importance values
+                    if importance is None:
+                        self.logger.info(f"  {feature}: None")
+                    else:
+                        try:
+                            self.logger.info(f"  {feature}: {float(importance):.6f}")
+                        except (ValueError, TypeError):
+                            # If it can't be formatted as float, print as-is
+                            self.logger.info(f"  {feature}: {importance}")
+            except Exception as e:
+                self.logger.error(f"Error formatting feature importance: {str(e)}")
+                # Just print the raw dictionary as fallback
+                self.logger.info(f"  Feature importance: {feature_importance}")
         
         self.logger.info(f"Experiment metrics: {metrics}")
         self.logger.info(f"Experiment completed in {time.time() - start_time:.2f} seconds")
@@ -317,15 +352,35 @@ class Experiment:
         # Use the trainer to evaluate the model
         self.logger.info("Evaluating model using the trainer...")
         
-        score, metrics = self.trainer.evaluate_model(model)
+        # Force reload data to make sure we have fresh data for evaluation
+        try:
+            self.data_loader.load_data()
+            if self.data_loader.train_df is None or self.data_loader.train_df.is_empty():
+                self.logger.error("Training data is empty or None. Cannot evaluate model.")
+                metrics = {"error": "Training data is empty or None"}
+                score = 0
+            else:
+                score, metrics = self.trainer.evaluate_model(model)
+        except Exception as e:
+            self.logger.error(f"Error loading data for evaluation: {str(e)}")
+            metrics = {"error": f"Error loading data: {str(e)}"}
+            score = 0
         
         if score == 0 and "error" in metrics:
             self.logger.warning(f"Model evaluation failed: {metrics.get('error')}")
             # Return empty metrics if evaluation failed
             metrics = {}
         
-        # Get feature importance
-        feature_importance = model.get_feature_importance()
+        # Get feature importance if the model supports it
+        feature_importance = {}
+        if model:
+            try:
+                feature_importance = model.get_feature_importance()
+                if not feature_importance:
+                    self.logger.warning("Model returned empty feature importance dictionary")
+            except Exception as e:
+                self.logger.error(f"Error getting feature importance: {str(e)}")
+                # Continue with empty feature importance
         
         # Store results
         experiment_results = {
@@ -588,7 +643,12 @@ class Experiment:
         
         self.logger.info(f"Kaggle submission created in {time.time() - start_time:.2f} seconds")
         
-        return submission_df
+        # Add a to_csv method to the Polars DataFrame to make it compatible with pandas-style code
+        # This allows users to call df.to_csv() instead of df.write_csv()
+        submission_df_with_to_csv = submission_df.clone()
+        submission_df_with_to_csv.to_csv = lambda path_or_buf, index=None, **kwargs: submission_df.write_csv(path_or_buf)
+        
+        return submission_df_with_to_csv
     
     def _calculate_metrics(self, true_labels, predictions, request_ids=None):
         """
@@ -638,13 +698,35 @@ class Experiment:
         metrics_dir = self.config.get('output.metrics_dir', 'results/metrics')
         visualizations_dir = self.config.get('output.visualizations_dir', 'results/visualizations')
         
+        # Additional directories for better organization
+        feature_selection_cache_dir = self.config.get('output.feature_selection_cache_dir', 
+                                                   os.path.join(results_dir, 'feature_selection'))
+        backups_dir = os.path.join(results_dir, 'backups')
+        experiment_dir = os.path.join(results_dir, f'{self.name}_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
+        
         # Create all directories
-        for directory in [results_dir, model_cache_dir, feature_cache_dir, metrics_dir, visualizations_dir]:
+        directories = [
+            results_dir, 
+            model_cache_dir, 
+            feature_cache_dir, 
+            metrics_dir, 
+            visualizations_dir,
+            feature_selection_cache_dir,
+            backups_dir,
+            experiment_dir,
+            os.path.join(experiment_dir, 'feature_selection')
+        ]
+        
+        for directory in directories:
             try:
                 os.makedirs(directory, exist_ok=True)
                 self.logger.debug(f"Created directory: {directory}")
             except Exception as e:
                 self.logger.error(f"Failed to create directory {directory}: {str(e)}")
+        
+        # Store experiment directory path for later use
+        self.experiment_dir = experiment_dir
+        self.logger.info(f"Created experiment directory: {experiment_dir}")
                 
     def _save_config(self):
         """Save experiment configuration to file"""

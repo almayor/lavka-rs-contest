@@ -279,7 +279,51 @@ class CatBoostModel(Model):
     
     def get_feature_importance(self):
         """Get feature importance from CatBoost"""
-        return dict(zip(self.model.feature_names_, self.model.feature_importances_))
+        try:
+            # Check if model attributes exist and are iterable
+            if hasattr(self.model, 'feature_names_') and hasattr(self.model, 'feature_importances_'):
+                # Handle case where one of them might be a scalar (0-d array)
+                feature_names = self.model.feature_names_
+                feature_importances = self.model.feature_importances_
+                
+                # Convert to lists if they're numpy arrays
+                import numpy as np
+                if isinstance(feature_names, np.ndarray) and feature_names.ndim == 0:
+                    self.logger.warning("Feature names is a 0-d array, converting to list")
+                    feature_names = [str(feature_names.item())]
+                
+                if isinstance(feature_importances, np.ndarray) and feature_importances.ndim == 0:
+                    self.logger.warning("Feature importances is a 0-d array, converting to list")
+                    feature_importances = [feature_importances.item()]
+                
+                # Handle NaN and None values
+                if isinstance(feature_importances, (list, np.ndarray)):
+                    # Replace NaN or None with 0.0
+                    clean_importances = []
+                    for imp in feature_importances:
+                        if imp is None or (isinstance(imp, float) and np.isnan(imp)):
+                            clean_importances.append(0.0)
+                        else:
+                            clean_importances.append(imp)
+                    feature_importances = clean_importances
+                    
+                # Create dictionary with feature importances
+                result = dict(zip(feature_names, feature_importances))
+                
+                # Verify no None values remain in result
+                for key in list(result.keys()):
+                    if result[key] is None or (isinstance(result[key], float) and np.isnan(result[key])):
+                        self.logger.warning(f"Replacing None/NaN importance for feature '{key}' with 0.0")
+                        result[key] = 0.0
+                
+                return result
+            else:
+                self.logger.warning("Model doesn't have feature_names_ or feature_importances_ attributes")
+                return {}
+        except Exception as e:
+            self.logger.error(f"Error getting feature importance: {str(e)}")
+            # Return empty dictionary as fallback
+            return {}
     
     def save(self, filename):
         """Save model to file"""
@@ -364,7 +408,62 @@ class LightGBMModel(Model):
     
     def get_feature_importance(self):
         """Get feature importance from LightGBM"""
-        return dict(zip(self.model.feature_name(), self.model.feature_importance()))
+        try:
+            # Check if model attributes exist and are iterable
+            if hasattr(self.model, 'feature_name') and hasattr(self.model, 'feature_importance'):
+                # Get feature names and importances
+                feature_names = self.model.feature_name()
+                feature_importances = self.model.feature_importance()
+                
+                # Convert to lists if they're numpy arrays
+                import numpy as np
+                
+                # Handle edge cases where they might be scalars (0-d arrays)
+                if isinstance(feature_names, np.ndarray) and feature_names.ndim == 0:
+                    self.logger.warning("Feature names is a 0-d array, converting to list")
+                    feature_names = [str(feature_names.item())]
+                
+                if isinstance(feature_importances, np.ndarray) and feature_importances.ndim == 0:
+                    self.logger.warning("Feature importances is a 0-d array, converting to list")
+                    feature_importances = [feature_importances.item()]
+                
+                # Handle empty arrays
+                if isinstance(feature_names, (np.ndarray, list)) and len(feature_names) == 0:
+                    self.logger.warning("Empty feature names list")
+                    return {}
+                
+                if isinstance(feature_importances, (np.ndarray, list)) and len(feature_importances) == 0:
+                    self.logger.warning("Empty feature importances list")
+                    return {}
+                
+                # Handle NaN and None values
+                if isinstance(feature_importances, (list, np.ndarray)):
+                    # Replace NaN or None with 0.0
+                    clean_importances = []
+                    for imp in feature_importances:
+                        if imp is None or (isinstance(imp, float) and np.isnan(imp)):
+                            clean_importances.append(0.0)
+                        else:
+                            clean_importances.append(imp)
+                    feature_importances = clean_importances
+                
+                # Create dictionary with feature importances
+                result = dict(zip(feature_names, feature_importances))
+                
+                # Verify no None values remain in result
+                for key in list(result.keys()):
+                    if result[key] is None or (isinstance(result[key], float) and np.isnan(result[key])):
+                        self.logger.warning(f"Replacing None/NaN importance for feature '{key}' with 0.0")
+                        result[key] = 0.0
+                
+                return result
+            else:
+                self.logger.warning("Model doesn't have feature_name or feature_importance methods")
+                return {}
+        except Exception as e:
+            self.logger.error(f"Error getting feature importance: {str(e)}")
+            # Return empty dictionary as fallback
+            return {}
     
     def save(self, filename):
         """Save model to file"""
@@ -390,9 +489,17 @@ class CatBoostRankerModel(Model):
         # Set default loss function if not provided
         if 'loss_function' not in params:
             params['loss_function'] = 'YetiRank'
+        
+        # Remove unsupported parameters for CatBoostRanker
+        if 'scale_pos_weight' in params:
+            self.logger.warning("scale_pos_weight is not supported by CatBoostRanker, removing")
+            params.pop('scale_pos_weight')
             
         self.params = params
         self.model = CatBoostRanker(**self.params)
+        
+        # Initialize empty feature importances that will be filled during training
+        self._feature_importances = {}
     
     def train(self, train_features, train_labels, eval_set=None, cat_columns=None, train_request_ids=None):
         """Train CatBoost ranker model.
@@ -581,6 +688,56 @@ class CatBoostRankerModel(Model):
         except:
             self.logger.info("Could not determine tree count")
         
+        # Calculate and save feature importance during training, since we have the train_pool available
+        try:
+            self.logger.info("Calculating feature importance during training...")
+            # Save feature importances for later retrieval
+            self._feature_importances = {}
+            
+            # Try PredictionValuesChange first (best for rankings)
+            try:
+                importances = self.model.get_feature_importance(train_pool, type='PredictionValuesChange')
+                self.logger.info("Successfully calculated PredictionValuesChange importance")
+                # Create dictionary mapping feature names to importance values
+                feature_names = self.model.feature_names_
+                self._feature_importances = dict(zip(feature_names, importances))
+            except Exception as e:
+                self.logger.warning(f"PredictionValuesChange importance failed: {str(e)}")
+                
+                # Try LossFunctionChange next
+                try:
+                    importances = self.model.get_feature_importance(train_pool, type='LossFunctionChange')
+                    self.logger.info("Successfully calculated LossFunctionChange importance")
+                    # Create dictionary mapping feature names to importance values
+                    feature_names = self.model.feature_names_
+                    self._feature_importances = dict(zip(feature_names, importances))
+                except Exception as e2:
+                    self.logger.warning(f"LossFunctionChange importance failed: {str(e2)}")
+                    
+                    # Try default type as last resort
+                    try:
+                        importances = self.model.get_feature_importance(train_pool)
+                        self.logger.info("Successfully calculated default importance")
+                        # Create dictionary mapping feature names to importance values
+                        feature_names = self.model.feature_names_
+                        self._feature_importances = dict(zip(feature_names, importances))
+                    except Exception as e3:
+                        self.logger.warning(f"Default importance failed: {str(e3)}")
+            
+            # Log if we have feature importance
+            if self._feature_importances:
+                top_features = sorted(
+                    self._feature_importances.items(), 
+                    key=lambda x: x[1], 
+                    reverse=True
+                )[:5]
+                self.logger.info(f"Top 5 feature importances: {top_features}")
+            else:
+                self.logger.warning("Could not calculate any feature importance during training")
+                
+        except Exception as e:
+            self.logger.warning(f"Error calculating feature importance during training: {str(e)}")
+        
         return self
     
     def predict(self, features, request_ids=None, **kwargs):
@@ -746,21 +903,163 @@ class CatBoostRankerModel(Model):
     
     def get_feature_importance(self):
         """Get feature importance from CatBoost ranker"""
-        return dict(zip(self.model.feature_names_, self.model.feature_importances_))
+        try:
+            import numpy as np
+            
+            # First, check if we have pre-calculated importances from training
+            if hasattr(self, '_feature_importances') and self._feature_importances:
+                self.logger.info("Using pre-calculated feature importance from training")
+                return self._feature_importances
+            
+            # Otherwise, try to calculate it now (though this will likely fail without train_pool)
+            if hasattr(self.model, 'get_feature_importance') and hasattr(self.model, 'feature_names_'):
+                # Get feature names
+                feature_names = self.model.feature_names_
+                
+                # Try to use the method to get feature importance
+                try:
+                    # For CatBoostRanker, specify the type explicitly
+                    feature_importances = self.model.get_feature_importance(type='FeatureImportance')
+                    self.logger.info(f"Successfully calculated feature importance with type='FeatureImportance'")
+                except Exception as e1:
+                    self.logger.warning(f"Error getting feature importance with FeatureImportance: {str(e1)}")
+                    try:
+                        # Try the default type
+                        feature_importances = self.model.get_feature_importance()
+                        self.logger.info(f"Successfully calculated feature importance with default type")
+                    except Exception as e2:
+                        self.logger.warning(f"Error getting feature importance with default type: {str(e2)}")
+                        # As a fallback, try to get it from the attribute directly
+                        if hasattr(self.model, 'feature_importances_'):
+                            feature_importances = self.model.feature_importances_
+                            self.logger.info(f"Using feature_importances_ attribute directly")
+                        else:
+                            self.logger.warning("Could not calculate feature importance for CatBoostRanker")
+                            return {}
+                
+                # Check if we have valid feature names and importances
+                if len(feature_names) == 0:
+                    self.logger.warning("Empty feature names list")
+                    return {}
+                
+                # Handle case where one of them might be a scalar (0-d array)
+                if isinstance(feature_names, np.ndarray) and feature_names.ndim == 0:
+                    self.logger.warning("Feature names is a 0-d array, converting to list")
+                    feature_names = [str(feature_names.item())]
+                
+                if isinstance(feature_importances, np.ndarray) and feature_importances.ndim == 0:
+                    self.logger.warning("Feature importances is a 0-d array, converting to list")
+                    feature_importances = [feature_importances.item()]
+                
+                # Handle NaN and None values
+                if isinstance(feature_importances, (list, np.ndarray)):
+                    # Replace NaN or None with 0.0
+                    clean_importances = []
+                    for imp in feature_importances:
+                        if imp is None or (isinstance(imp, float) and np.isnan(imp)):
+                            clean_importances.append(0.0)
+                        else:
+                            clean_importances.append(imp)
+                    feature_importances = clean_importances
+                
+                # Make sure lengths match
+                if len(feature_names) != len(feature_importances):
+                    self.logger.warning(f"Feature names length ({len(feature_names)}) doesn't match importances length ({len(feature_importances)})")
+                    # Truncate to the shorter length
+                    min_len = min(len(feature_names), len(feature_importances))
+                    feature_names = feature_names[:min_len]
+                    feature_importances = feature_importances[:min_len]
+                    
+                # Create dictionary with feature importances
+                result = dict(zip(feature_names, feature_importances))
+                
+                # Verify no None values remain in result
+                for key in list(result.keys()):
+                    if result[key] is None or (isinstance(result[key], float) and np.isnan(result[key])):
+                        self.logger.warning(f"Replacing None/NaN importance for feature '{key}' with 0.0")
+                        result[key] = 0.0
+                
+                return result
+            else:
+                self.logger.warning("Model doesn't have required methods/attributes for feature importance")
+                return {}
+        except Exception as e:
+            self.logger.error(f"Error getting feature importance: {str(e)}")
+            # Return empty dictionary as fallback
+            return {}
     
     def save(self, filename):
         """Save model to file"""
-        self.model.save_model(filename)
+        # For saving via pickle (used by model cache), the _feature_importances attribute 
+        # will be automatically included in the pickled data
+        
+        # For direct save to file, save both model and metadata
+        try:
+            # First save the model using CatBoost's save_model
+            self.model.save_model(filename)
+            self.logger.info(f"Saved CatBoost model to {filename}")
+            
+            # If we have feature importances, also save them to a metadata file
+            if hasattr(self, '_feature_importances') and self._feature_importances:
+                import pickle
+                meta_filename = f"{filename}.meta"
+                
+                # Save the feature importances separately
+                with open(meta_filename, 'wb') as f:
+                    pickle.dump({'feature_importances': self._feature_importances}, f)
+                
+                self.logger.info(f"Saved model metadata to {meta_filename}")
+        except Exception as e:
+            self.logger.error(f"Error saving model: {str(e)}")
     
     @classmethod
     def load(cls, filename):
         """Load model from file"""
         from catboost import CatBoostRanker
+        import os
         
+        # Create a new instance
         model = cls()
+        
+        # Load the CatBoost model
         model.model = CatBoostRanker()
         model.model.load_model(filename)
+        
+        # Try to load feature importances from metadata file
+        try:
+            import pickle
+            meta_filename = f"{filename}.meta"
+            
+            if os.path.exists(meta_filename):
+                with open(meta_filename, 'rb') as f:
+                    metadata = pickle.load(f)
+                    
+                if 'feature_importances' in metadata:
+                    model._feature_importances = metadata['feature_importances']
+                    model.logger.info(f"Loaded feature importances with {len(model._feature_importances)} features")
+            else:
+                model.logger.info(f"No metadata file found at {meta_filename}")
+        except Exception as e:
+            model.logger.warning(f"Could not load metadata: {str(e)}")
+                
         return model
+        
+    def __getstate__(self):
+        """
+        Special method for pickle protocol.
+        Return the state of the object to be pickled.
+        """
+        # Get all attributes
+        state = self.__dict__.copy()
+        return state
+    
+    def __setstate__(self, state):
+        """
+        Special method for pickle protocol.
+        Restore the state of the object from pickled state.
+        """
+        # Restore all attributes
+        self.__dict__.update(state)
 
 
 class ModelFactory:
@@ -783,7 +1082,44 @@ class ModelFactory:
             raise ValueError(f"Unknown model type: {model_type}")
             
         # Get model parameters from config
-        model_params = self.config.get(('model', 'config', model_type))
+        model_params = self.config.get(('model', 'config', model_type), {}).copy()
+        
+        # Apply GPU configuration for CatBoost models
+        if model_type in ['catboost', 'catboost_ranker']:
+            use_gpu = self.config.get(('model', 'use_gpu'), False)
+            gpu_devices = self.config.get(('model', 'gpu_devices'), '0')
+            thread_count = self.config.get(('model', 'thread_count'), -1)
+            
+            if use_gpu:
+                self.logger.info(f"Enabling GPU training with devices: {gpu_devices}")
+                model_params['task_type'] = 'GPU'
+                model_params['devices'] = gpu_devices
+            else:
+                self.logger.info("Using CPU for training")
+                model_params['task_type'] = 'CPU'
+                
+            # Set thread count for CPU processing
+            model_params['thread_count'] = thread_count
+            self.logger.info(f"Setting thread count to {thread_count}")
+            
+        # Apply GPU configuration for LightGBM models
+        elif model_type == 'lightgbm':
+            use_gpu = self.config.get(('model', 'use_gpu'), False)
+            gpu_devices = self.config.get(('model', 'gpu_devices'), '0')
+            thread_count = self.config.get(('model', 'thread_count'), -1)
+            
+            if use_gpu:
+                self.logger.info(f"Enabling GPU training for LightGBM with device: {gpu_devices}")
+                model_params['device'] = 'gpu'
+                model_params['gpu_device_id'] = int(gpu_devices.split(',')[0])  # Use first device for LightGBM
+            else:
+                model_params['device'] = 'cpu'
+                
+            # Set number of threads
+            if thread_count > 0:
+                model_params['num_threads'] = thread_count
+        
+        # Apply overrides from parameters
         if override_params:
             model_params.update(override_params)
     

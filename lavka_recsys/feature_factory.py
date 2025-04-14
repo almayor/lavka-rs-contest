@@ -125,6 +125,29 @@ class FeatureFactory:
             cat_columns,
             request_ids.filter(mask),
         )
+        
+    def generate_features_only(
+            self, history_df: pl.DataFrame, target_df: pl.DataFrame, requested_features: List[str] | None = None
+        ) -> Tuple[pl.DataFrame, List[str], pl.Series]:
+        """
+        Generate only features without target (for prediction/inference).
+        Args:
+            history_df (pl.DataFrame): Historical data.
+            target_df (pl.DataFrame): Target data.
+            requested_features (List[str] | None): Features to generate (if None, config is used).
+        Returns:
+            Tuple[pl.DataFrame, List[str], pl.Series]: Tuple containing:
+                - Generated features (pl.DataFrame)
+                - Categorical column names in the generated features (List[str])
+                - Request IDs per row (pl.Series)
+        """
+        request_ids = target_df['request_id']
+        features, cat_columns = self.generate_features(history_df, target_df, requested_features)
+        
+        if self.feature_selector:
+            features = self.feature_selector(features)
+            
+        return features, cat_columns, request_ids
 
     def generate_features(
             self, history_df: pl.DataFrame, target_df: pl.DataFrame, requested_features: List[str] | None = None

@@ -51,6 +51,65 @@ class TimeSplitter:
         Returns:
             Generator yielding tuples of (history_df, train_df, val_history_df, val_df)
         """
+        # Print diagnostic information
+        self.logger.info(f"Creating splits with strategy: {split_type}")
+        self.logger.info(f"DataFrame info: shape={df.shape}, columns={df.columns}")
+        
+        # Special case: handle empty DataFrame
+        if df.is_empty():
+            self.logger.error("Cannot create splits with empty DataFrame")
+            raise ValueError("DataFrame is empty")
+            
+        # Check for timestamp column
+        if 'timestamp' not in df.columns:
+            self.logger.error("DataFrame must have a timestamp column")
+            raise ValueError("DataFrame missing required 'timestamp' column")
+            
+        # Check timestamp column type
+        timestamp_type = df.schema['timestamp']
+        self.logger.info(f"Timestamp column type: {timestamp_type}")
+        
+        # Check if timestamp is a datetime type - compatible approach
+        timestamp_type_str = str(timestamp_type).lower()
+        is_datetime = 'datetime' in timestamp_type_str or 'date' in timestamp_type_str
+        
+        if not is_datetime:
+            self.logger.warning(f"Timestamp column is not a datetime type: {timestamp_type}")
+            self.logger.info("Converting timestamp to datetime type")
+            df = df.with_columns(pl.col('timestamp').cast(pl.Datetime))
+            self.logger.info(f"New timestamp type: {df.schema['timestamp']}")
+        
+        # Calculate min/max timestamp with extra error handling
+        try:
+            min_ts = df.select(pl.col("timestamp").min()).item()
+            max_ts = df.select(pl.col("timestamp").max()).item()
+            self.logger.info(f"Timestamp range: {min_ts} to {max_ts}")
+            
+            # Add debug info about timestamp values
+            self.logger.info(f"Min timestamp type: {type(min_ts)}")
+            self.logger.info(f"Max timestamp type: {type(max_ts)}")
+            
+            # Special case: if either timestamp is None, report and try to handle
+            if min_ts is None or max_ts is None:
+                self.logger.error(f"Invalid timestamp values: min={min_ts}, max={max_ts}")
+                
+                # Try to get non-null timestamps
+                non_null_df = df.filter(pl.col('timestamp').is_not_null())
+                if not non_null_df.is_empty():
+                    self.logger.info(f"Proceeding with {len(non_null_df)} non-null timestamps")
+                    df = non_null_df
+                    
+                    # Try again with filtered data
+                    min_ts = df.select(pl.col("timestamp").min()).item()
+                    max_ts = df.select(pl.col("timestamp").max()).item()
+                    self.logger.info(f"Updated timestamp range: {min_ts} to {max_ts}")
+        except Exception as e:
+            self.logger.error(f"Error processing timestamps: {str(e)}")
+            # Additional error diagnostics
+            if 'timestamp' in df.columns:
+                sample_values = df.select('timestamp').head(5)
+                self.logger.error(f"Sample timestamp values: {sample_values}")
+            raise ValueError(f"Failed to process timestamps: {str(e)}")
         # Use configuration values if not provided
         target_days = target_days or self.config.get('training.target_days', 1)
         step_days = step_days or self.config.get('training.step_days', 7)
@@ -103,21 +162,38 @@ class TimeSplitter:
         # Sort by timestamp to ensure chronological order
         df = df.sort('timestamp')
         
+        # Check if we have timestamp column and it's not empty
+        if 'timestamp' not in df.columns or df.is_empty():
+            self.logger.error("DataFrame is empty or missing timestamp column")
+            raise ValueError("DataFrame must not be empty and must contain a timestamp column")
+            
         # Working with concrete values - get min/max timestamps as Python datetime objects
-        min_timestamp = df.select(pl.col("timestamp").min()).item()
-        max_timestamp = df.select(pl.col("timestamp").max()).item()
-        
-        # Log the actual data range for debugging
-        self.logger.info(f"Data range: {min_timestamp} to {max_timestamp}")
-        
-        # For standard split, we work backwards from the end of the data
-        # If validation is enabled, leave room for validation
-        if validation_days and validation_days > 0:
-            target_end = max_timestamp - timedelta(days=validation_days)
-            self.logger.info(f"Using target end: {target_end} to allow for validation window")
-        else:
-            target_end = max_timestamp
-            self.logger.info(f"Using target end: {target_end} (dataset end)")
+        try:
+            min_timestamp = df.select(pl.col("timestamp").min()).item()
+            max_timestamp = df.select(pl.col("timestamp").max()).item()
+            
+            # Check for None values in min/max timestamps
+            if min_timestamp is None or max_timestamp is None:
+                self.logger.error(f"Invalid timestamp values: min={min_timestamp}, max={max_timestamp}")
+                raise ValueError("Invalid timestamp values in DataFrame. Check if timestamp column contains valid datetime values.")
+                
+            # Log the actual data range for debugging
+            self.logger.info(f"Data range: {min_timestamp} to {max_timestamp}")
+            
+            # For standard split, we work backwards from the end of the data
+            # If validation is enabled, leave room for validation
+            if validation_days and validation_days > 0:
+                target_end = max_timestamp - timedelta(days=validation_days)
+                self.logger.info(f"Using target end: {target_end} to allow for validation window")
+            else:
+                target_end = max_timestamp
+                self.logger.info(f"Using target end: {target_end} (dataset end)")
+        except Exception as e:
+            self.logger.error(f"Error processing timestamps: {str(e)}")
+            # Add more diagnostic information
+            self.logger.error(f"DataFrame info: {df.shape}, columns: {df.columns}")
+            self.logger.error(f"Timestamp column summary: {df.select(pl.col('timestamp').describe() if 'timestamp' in df.columns else pl.lit('timestamp column not found'))}")
+            raise ValueError(f"Failed to process timestamps: {str(e)}")
         
         # Calculate target start
         target_start = target_end - timedelta(days=target_days)
@@ -197,23 +273,41 @@ class TimeSplitter:
         # Sort by timestamp to ensure chronological order
         df = df.sort('timestamp')
         
+        # Check if we have timestamp column and it's not empty
+        if 'timestamp' not in df.columns or df.is_empty():
+            self.logger.error("DataFrame is empty or missing timestamp column")
+            raise ValueError("DataFrame must not be empty and must contain a timestamp column")
+            
         # Working with concrete values - get min/max timestamps as Python datetime objects
-        min_timestamp = df.select(pl.col("timestamp").min()).item()
-        max_timestamp = df.select(pl.col("timestamp").max()).item()
-        
-        # Log the actual data range for debugging
-        self.logger.info(f"Data range: {min_timestamp} to {max_timestamp}")
-        
-        # Start from a point that allows for validation after the last training period
-        # If validation is enabled, we need to leave room at the end for validation
-        if validation_days and validation_days > 0:
-            # Start validation_days before max_timestamp to leave room for validation
-            # This ensures first split has enough data for validation
-            current_end = max_timestamp - timedelta(days=validation_days)
-            self.logger.info(f"Adjusted start point to allow validation window: {current_end} "
-                           f"({validation_days} days before dataset end)")
-        else:
-            current_end = max_timestamp
+        try:
+            min_timestamp = df.select(pl.col("timestamp").min()).item()
+            max_timestamp = df.select(pl.col("timestamp").max()).item()
+            
+            # Check for None values in min/max timestamps
+            if min_timestamp is None or max_timestamp is None:
+                self.logger.error(f"Invalid timestamp values: min={min_timestamp}, max={max_timestamp}")
+                raise ValueError("Invalid timestamp values in DataFrame. Check if timestamp column contains valid datetime values.")
+                
+            # Log the actual data range for debugging
+            self.logger.info(f"Data range: {min_timestamp} to {max_timestamp}")
+            
+            # Start from a point that allows for validation after the last training period
+            # If validation is enabled, we need to leave room at the end for validation
+            if validation_days and validation_days > 0:
+                # Start validation_days before max_timestamp to leave room for validation
+                # This ensures first split has enough data for validation
+                current_end = max_timestamp - timedelta(days=validation_days)
+                self.logger.info(f"Adjusted start point to allow validation window: {current_end} "
+                            f"({validation_days} days before dataset end)")
+            else:
+                current_end = max_timestamp
+                
+        except Exception as e:
+            self.logger.error(f"Error processing timestamps: {str(e)}")
+            # Add more diagnostic information
+            self.logger.error(f"DataFrame info: {df.shape}, columns: {df.columns}")
+            self.logger.error(f"Timestamp column summary: {df.select(pl.col('timestamp').describe() if 'timestamp' in df.columns else pl.lit('timestamp column not found'))}")
+            raise ValueError(f"Failed to process timestamps: {str(e)}")
             
         split_count = 0
         
@@ -323,19 +417,37 @@ class TimeSplitter:
         # Sort by timestamp to ensure chronological order
         df = df.sort('timestamp')
         
+        # Check if we have timestamp column and it's not empty
+        if 'timestamp' not in df.columns or df.is_empty():
+            self.logger.error("DataFrame is empty or missing timestamp column")
+            raise ValueError("DataFrame must not be empty and must contain a timestamp column")
+            
         # Get min/max timestamps
-        min_timestamp = df.select(pl.col("timestamp").min()).item()
-        max_timestamp = df.select(pl.col("timestamp").max()).item()
-        
-        # Log the actual data range for debugging
-        self.logger.info(f"Data range: {min_timestamp} to {max_timestamp}")
-        
-        # Adjust end point if validation is needed
-        if validation_days and validation_days > 0:
-            current_end = max_timestamp - timedelta(days=validation_days)
-            self.logger.info(f"Adjusted start point to allow validation window: {current_end}")
-        else:
-            current_end = max_timestamp
+        try:
+            min_timestamp = df.select(pl.col("timestamp").min()).item()
+            max_timestamp = df.select(pl.col("timestamp").max()).item()
+            
+            # Check for None values in min/max timestamps
+            if min_timestamp is None or max_timestamp is None:
+                self.logger.error(f"Invalid timestamp values: min={min_timestamp}, max={max_timestamp}")
+                raise ValueError("Invalid timestamp values in DataFrame. Check if timestamp column contains valid datetime values.")
+                
+            # Log the actual data range for debugging
+            self.logger.info(f"Data range: {min_timestamp} to {max_timestamp}")
+            
+            # Adjust end point if validation is needed
+            if validation_days and validation_days > 0:
+                current_end = max_timestamp - timedelta(days=validation_days)
+                self.logger.info(f"Adjusted start point to allow validation window: {current_end}")
+            else:
+                current_end = max_timestamp
+                
+        except Exception as e:
+            self.logger.error(f"Error processing timestamps: {str(e)}")
+            # Add more diagnostic information
+            self.logger.error(f"DataFrame info: {df.shape}, columns: {df.columns}")
+            self.logger.error(f"Timestamp column summary: {df.select(pl.col('timestamp').describe() if 'timestamp' in df.columns else pl.lit('timestamp column not found'))}")
+            raise ValueError(f"Failed to process timestamps: {str(e)}")
             
         split_count = 0
         

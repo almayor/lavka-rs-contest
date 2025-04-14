@@ -225,7 +225,19 @@ class CachedFeatureFactory:
         # Try to load from cache first
         cached_data = self._load_from_cache(cache_key)
         if cached_data is not None:
-            return cached_data
+            features, target, cat_columns, request_ids = cached_data
+            
+            # Apply feature selection to cached features if feature selector is registered
+            if self.feature_factory.feature_selector is not None:
+                self.logger.info("Applying feature selection to cached batch features...")
+                try:
+                    original_shape = features.shape
+                    features = self.feature_factory.feature_selector(features)
+                    self.logger.info(f"Applied feature selection: reduced from {original_shape[1]} to {features.shape[1]} columns")
+                except Exception as e:
+                    self.logger.warning(f"Error applying feature selection to cached batch features: {str(e)}")
+            
+            return features, target, cat_columns, request_ids
         
         # If not in cache, generate features using the feature factory
         self.logger.info(f"Generating features for {len(target_df)} records with {len(feature_names)} feature sets")
@@ -270,6 +282,17 @@ class CachedFeatureFactory:
         if cached_data is not None:
             # Extract just the features, cat_columns, and request_ids (no target)
             features, _, cat_columns, request_ids = cached_data
+            
+            # Apply feature selection to cached features if feature selector is registered
+            if self.feature_factory.feature_selector is not None:
+                self.logger.info("Applying feature selection to cached features...")
+                try:
+                    original_shape = features.shape
+                    features = self.feature_factory.feature_selector(features)
+                    self.logger.info(f"Applied feature selection: reduced from {original_shape[1]} to {features.shape[1]} columns")
+                except Exception as e:
+                    self.logger.warning(f"Error applying feature selection to cached features: {str(e)}")
+            
             return features, cat_columns, request_ids
         
         # If not in cache, generate features using the feature factory

@@ -72,6 +72,76 @@ def register_common_features():
             on=['product_id'],
             how='left'
         )
+        
+    @FeatureFactory.register('cart_to_purchase_rate')
+    def generate_cart_to_purchase_rate(
+        history_df: pl.DataFrame, target_df: pl.DataFrame
+    ) -> pl.DataFrame:
+        """Calculate Cart-to-Purchase conversion rate for products"""
+        actions = history_df.group_by(
+            'action_type', 'product_id'
+        ).agg(
+            pl.len()
+        )
+        
+        purchases = actions.filter(pl.col('action_type') == "AT_Purchase")
+        cart_updates = actions.filter(pl.col('action_type') == "AT_CartUpdate")
+        
+        # Only include products that have both cart updates and purchases
+        feature = cart_updates.join(
+            purchases, on='product_id', how='left'
+        ).with_columns(
+            # Fill null values to avoid division by zero
+            len_right=pl.col('len_right').fill_null(0),
+            # Calculate conversion rate: purchases / cart_updates
+            cart_to_purchase_rate=pl.col('len_right') / pl.col('len')
+        ).select(
+            'product_id', 'cart_to_purchase_rate'
+        )
+        
+        return target_df.join(
+            feature,
+            on=['product_id'],
+            how='left'
+        ).with_columns(
+            # Fill null with 0 for products that have no cart updates
+            cart_to_purchase_rate=pl.col('cart_to_purchase_rate').fill_null(0)
+        )
+        
+    @FeatureFactory.register('purchase_view_ratio')
+    def generate_purchase_view_ratio(
+        history_df: pl.DataFrame, target_df: pl.DataFrame
+    ) -> pl.DataFrame:
+        """Calculate Purchase-to-View ratio for products"""
+        actions = history_df.group_by(
+            'action_type', 'product_id'
+        ).agg(
+            pl.len()
+        )
+        
+        purchases = actions.filter(pl.col('action_type') == "AT_Purchase")
+        views = actions.filter(pl.col('action_type') == "AT_View")
+        
+        # Join purchases and views
+        feature = purchases.join(
+            views, on='product_id', how='left'
+        ).with_columns(
+            # Fill null values to avoid division by zero issues
+            len_right=pl.col('len_right').fill_null(1),
+            # Calculate purchase to view ratio: purchases / views
+            purchase_view_ratio=pl.col('len') / pl.col('len_right')
+        ).select(
+            'product_id', 'purchase_view_ratio'
+        )
+        
+        return target_df.join(
+            feature,
+            on=['product_id'],
+            how='left'
+        ).with_columns(
+            # Fill null with 0 for products that have no purchases
+            purchase_view_ratio=pl.col('purchase_view_ratio').fill_null(0)
+        )
 
     @FeatureFactory.register('recency_user_product')
     def generate_recency_user_product(

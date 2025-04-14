@@ -13,6 +13,9 @@ A flexible and maintainable recommender system framework with time-aware trainin
 - Text processing for NLP features
 - Rich set of behavioral and contextual features
 - Support for ranking models with CatBoostRanker
+- GPU acceleration for model training
+- Efficient feature selection with caching
+- Conversion rate modeling with specialized features
 
 ## Project Structure
 
@@ -63,11 +66,16 @@ The system uses YAML configuration files with the following key sections:
 # Experiment configuration
 experiment:
   type: "single_run"    # "single_run" or "tuning"
-  use_feature_selection: false
   use_hyperparameter_tuning: false
   evaluation:
     perform_kaggle_simulation: true
     create_submission: true
+
+# Feature selection configuration
+feature_selection:
+  enabled: false        # Enable/disable feature selection
+  method: "importance"  # Feature selection method
+  n_features: 10        # Number of top features to select
 
 # Training configuration
 training:
@@ -78,11 +86,26 @@ training:
   max_splits: 10       # Maximum number of splits
   validation_days: 7   # Days for validation after target
 
+# Model configuration
+model:
+  type: "catboost"       # Model type: catboost, catboost_ranker, lightgbm, etc.
+  use_gpu: false         # Enable/disable GPU acceleration
+  gpu_devices: "0"       # GPU device IDs (comma-separated string for multi-GPU)
+  thread_count: -1       # Number of CPU threads (-1 means auto)
+  config:
+    catboost:            # Model-specific parameters
+      iterations: 500
+      learning_rate: 0.1
+      depth: 6
+      loss_function: "Logloss"
+      
 # Features to use
 features:
   - "count_purchase_user_product"
   - "user_stats"
   - "product_stats"
+  - "cart_to_purchase_rate"    # Cart-to-Purchase conversion rate
+  - "purchase_view_ratio"      # Purchase-to-View ratio 
   # ... other features
 
 # Target definition
@@ -411,6 +434,10 @@ pip install sentence-transformers
      - CatBoostRanker: Learning-to-rank model for ordered recommendations
      - LightGBMModel: LightGBM implementation
    - Handles all model-specific configurations and parameters
+   - Supports GPU acceleration with configurable parameters:
+     - Automatic GPU device selection
+     - Multi-GPU training for supported models
+     - Optimized thread count for CPU operations
 
 ## Troubleshooting
 
@@ -429,6 +456,8 @@ The system includes a rich set of feature generators. Here's a description of th
 | `count_purchase_user_product` | Counts purchases by user-product pairs | `count_purchase_u_p` |
 | `count_purchase_user_store` | Counts purchases by user-store pairs | `count_purchase_u_s` |
 | `ctr_product` | Click-through rate for products | `ctr_product` |
+| `cart_to_purchase_rate` | Cart-to-Purchase conversion rate | `cart_to_purchase_rate` |
+| `purchase_view_ratio` | Purchase-to-View ratio for products | `purchase_view_ratio` |
 | `recency_user_product` | Days since last user-product interaction | `days_since_interaction_u_p` |
 | `recency_user_store` | Days since last user-store interaction | `days_since_interaction_u_s` |
 

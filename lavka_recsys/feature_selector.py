@@ -304,36 +304,52 @@ class FeatureSelector:
         
         # Create a dictionary with only the parameters that affect feature selection
         cache_params = {
-            "requested_features": sorted_requested_features,  # Use requested feature names from config
+            "requested_features": sorted_requested_features,
             "method": self.method,
             "threshold": self.threshold,
             "n_features": self.n_features
         }
         
-        # Convert to JSON string
-        params_str = json.dumps(cache_params, sort_keys=True)
-        
-        # Create hash
-        hash_obj = hashlib.md5(params_str.encode())
-        hash_str = hash_obj.hexdigest()
-        
-        # Print detailed debug info
-        self.logger.info(f"Generated cache key: {hash_str}")
-        self.logger.info(f"Based on requested features: {sorted_requested_features}")
-        self.logger.info(f"Feature selection method: {self.method}, threshold: {self.threshold}, n_features: {self.n_features}")
-        
-        return hash_str
+        # Convert to JSON string and create hash
+        try:
+            params_str = json.dumps(cache_params, sort_keys=True)
+            hash_obj = hashlib.md5(params_str.encode())
+            hash_str = hash_obj.hexdigest()
+            
+            self.logger.info(f"Generated cache key: {hash_str}")
+            self.logger.info(f"Feature selection method: {self.method}, n_features: {self.n_features}")
+            
+            return hash_str
+        except Exception as e:
+            self.logger.warning(f"Error generating cache key: {str(e)}")
+            # Fallback to simpler key generation
+            fallback_key = hashlib.md5(str(sorted_requested_features).encode()).hexdigest()
+            self.logger.info(f"Using fallback cache key: {fallback_key}")
+            return fallback_key
 
     def get_cache_path(self, cache_key: str) -> str:
         """Get the full path for a cache file"""
+        # Use dedicated feature selection cache directory if specified, otherwise use results dir
+        feature_selection_cache_dir = self.config.get("output.feature_selection_cache_dir")
         results_dir = self.config.get("output.results_dir", "results")
         
-        # Make sure the directory exists
-        if not os.path.exists(results_dir):
-            os.makedirs(results_dir, exist_ok=True)
+        # If feature_selection_cache_dir is not specified, create it under results_dir
+        if not feature_selection_cache_dir:
+            feature_selection_cache_dir = os.path.join(results_dir, "feature_selection")
             
-        cache_path = os.path.join(results_dir, f"feature_selection_{cache_key}.pkl")
-        self.logger.debug(f"Cache path: {cache_path}")
+        # Make the paths absolute if they're not already
+        if not os.path.isabs(feature_selection_cache_dir):
+            feature_selection_cache_dir = os.path.abspath(feature_selection_cache_dir)
+        
+        # Make sure the directory exists
+        if not os.path.exists(feature_selection_cache_dir):
+            os.makedirs(feature_selection_cache_dir, exist_ok=True)
+            self.logger.info(f"Created cache directory: {feature_selection_cache_dir}")
+            
+        # Create cache path
+        cache_path = os.path.join(feature_selection_cache_dir, f"feature_selection_{cache_key}.pkl")
+        self.logger.info(f"Cache path: {cache_path}")
+        
         return cache_path
 
     def save_to_cache(
@@ -345,6 +361,10 @@ class FeatureSelector:
         # Get the actual features requested from config (not columns generated)
         requested_features = self.config.get("features", [])
         
+        # Add timestamp for tracking
+        from datetime import datetime
+        timestamp = datetime.now().isoformat()
+        
         cache_data = {
             "selected_features": self.selected_features,
             "cat_columns": cat_columns,
@@ -353,23 +373,97 @@ class FeatureSelector:
             "method": self.method,
             "threshold": self.threshold,
             "n_features": self.n_features,
-            "requested_features": requested_features
+            "requested_features": requested_features,
+            "created_at": timestamp,
+            "selected_feature_count": len(self.selected_features) if self.selected_features else 0,
+            "original_column_count": len(column_names) if column_names else 0
         }
         
         # Generate cache key based on config only
         cache_key = self.generate_cache_key()
         cache_path = self.get_cache_path(cache_key)
         
-        with open(cache_path, 'wb') as f:
-            pickle.dump(cache_data, f)
-        
-        self.logger.info(f"Saved feature selection results to cache: {cache_path}")
-        self.logger.info(f"Contains {len(self.selected_features)} selected features")
+        try:
+            # Create a temporary file first to avoid corruption
+            temp_path = f"{cache_path}.tmp"
+            with open(temp_path, 'wb') as f:
+                pickle.dump(cache_data, f)
+            
+            # Safely replace the original file
+            if os.path.exists(cache_path):
+                os.remove(cache_path)
+            
+            os.rename(temp_path, cache_path)
+            self.logger.info(f"Saved feature selection results to: {cache_path}")
+            
+            # Log cache information
+            self.logger.info(f"Contains {len(self.selected_features)} selected features")
+            
+            # Create metadata file
+            feature_selection_cache_dir = self.config.get("output.feature_selection_cache_dir")
+            if not feature_selection_cache_dir:
+                feature_selection_cache_dir = os.path.join(self.config.get("output.results_dir", "results"), "feature_selection")
+                
+            metadata_dir = os.path.join(feature_selection_cache_dir, "metadata")
+            if not os.path.exists(metadata_dir):
+                os.makedirs(metadata_dir, exist_ok=True)
+                
+            metadata_path = os.path.join(metadata_dir, f"feature_selection_{cache_key}_metadata.json")
+            metadata = {k: str(v) if not isinstance(v, (int, float, bool, str, type(None))) else v 
+                       for k, v in cache_data.items() 
+                       if k != "selected_features" and k != "cat_columns"}
+            
+            import json
+            with open(metadata_path, 'w') as f:
+                json.dump(metadata, f, indent=2)
+                
+        except Exception as e:
+            self.logger.error(f"Error saving feature selection to cache: {str(e)}")
 
+    def verify_cache_data(self, cache_data: Dict, requested_features: List[str]) -> Tuple[bool, str, Dict]:
+        """
+        Verify if the cache data is valid and compatible with current parameters.
+        
+        Args:
+            cache_data: The loaded cache data dictionary
+            requested_features: The features requested in the current run
+            
+        Returns:
+            Tuple[bool, str, Dict]: (is_valid, reason, match_details)
+        """
+        # Check if required fields exist
+        if "selected_features" not in cache_data or not cache_data["selected_features"]:
+            return False, "Missing selected features", {}
+            
+        # Compare parameters
+        current_features = set(requested_features)
+        cache_features = set(cache_data.get("requested_features", []))
+        
+        # Check exact match
+        features_match = cache_features == current_features
+        method_match = cache_data.get("method") == self.method
+        n_features_match = cache_data.get("n_features") == self.n_features
+        
+        # Full parameters match
+        if features_match and method_match and n_features_match:
+            return True, "Parameters match", {
+                "selected_feature_count": len(cache_data.get("selected_features", []))
+            }
+            
+        # Check subset match if enabled
+        subset_match = current_features.issubset(cache_features)
+        allow_subset = self.config.get("feature_selection.allow_subset_match", True)
+        
+        if subset_match and method_match and n_features_match and allow_subset:
+            return True, "Features subset match", {
+                "selected_feature_count": len(cache_data.get("selected_features", []))
+            }
+            
+        return False, "Parameters don't match", {}
+    
     def load_from_cache(self) -> bool:
         """
         Load feature selection results directly from cache based on config parameters.
-        This doesn't require any training data.
         
         Returns:
             bool: True if successfully loaded from cache, False otherwise
@@ -377,55 +471,109 @@ class FeatureSelector:
         cache_key = self.generate_cache_key()
         cache_path = self.get_cache_path(cache_key)
         
-        self.logger.info(f"Checking for cache at: {cache_path}")
+        self.logger.info(f"Attempting to load feature selection cache: {cache_path}")
         
+        # Check if the cache file exists
         if not os.path.exists(cache_path):
-            self.logger.info(f"No cache file found at: {cache_path}")
+            self.logger.info(f"Cache file not found: {cache_path}")
             return False
-        
+            
         try:
-            self.logger.info(f"Found cache file, attempting to load: {cache_path}")
+            # Load the cache file
             with open(cache_path, 'rb') as f:
                 cache_data = pickle.load(f)
-            
+                
             # Get requested features from config
             requested_features = self.config.get("features", [])
             
-            # Log the comparison details
-            self.logger.info(f"Cache vs Current settings:")
-            self.logger.info(f"  Method: {cache_data['method']} vs {self.method}")
-            self.logger.info(f"  Threshold: {cache_data['threshold']} vs {self.threshold}")
-            self.logger.info(f"  N features: {cache_data['n_features']} vs {self.n_features}")
+            # Verify the cache data
+            is_valid, reason, match_details = self.verify_cache_data(cache_data, requested_features)
             
-            # Check if feature sets match
-            cache_features = set(cache_data.get("requested_features", []))
-            current_features = set(requested_features)
-            features_match = cache_features == current_features
+            self.logger.info(f"Cache verification result: {reason}")
             
-            if not features_match:
-                self.logger.info(f"Feature sets don't match:")
-                self.logger.info(f"  Cache features: {sorted(cache_features)}")
-                self.logger.info(f"  Current features: {sorted(current_features)}")
-                self.logger.info(f"  Missing: {sorted(current_features - cache_features)}")
-                self.logger.info(f"  Extra: {sorted(cache_features - current_features)}")
-            
-            # Verify parameters match to prevent collisions
-            if (cache_data["method"] == self.method and
-                cache_data["threshold"] == self.threshold and
-                cache_data["n_features"] == self.n_features and
-                features_match):
-
-                self.logger.info(f"All parameters match! Loading feature selection from cache")
+            if is_valid:
+                # Load the cache
                 self.selected_features = cache_data["selected_features"]
-                self.cat_columns = cache_data["cat_columns"]
-                self.trained = cache_data["trained"]
-                self.logger.info(f"Using cached feature selection result with {len(self.selected_features)} features")
+                self.cat_columns = cache_data.get("cat_columns")
+                self.trained = True
+                
+                feature_count = len(self.selected_features) if self.selected_features else 0
+                self.logger.info(f"Loaded feature selection with {feature_count} features")
+                
                 return True
             else:
-                self.logger.warning(f"Cache parameters mismatch, not using cache")
+                self.logger.info(f"Cache verification failed: {reason}")
                 return False
+                
         except Exception as e:
-            self.logger.warning(f"Failed to load cache: {str(e)}")
-            import traceback
-            self.logger.warning(traceback.format_exc())
+            self.logger.warning(f"Error loading cache: {str(e)}")
             return False
+        
+    def cleanup_old_cache_files(self, max_age_days: int = 30, dry_run: bool = True) -> Dict:
+        """
+        Clean up old cache files to save disk space
+        
+        Args:
+            max_age_days: Maximum age of cache files in days
+            dry_run: If True, just report files that would be deleted but don't delete them
+            
+        Returns:
+            Dict: Summary of cleanup operation
+        """
+        from datetime import datetime, timedelta
+        import glob
+        
+        # Get cache directory
+        feature_selection_cache_dir = self.config.get("output.feature_selection_cache_dir")
+        if not feature_selection_cache_dir:
+            feature_selection_cache_dir = os.path.join(
+                self.config.get("output.results_dir", "results"), 
+                "feature_selection"
+            )
+        
+        if not os.path.isabs(feature_selection_cache_dir):
+            feature_selection_cache_dir = os.path.abspath(feature_selection_cache_dir)
+            
+        # Find all cache files
+        cache_files = glob.glob(os.path.join(feature_selection_cache_dir, "feature_selection_*.pkl"))
+        
+        # Calculate cutoff date
+        cutoff_date = datetime.now() - timedelta(days=max_age_days)
+        
+        # Filter files by age
+        old_files = []
+        for file_path in cache_files:
+            try:
+                mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
+                if mtime < cutoff_date:
+                    old_files.append((file_path, mtime, os.path.getsize(file_path)))
+            except Exception as e:
+                self.logger.warning(f"Error processing {file_path}: {str(e)}")
+        
+        # Sort by modification time (oldest first)
+        old_files.sort(key=lambda x: x[1])
+        
+        total_size = sum(size for _, _, size in old_files)
+        total_size_mb = total_size / (1024 * 1024)
+        
+        self.logger.info(f"Found {len(cache_files)} cache files, {len(old_files)} older than {max_age_days} days")
+        self.logger.info(f"Total space to be freed: {total_size_mb:.2f} MB")
+        
+        # Delete files if not dry run
+        deleted_count = 0
+        if not dry_run and old_files:
+            for file_path, _, _ in old_files:
+                try:
+                    os.remove(file_path)
+                    deleted_count += 1
+                except Exception as e:
+                    self.logger.error(f"Error deleting {file_path}: {str(e)}")
+        
+        # Return summary
+        return {
+            "total_files": len(cache_files),
+            "old_files": len(old_files),
+            "deleted_files": deleted_count,
+            "total_size_mb": total_size_mb,
+            "dry_run": dry_run
+        }
