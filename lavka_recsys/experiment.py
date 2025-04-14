@@ -643,12 +643,7 @@ class Experiment:
         
         self.logger.info(f"Kaggle submission created in {time.time() - start_time:.2f} seconds")
         
-        # Add a to_csv method to the Polars DataFrame to make it compatible with pandas-style code
-        # This allows users to call df.to_csv() instead of df.write_csv()
-        submission_df_with_to_csv = submission_df.clone()
-        submission_df_with_to_csv.to_csv = lambda path_or_buf, index=None, **kwargs: submission_df.write_csv(path_or_buf)
-        
-        return submission_df_with_to_csv
+        return submission_df
     
     def _calculate_metrics(self, true_labels, predictions, request_ids=None):
         """

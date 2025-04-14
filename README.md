@@ -10,7 +10,10 @@ A flexible and maintainable recommender system framework with time-aware trainin
 - Feature caching with transparent integration
 - Consistent directory structure for all outputs
 - Hyperparameter tuning with Optuna integration
-- Text processing for NLP features
+- Advanced text processing features:
+  - Weighted user-product similarity based on purchase history
+  - Semantic product clustering and user preferences tracking
+  - Text diversity and novelty metrics for recommendations
 - Rich set of behavioral and contextual features
 - Support for ranking models with CatBoostRanker
 - GPU acceleration for model training
@@ -73,7 +76,7 @@ experiment:
 
 # Feature selection configuration
 feature_selection:
-  enabled: false        # Enable/disable feature selection
+  enabled: true        # Enable/disable feature selection
   method: "importance"  # Feature selection method
   n_features: 10        # Number of top features to select
 
@@ -373,9 +376,11 @@ To add custom features, register them in the feature factory:
 ```python
 from lavka_recsys.feature_factory import FeatureFactory
 
-@FeatureFactory.register('my_custom_feature')
-def generate_my_feature(history_df, target_df):
-    # Generate your feature
+@FeatureFactory.register('my_custom_feature', categorical_cols=[], depends_on=["another_feature"])
+def generate_my_feature(history_df, feature_df):
+    # Add new columns to feature_df
+    # You can add multiple new columns, and the feature factory
+    # will recognize them automatically
     feature_df = ...
     return feature_df
 ```
@@ -447,7 +452,7 @@ pip install sentence-transformers
 
 ## Available Features and Generated Columns
 
-The system includes a rich set of feature generators. Here's a description of the available features and the columns they generate:
+The system includes a rich set of feature generators. The feature selection algorithm can then use them to pick the best features. Here's a description of the available features and the columns they generate:
 
 ### Basic Features
 
@@ -492,6 +497,9 @@ The system includes a rich set of feature generators. Here's a description of th
 |--------------|-------------|-------------------|
 | `product_embeddings` | Text embeddings for product names | `product_embed_0` through `product_embed_N` |
 | `category_embeddings` | Text embeddings for product categories | `category_embed_0` through `category_embed_N` |
+| `user_product_distance` | Weighted similarity between target products and user's purchase/cart history | `purchase_weighted_similarity`, `cart_weighted_similarity`, `min_purchase_similarity`, `min_cart_similarity` |
+| `text_similarity_cluster` | Clusters products by text similarity and tracks user preferences | `cluster`, `cluster_purchase_ratio`, `cluster_cart_ratio` |
+| `text_diversity_features` | Measures novelty of products relative to user's typical purchases | `distance_from_centroid`, `relative_diversity` |
 
 ### Advanced Features
 

@@ -12,7 +12,7 @@ model:
       learning_rate: 0.1
       depth: 6
       l2_leaf_reg: 3.0
-      verbose: 100
+      verbose: 10
       loss_function: "Logloss"
       eval_metric: "AUC"
       early_stopping_rounds: 50
@@ -58,8 +58,11 @@ features:
   - "npmi-cf"               # Collaborative filtering
   - "puresvd-cf"            # Collaborative filtering
   - "svd-cf"                # Collaborative filtering
-  # - "product_embeddings"    # NLP feature
-  # - "category_embeddings"   # NLP feature
+  - "product_embeddings"    # NLP feature
+  - "category_embeddings"   # NLP feature
+  - "user_product_distance" # Weighted similarity between user history and product
+  - "text_similarity_cluster" # Product clusters based on text similarity
+  - "text_diversity_features" # How different a product is from user's history
 
 # Target definition
 target: "CartUpdate_Purchase_vs_View"
