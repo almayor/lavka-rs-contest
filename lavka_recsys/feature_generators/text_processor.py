@@ -634,7 +634,7 @@ def register_text_embedding_features():
         
         return result
     
-    @FeatureFactory.register('text_similarity_cluster')
+    @FeatureFactory.register('text_similarity_cluster', categorical_cols=['cluster'])
     def generate_text_similarity_cluster(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
