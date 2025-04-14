@@ -616,10 +616,9 @@ def register_text_embedding_features():
         logger.info("Converting pandas DataFrame to polars")
         embed_pl = pl.from_pandas(embed_df)
         
-        # Check for NaN values - using polars-specific approach
-        # Get the total count of null values across all columns
-        null_df = embed_pl.null_count()
-        nan_count = null_df.select(pl.sum(pl.all())).item()
+        # Check for NaN values - correct approach for polars API
+        # Convert to pandas first to ensure compatibility
+        nan_count = embed_pl.null_count().to_pandas().values.sum()
         if nan_count > 0:
             logger.warning(f"Found {nan_count} NaN values in embeddings")
         
@@ -627,10 +626,8 @@ def register_text_embedding_features():
         logger.info(f"Joining embeddings with target DataFrame (target has {len(target_df)} rows)")
         result = target_df.join(embed_pl, on='product_id', how='left')
         
-        # Check for missing values after join
-        # Using polars-specific approach to count nulls
-        null_df = result.select(feature_names).null_count()
-        missing_count = null_df.select(pl.sum(pl.all())).item()
+        # Check for missing values after join - fixed for polars API
+        missing_count = result.select(feature_names).null_count().to_pandas().values.sum()
         if missing_count > 0:
             logger.warning(f"After join, found {missing_count} missing embedding values")
             missing_products = target_df.filter(
@@ -802,10 +799,9 @@ def register_text_embedding_features():
         logger.info("Converting pandas DataFrame to polars")
         embed_pl = pl.from_pandas(embed_df)
         
-        # Check for NaN values - using polars-specific approach
-        # Get the total count of null values across all columns
-        null_df = embed_pl.null_count()
-        nan_count = null_df.select(pl.sum(pl.all())).item()
+        # Check for NaN values - correct approach for polars API
+        # Convert to pandas first to ensure compatibility
+        nan_count = embed_pl.null_count().to_pandas().values.sum()
         if nan_count > 0:
             logger.warning(f"Found {nan_count} NaN values in embeddings")
         
@@ -813,10 +809,8 @@ def register_text_embedding_features():
         logger.info(f"Joining embeddings with target DataFrame (target has {len(target_df)} rows)")
         result = target_df.join(embed_pl, on='product_category', how='left')
         
-        # Check for missing values after join
-        # Using polars-specific approach to count nulls
-        null_df = result.select(feature_names).null_count()
-        missing_count = null_df.select(pl.sum(pl.all())).item()
+        # Check for missing values after join - fixed for polars API
+        missing_count = result.select(feature_names).null_count().to_pandas().values.sum()
         if missing_count > 0:
             logger.warning(f"After join, found {missing_count} missing embedding values")
             missing_categories = target_df.filter(
