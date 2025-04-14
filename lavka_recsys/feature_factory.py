@@ -95,6 +95,36 @@ class FeatureFactory:
         """
         self.logger.debug("Registering feature selector")
         self.feature_selector = feature_selector
+        
+    def set_selected_features(self, selected_features: List[str]):
+        """
+        Set a list of selected features to use.
+        This is an alternative to using a feature selector function.
+        
+        Args:
+            selected_features: List of feature column names to keep
+        """
+        self.logger.info(f"Setting {len(selected_features)} selected features")
+        self.logger.debug(f"Selected features: {selected_features}")
+        
+        # Create a simple feature selector function that selects only these features
+        def feature_selector(df: pl.DataFrame) -> pl.DataFrame:
+            # Get categorical columns
+            cat_cols = []
+            for feature_name, feature_info in self._feature_registry.items():
+                cat_cols.extend(feature_info.get('categorical_cols', []))
+            
+            # Select columns to keep
+            columns_to_select = list(set(cat_cols) | set(selected_features))
+            
+            # Filter to only include columns that exist in df
+            available_columns = [col for col in columns_to_select if col in df.columns]
+            
+            self.logger.debug(f"Applying feature selection to keep {len(available_columns)} columns")
+            return df.select(available_columns)
+        
+        # Register this selector
+        self.feature_selector = feature_selector
     
     def generate_batch(
             self, history_df, target_df, requested_features=None, requested_target=None

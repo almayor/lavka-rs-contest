@@ -3,12 +3,13 @@ import json
 import time
 import pickle
 import hashlib
+import logging
 from datetime import datetime, timedelta
-from enum import Enum
 from typing import Dict, List, Optional, Tuple, Any, Union
 
 import numpy as np
 import polars as pl
+import optuna
 from sklearn.metrics import roc_auc_score, log_loss
 
 from .custom_logging import get_logger
@@ -16,16 +17,12 @@ from .data_loader import DataLoader
 from .feature_factory import FeatureFactory
 from .model_factory import ModelFactory, Model
 from .hyperparameter_tuner import HyperparameterTuner
-from .feature_selector import FeatureSelector
 from .trainer import Trainer
 from .time_splitter import SplitType  # Only need the enum, not the class
 from .cached_feature_factory import CachedFeatureFactory
 
-
-class ExperimentType(Enum):
-    """Enumeration of different experiment types."""
-    SINGLE_RUN = "single_run"  # Single model training and evaluation
-    TUNING = "tuning"          # With hyperparameter tuning
+# Note: There's a circular import between experiment.py and feature_selector.py
+# since FeatureSelector extends Experiment. To avoid this, we don't import FeatureSelector directly here.
 
 
 class Experiment:
@@ -59,28 +56,7 @@ class Experiment:
         # Initialize the unified trainer
         self.trainer = Trainer(config, self.data_loader, self.feature_factory, self.model_factory)
         
-        # TimeSplitter is now used indirectly through Trainer
-        
-        # Initialize feature selector if enabled
-        use_feature_selection = config.get('feature_selection.enabled', False)
-        self.feature_selector = FeatureSelector(config) if use_feature_selection else None
-        
-        # Initialize hyperparameter tuner if enabled
-        self.use_hyperparameter_tuning = config.get('experiment.use_hyperparameter_tuning', False)
-        self.tuner = None  # Will be initialized in setup() if needed
-        
-        # Get experiment type from config
-        experiment_type = config.get('experiment.type', 'single_run')
-        if isinstance(experiment_type, str):
-            if experiment_type.lower() == 'single_run':
-                self.experiment_type = ExperimentType.SINGLE_RUN
-            elif experiment_type.lower() == 'tuning':
-                self.experiment_type = ExperimentType.TUNING
-            else:
-                self.logger.warning(f"Unknown experiment type '{experiment_type}', defaulting to single_run")
-                self.experiment_type = ExperimentType.SINGLE_RUN
-        else:
-            self.experiment_type = ExperimentType.SINGLE_RUN
+        # Feature selection will be set up in setup() if enabled
             
         # Get split type configuration
         split_type_str = config.get('training.split_type', 'standard')
@@ -107,67 +83,46 @@ class Experiment:
         """
         # Load data
         self.data_loader.load_data()
-        
-        # Initialize hyperparameter tuner if needed
-        if self.use_hyperparameter_tuning:
-            self.tuner = HyperparameterTuner(
-                self.config, 
-                self.data_loader, 
-                self.feature_factory, 
-                self.model_factory
-            )
 
-        # Set up feature selector if enabled
-        if self.feature_selector:
-            self.logger.info("Setting up feature selector")
+        # Set up feature selection if enabled
+        if self.config.get('feature_selection.enabled', False):
+            self.logger.info("Feature selection is enabled")
             
-            # Try to load directly from cache first
-            if self.feature_selector.load_from_cache():
-                self.logger.info("Successfully loaded feature selector from cache")
-                # Register the loaded feature selector with the feature factory
-                self.feature_factory.register_feature_selector(self.feature_selector)
-                return
-                
-            # If cache loading failed, proceed with normal feature selection
-            self.logger.info("No valid cache found. Training feature selector...")
-            history_df, train_df = self.data_loader.create_final_split()
-            train_features, train_target, cat_columns, _ = self.feature_factory.generate_batch(
-                history_df, train_df
-            )
+            # Import FeatureSelector here to avoid circular imports
+            from .feature_selector import FeatureSelector
             
-            # Train the feature selector
-            self.feature_selector.train(
-                train_features,
-                train_target,
-                cat_columns=cat_columns,
-                use_cache=True  # Will save to cache but not try to load
-            )
-            self.feature_factory.register_feature_selector(self.feature_selector)
-            self.logger.info("Feature selector trained and saved to cache")
+            # Create model-specific feature selector
+            model_type = self.config.get('model.type')
+            self.logger.info(f"Creating feature selector for model type: {model_type}")
+            
+            # Create and run a feature selector
+            selector = FeatureSelector(self.name, self.config, select_for_model_type=model_type)
+            selection_results = selector.run()
+            
+            # Get selected features
+            selected_features = selection_results.get('selected_features', [])
+            if selected_features:
+                self.logger.info(f"Selected {len(selected_features)} features for model type {model_type}")
+                # Register selected features with feature factory
+                self.feature_factory.set_selected_features(selected_features)
+            else:
+                self.logger.warning("No features were selected or feature selection failed")
         else:
-            self.logger.info("Feature selector disabled")
+            self.logger.info("Feature selection disabled")
     
     def run(self) -> Dict:
         """
-        Run experiment based on configured experiment type.
-        This is the main method to execute an experiment.
+        Run a single experiment with the current configuration.
         
         Returns:
             Dict: Experiment results
         """
-        self.logger.info(f"Starting experiment: {self.name} (type: {self.experiment_type.value}, split type: {self.split_type.value})")
+        self.logger.info(f"Starting experiment: {self.name} (split type: {self.split_type.value})")
         
-        # Choose the appropriate experiment method based on type
-        if self.experiment_type == ExperimentType.SINGLE_RUN:
-            results, model = self._run_single_run()
-            self.last_trained_model = model
-            return results
-        elif self.experiment_type == ExperimentType.TUNING:
-            results = self._run_with_tuning()
-            return results
-        else:
-            self.logger.error(f"Unknown experiment type: {self.experiment_type}")
-            raise ValueError(f"Unknown experiment type: {self.experiment_type}")
+        # Run a standard single experiment 
+        results, model = self._run_single_experiment()
+        self.last_trained_model = model
+        return results
     
     def evaluate(self) -> Dict:
         """
@@ -201,7 +156,168 @@ class Experiment:
             
         return evaluation_results
     
-    def _run_single_run(self) -> Tuple[Dict, Model]:
+    @staticmethod
+    def tune_configurations(base_config, parameter_spaces, n_trials=10, 
+                           create_visualizations=True, results_dir=None, **kwargs):
+        """
+        Static method that generates and runs multiple experiments with different configurations.
+        
+        Args:
+            base_config: Base configuration to modify
+            parameter_spaces: Dictionary of parameter spaces to explore
+            n_trials: Number of trials to run
+            create_visualizations: Whether to generate Optuna visualizations
+            results_dir: Directory to save visualizations and reports
+            
+        Returns:
+            Tuple of (best_experiment, best_config, study, visualization_paths)
+        """
+        # Create a logger 
+        logger = get_logger("ExperimentTuning")
+        logger.info(f"Starting configuration tuning with {n_trials} trials")
+        
+        # Setup results directory
+        if results_dir is None:
+            results_dir = os.path.join(base_config.get("output.results_dir", "results"), "tuning")
+        os.makedirs(results_dir, exist_ok=True)
+        
+        # Create an Optuna study
+        study = optuna.create_study(direction="maximize")
+        
+        # Define the objective function
+        def objective(trial):
+            # Create a modified config based on trial parameters
+            trial_config = base_config.copy()
+            
+            # Apply parameter values from trial
+            for param_path, param_space in parameter_spaces.items():
+                # Determine the parameter type and suggest accordingly
+                param_type = param_space.get('type')
+                
+                if param_type == 'float':
+                    param_range = param_space.get('range', [0.0, 1.0])
+                    log_scale = param_space.get('log_scale', False)
+                    value = trial.suggest_float(param_path, param_range[0], param_range[1], log=log_scale)
+                elif param_type == 'int':
+                    param_range = param_space.get('range', [1, 10])
+                    value = trial.suggest_int(param_path, param_range[0], param_range[1])
+                elif param_type == 'categorical':
+                    values = param_space.get('values', [])
+                    value = trial.suggest_categorical(param_path, values)
+                else:
+                    logger.warning(f"Unknown parameter type '{param_type}' for {param_path}. Skipping.")
+                    continue
+                    
+                # Set the value in the configuration
+                trial_config.set(param_path, value)
+                
+            # Log the trial configuration
+            logger.info(f"Trial {trial.number}: Testing configuration: {trial_config}")
+            
+            # Create experiment with this config
+            experiment_name = f"trial_{trial.number}"
+            experiment = Experiment(experiment_name, trial_config)
+            experiment.setup()
+            results = experiment.run()
+            
+            # Extract the primary metric (assuming 'auc' as default)
+            primary_metric = 'auc'
+            if 'metrics' in results and primary_metric in results['metrics']:
+                score = results['metrics'][primary_metric]
+                logger.info(f"Trial {trial.number} completed with {primary_metric}: {score:.6f}")
+                return score
+            else:
+                logger.warning(f"Trial {trial.number} did not produce a valid {primary_metric} score")
+                return 0.0  # Return 0 for failed trials
+        
+        # Run the optimization
+        study.optimize(objective, n_trials=n_trials, **kwargs)
+        
+        # Log the best parameters
+        logger.info(f"Best trial: {study.best_trial.number}")
+        logger.info(f"Best value: {study.best_value:.6f}")
+        logger.info(f"Best parameters: {study.best_params}")
+        
+        # Create a config with the best parameters
+        best_config = base_config.copy()
+        for param_path, value in study.best_params.items():
+            best_config.set(param_path, value)
+        
+        # Create the best experiment
+        best_experiment = Experiment("best_experiment", best_config)
+        
+        # Generate visualizations if requested
+        visualizations = {}
+        if create_visualizations:
+            try:
+                from optuna.visualization import (
+                    plot_optimization_history, plot_param_importances,
+                    plot_contour, plot_slice, plot_parallel_coordinate
+                )
+                
+                # Generate and save plots
+                plot_types = {
+                    "optimization_history": plot_optimization_history,
+                    "param_importances": plot_param_importances,
+                    "contour": plot_contour,
+                    "slice": plot_slice,
+                    "parallel_coordinate": plot_parallel_coordinate
+                }
+                
+                for name, plot_func in plot_types.items():
+                    try:
+                        fig = plot_func(study)
+                        plot_path = os.path.join(results_dir, f"{name}.html")
+                        fig.write_html(plot_path)
+                        visualizations[name] = plot_path
+                        logger.info(f"Saved {name} plot to {plot_path}")
+                    except Exception as e:
+                        logger.warning(f"Failed to create {name} plot: {str(e)}")
+                
+                # Create markdown report with embedded plots and trial details
+                report_path = os.path.join(results_dir, "tuning_report.md")
+                with open(report_path, "w") as f:
+                    f.write("# Hyperparameter Tuning Report\n\n")
+                    f.write(f"## Summary\n\n")
+                    f.write(f"* Number of trials: {len(study.trials)}\n")
+                    f.write(f"* Best value: {study.best_value:.4f}\n")
+                    f.write(f"* Best trial: {study.best_trial.number}\n\n")
+                    
+                    f.write("## Best Parameters\n\n")
+                    for param, value in study.best_params.items():
+                        f.write(f"* {param}: {value}\n")
+                    
+                    f.write("\n## Visualization Links\n\n")
+                    for name, path in visualizations.items():
+                        rel_path = os.path.basename(path)
+                        f.write(f"* [{name.replace('_', ' ').title()}]({rel_path})\n")
+                    
+                    f.write("\n## Trial Details\n\n")
+                    f.write("| Trial | Value | Parameters |\n")
+                    f.write("|-------|-------|------------|\n")
+                    for trial in sorted(study.trials, key=lambda t: t.value if t.value is not None else -1, reverse=True):
+                        if trial.value is not None:  # Skip failed trials
+                            params_str = ", ".join([f"{k}={v}" for k, v in trial.params.items()])
+                            f.write(f"| {trial.number} | {trial.value:.4f} | {params_str} |\n")
+                
+                visualizations["report"] = report_path
+                logger.info(f"Saved tuning report to {report_path}")
+                
+                # Save study for future analysis
+                study_path = os.path.join(results_dir, "optuna_study.pkl")
+                with open(study_path, "wb") as f:
+                    pickle.dump(study, f)
+                logger.info(f"Saved Optuna study to {study_path}")
+                
+            except ImportError as e:
+                logger.warning(f"Could not generate visualizations: {str(e)}")
+                logger.warning("Make sure optuna.visualization dependencies are installed.")
+            except Exception as e:
+                logger.warning(f"Error generating visualizations: {str(e)}")
+                
+        return best_experiment, best_config, study, visualizations
+    
+    def _run_single_experiment(self) -> Tuple[Dict, Model]:
         """
         Run a single experiment using the unified Trainer.
         
@@ -212,7 +328,7 @@ class Experiment:
         target_name = self.config.get('target')
         model_type = self.config.get("model.type")
         
-        self.logger.info(f"Running single run experiment")
+        self.logger.info(f"Running single experiment")
         self.logger.info(f"Feature names: {feature_names}")
         self.logger.info(f"Model type: {model_type}")
         self.logger.info(f"Split type: {self.split_type.value}")
@@ -258,7 +374,6 @@ class Experiment:
         # Store results
         experiment_results = {
             'name': self.name,
-            'experiment_type': 'single_run',
             'split_type': self.split_type.value,
             'feature_names': feature_names,
             'model_type': model_type,
@@ -309,101 +424,6 @@ class Experiment:
         
         # Return both the results and the trained model
         return experiment_results, model
-    
-    def _run_with_tuning(self) -> Dict:
-        """
-        Run experiment with hyperparameter tuning.
-        
-        Returns:
-            Dict: Experiment results
-        """
-        feature_names = self.config.get("features")
-        target_name = self.config.get('target')
-        model_type = self.config.get("model.type")
-        
-        self.logger.info(f"Running experiment with hyperparameter tuning")
-        self.logger.info(f"Feature names: {feature_names}")
-        self.logger.info(f"Model type: {model_type}")
-        self.logger.info(f"Split type: {self.split_type.value}")
-        
-        start_time = time.time()
-        
-        # Initialize tuner if not already done
-        if self.tuner is None:
-            self.tuner = HyperparameterTuner(
-                self.config, 
-                self.data_loader, 
-                self.feature_factory, 
-                self.model_factory
-            )
-        
-        # Run hyperparameter tuning
-        best_params = self.tuner.tune()
-        
-        # Train model with best parameters using our unified Trainer
-        model = self.trainer.train(
-            split_type=self.split_type,
-            model_params=best_params
-        )
-        
-        # Save trained model for potential reuse
-        self.last_trained_model = model
-        
-        # Use the trainer to evaluate the model
-        self.logger.info("Evaluating model using the trainer...")
-        
-        # Force reload data to make sure we have fresh data for evaluation
-        try:
-            self.data_loader.load_data()
-            if self.data_loader.train_df is None or self.data_loader.train_df.is_empty():
-                self.logger.error("Training data is empty or None. Cannot evaluate model.")
-                metrics = {"error": "Training data is empty or None"}
-                score = 0
-            else:
-                score, metrics = self.trainer.evaluate_model(model)
-        except Exception as e:
-            self.logger.error(f"Error loading data for evaluation: {str(e)}")
-            metrics = {"error": f"Error loading data: {str(e)}"}
-            score = 0
-        
-        if score == 0 and "error" in metrics:
-            self.logger.warning(f"Model evaluation failed: {metrics.get('error')}")
-            # Return empty metrics if evaluation failed
-            metrics = {}
-        
-        # Get feature importance if the model supports it
-        feature_importance = {}
-        if model:
-            try:
-                feature_importance = model.get_feature_importance()
-                if not feature_importance:
-                    self.logger.warning("Model returned empty feature importance dictionary")
-            except Exception as e:
-                self.logger.error(f"Error getting feature importance: {str(e)}")
-                # Continue with empty feature importance
-        
-        # Store results
-        experiment_results = {
-            'name': self.name,
-            'experiment_type': 'tuning',
-            'split_type': self.split_type.value,
-            'feature_names': feature_names,
-            'model_type': model_type,
-            'metrics': metrics,
-            'feature_importance': feature_importance,
-            'best_params': best_params,
-            'runtime': time.time() - start_time,
-        }
-        self.results = experiment_results
-        
-        # Save results
-        self._save_results()
-        
-        self.logger.info(f"Experiment metrics: {metrics}")
-        self.logger.info(f"Best parameters: {best_params}")
-        self.logger.info(f"Experiment completed in {time.time() - start_time:.2f} seconds")
-        
-        return experiment_results
     
     def _run_kaggle_simulation(self) -> Tuple[Dict, pl.DataFrame, Model]:
         """
@@ -524,12 +544,8 @@ class Experiment:
             self.model_factory
         )
         
-        # Apply hyperparameter tuning if enabled
+        # Apply hyperparameter tuning if needed
         model_params = None
-        if self.use_hyperparameter_tuning and self.tuner is not None:
-            self.logger.info("Applying hyperparameter tuning for Kaggle simulation")
-            model_params = self.tuner.tune()
-            self.logger.info(f"Using best parameters: {model_params}")
         
         # Train model with the unified trainer
         self.logger.info(f"Training model with {self.split_type.value} split type for Kaggle simulation")

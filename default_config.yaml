@@ -75,8 +75,6 @@ data:
 
 # Experiment configuration
 experiment:
-  type: "single_run"    # "single_run" or "tuning"
-  use_hyperparameter_tuning: false
   evaluation:
     perform_kaggle_simulation: true
     create_submission: true
