@@ -397,6 +397,7 @@ class TextProcessor:
                         
                         # Initialize and fit cuML PCA
                         try:
+                            import numpy as np
                             gpu_pca = cuml.PCA(n_components=dimensions, random_state=42)
                             reduced = gpu_pca.fit_transform(embeddings)
                             
@@ -1135,6 +1136,7 @@ def register_text_embedding_features():
                     if use_gpu_for_vectors and len(user_product_matrix) > 100:
                         try:
                             import cuml
+                            import numpy as np
                             from cuml.metrics.pairwise_distances import cosine_similarity as cuml_cosine
                             
                             # Calculate on GPU
@@ -1176,6 +1178,7 @@ def register_text_embedding_features():
                     if use_gpu_for_vectors and len(user_product_matrix) > 100:
                         try:
                             import cuml
+                            import numpy as np
                             from cuml.metrics.pairwise_distances import cosine_similarity as cuml_cosine
                             
                             # Calculate on GPU
