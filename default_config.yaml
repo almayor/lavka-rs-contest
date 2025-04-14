@@ -3,8 +3,8 @@
 # Model configuration
 model:
   type: "catboost"
-  use_gpu: false                  # Enable/disable GPU usage
-  gpu_devices: "0"                # GPU device IDs (comma-separated string for multi-GPU)
+  use_gpu: true                  # Enable/disable GPU usage
+  gpu_devices: "3"                # GPU device IDs (comma-separated string for multi-GPU)
   thread_count: -1                # Number of CPU threads (-1 means auto)
   config:
     catboost:
