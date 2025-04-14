@@ -103,43 +103,74 @@ class TextProcessor:
             self.logger.warning("No text model loaded. Returning zero embeddings.")
             return np.zeros((len(texts), 1))
             
-        # Clean texts (remove empty strings, handle non-string inputs)
-        cleaned_texts = [
+        # Clean texts (remove empty strings, handle non-string inputs) - vectorized
+        import numpy as np
+        
+        # Vectorized text cleaning
+        cleaned_texts = np.array([
             t if isinstance(t, str) and t else " " 
             for t in texts
-        ]
+        ])
         
         if self.model_type == 'sentence-transformers':
-            # Get embeddings directly from the model
+            # Get embeddings directly from the model (already batch optimized)
             embeddings = self.model.encode(
                 cleaned_texts, 
                 show_progress_bar=False,
-                convert_to_numpy=True
+                convert_to_numpy=True,
+                batch_size=64  # Process in batches for better performance
             )
             return embeddings
             
         elif self.model_type == 'word2vec':
-            # For word2vec, average word vectors in each text
+            # For word2vec, optimize with array operations
             embeddings = np.zeros((len(cleaned_texts), self.embedding_size))
             
-            for i, text in enumerate(cleaned_texts):
-                words = text.lower().split()
-                vectors = [
-                    self.model[word] for word in words 
-                    if word in self.model
-                ]
+            # Process in batches for better performance
+            batch_size = 100
+            num_batches = (len(cleaned_texts) + batch_size - 1) // batch_size
+            
+            for batch_idx in range(num_batches):
+                start_idx = batch_idx * batch_size
+                end_idx = min(start_idx + batch_size, len(cleaned_texts))
+                batch_texts = cleaned_texts[start_idx:end_idx]
                 
-                if vectors:
-                    embeddings[i] = np.mean(vectors, axis=0)
+                # Process each text in the batch
+                for i, text in enumerate(batch_texts):
+                    words = text.lower().split()
+                    # Get embeddings for all words in a single list comprehension
+                    valid_word_vectors = [self.model[word] for word in words if word in self.model]
+                    
+                    # Only compute mean if we have valid vectors
+                    if valid_word_vectors:
+                        # Convert to array and compute mean in one operation
+                        word_vectors_array = np.array(valid_word_vectors)
+                        embeddings[start_idx + i] = np.mean(word_vectors_array, axis=0)
             
             return embeddings
             
         elif self.model_type == 'fasttext':
-            # Get embeddings directly from the model
-            embeddings = np.array([
-                self.model.get_sentence_vector(text) 
-                for text in cleaned_texts
-            ])
+            # Optimize fasttext embedding generation
+            # Pre-allocate output array
+            embeddings = np.zeros((len(cleaned_texts), self.embedding_size))
+            
+            # Process in batches for better performance
+            batch_size = 100
+            num_batches = (len(cleaned_texts) + batch_size - 1) // batch_size
+            
+            for batch_idx in range(num_batches):
+                start_idx = batch_idx * batch_size
+                end_idx = min(start_idx + batch_size, len(cleaned_texts))
+                batch_texts = cleaned_texts[start_idx:end_idx]
+                
+                # Create a batch of embeddings
+                batch_embeddings = np.array([
+                    self.model.get_sentence_vector(text) for text in batch_texts
+                ])
+                
+                # Store in result array
+                embeddings[start_idx:end_idx] = batch_embeddings
+                
             return embeddings
             
         else:
@@ -162,12 +193,55 @@ class TextProcessor:
             
         try:
             from sklearn.decomposition import PCA
-            pca = PCA(n_components=dimensions)
-            reduced = pca.fit_transform(embeddings)
+            
+            # Use batch processing for large datasets
+            batch_size = 10000
+            num_samples = embeddings.shape[0]
+            
+            # For small datasets, just use standard PCA
+            if num_samples <= batch_size:
+                pca = PCA(n_components=dimensions, random_state=42)
+                reduced = pca.fit_transform(embeddings)
+            else:
+                # For large datasets, use incremental PCA or batched processing
+                try:
+                    # Try to use IncrementalPCA which is more memory efficient
+                    from sklearn.decomposition import IncrementalPCA
+                    
+                    # Initialize the model
+                    ipca = IncrementalPCA(n_components=dimensions, batch_size=batch_size)
+                    
+                    # Process in batches
+                    for i in range(0, num_samples, batch_size):
+                        end = min(i + batch_size, num_samples)
+                        ipca.partial_fit(embeddings[i:end])
+                    
+                    # Transform the data
+                    reduced = ipca.transform(embeddings)
+                    
+                except ImportError:
+                    # Fall back to regular PCA with batch processing if IncrementalPCA is not available
+                    self.logger.info("IncrementalPCA not available, using regular PCA with batching")
+                    
+                    # Fit PCA on a smaller random subset for initialization
+                    import numpy as np
+                    sample_size = min(5000, num_samples)
+                    sample_indices = np.random.choice(num_samples, size=sample_size, replace=False)
+                    
+                    pca = PCA(n_components=dimensions, random_state=42)
+                    pca.fit(embeddings[sample_indices])
+                    
+                    # Transform in batches
+                    reduced = np.zeros((num_samples, dimensions))
+                    for i in range(0, num_samples, batch_size):
+                        end = min(i + batch_size, num_samples)
+                        reduced[i:end] = pca.transform(embeddings[i:end])
+            
             self.logger.info(
                 f"Reduced embeddings from {embeddings.shape[1]} to {dimensions} dimensions"
             )
             return reduced
+            
         except ImportError:
             self.logger.warning(
                 "sklearn not available for dimension reduction. "
@@ -312,7 +386,7 @@ def register_text_embedding_features():
         if product_embeddings.shape[1] > dimensions:
             product_embeddings = text_processor.reduce_dimensions(product_embeddings, dimensions)
         
-        # Create embedding lookup dictionary
+        # Create embedding lookup dictionary and matrix
         product_id_list = products['product_id'].to_list()
         product_embedding_dict = {
             pid: embedding for pid, embedding in zip(product_id_list, product_embeddings)
@@ -321,9 +395,6 @@ def register_text_embedding_features():
         logger.info(f"Created embedding lookup with {len(product_embedding_dict)} products")
         
         # Step 2: Calculate user purchase history embeddings (weighted by frequency)
-        user_purchase_history = {}
-        user_cart_history = {}
-        
         # Get purchase history
         purchase_history = history_df.filter(pl.col('action_type') == "AT_Purchase").select(
             'user_id', 'product_id', 'timestamp'
@@ -353,41 +424,52 @@ def register_text_embedding_features():
         purchase_weights_pd = purchase_weights.to_pandas()
         cart_weights_pd = cart_weights.to_pandas()
         
-        # Create weighted embeddings for each user's purchase history
-        for user_id in purchase_weights_pd['user_id'].unique():
+        import pandas as pd
+        
+        # Step 2a: Optimize purchase history processing with matrix operations
+        # Get all unique user IDs
+        unique_user_ids = purchase_weights_pd['user_id'].unique()
+        
+        # Initialize dictionaries to store user embeddings and data
+        user_purchase_history = {}
+        
+        # Create a DataFrame to map product_id to index in the embedding matrix
+        product_id_to_idx = pd.DataFrame({
+            'product_id': product_id_list,
+            'idx': range(len(product_id_list))
+        })
+        
+        # Process purchase history with matrix operations
+        for user_id in unique_user_ids:
+            # Get this user's purchases
             user_purchases = purchase_weights_pd[purchase_weights_pd['user_id'] == user_id]
             
-            # Skip if no purchase history (shouldn't happen but just in case)
+            # Skip if no purchase history
             if len(user_purchases) == 0:
                 continue
-                
-            # Get embeddings and weights for products this user has purchased
-            user_product_embeddings = []
-            user_product_weights = []
             
-            for _, row in user_purchases.iterrows():
-                product_id = row['product_id']
-                purchase_count = row['purchase_count']
-                
-                if product_id in product_embedding_dict:
-                    user_product_embeddings.append(product_embedding_dict[product_id])
-                    user_product_weights.append(purchase_count)
+            # Get the product IDs and their weights
+            user_product_ids = user_purchases['product_id'].tolist()
+            user_product_weights = user_purchases['purchase_count'].tolist()
             
-            # Skip if no valid embeddings
-            if len(user_product_embeddings) == 0:
+            # Filter to only include products in our embedding dictionary
+            valid_indices = [i for i, pid in enumerate(user_product_ids) if pid in product_embedding_dict]
+            if not valid_indices:
                 continue
                 
+            filtered_product_ids = [user_product_ids[i] for i in valid_indices]
+            filtered_weights = np.array([user_product_weights[i] for i in valid_indices])
+            
+            # Get product embeddings as a matrix (products × embedding_dim)
+            user_product_embeddings = np.array([product_embedding_dict[pid] for pid in filtered_product_ids])
+            
             # Normalize weights
-            total_weight = sum(user_product_weights)
+            total_weight = filtered_weights.sum()
             if total_weight > 0:
-                normalized_weights = [w / total_weight for w in user_product_weights]
+                normalized_weights = filtered_weights / total_weight
                 
-                # Calculate weighted average embedding
-                weighted_embedding = np.average(
-                    user_product_embeddings, 
-                    axis=0, 
-                    weights=normalized_weights
-                )
+                # Calculate weighted average embedding using matrix multiplication
+                weighted_embedding = user_product_embeddings.T @ normalized_weights
                 
                 # Store in dictionary
                 user_purchase_history[user_id] = {
@@ -395,41 +477,41 @@ def register_text_embedding_features():
                     'product_embeddings': user_product_embeddings
                 }
         
-        # Same for cart history
+        # Step 2b: Optimize cart history processing with matrix operations
+        # Initialize cart history dictionary
+        user_cart_history = {}
+        
+        # Process cart history with matrix operations
         for user_id in cart_weights_pd['user_id'].unique():
+            # Get this user's cart items
             user_carts = cart_weights_pd[cart_weights_pd['user_id'] == user_id]
             
             # Skip if no cart history
             if len(user_carts) == 0:
                 continue
-                
-            # Get embeddings and weights for products this user has added to cart
-            user_product_embeddings = []
-            user_product_weights = []
             
-            for _, row in user_carts.iterrows():
-                product_id = row['product_id']
-                cart_count = row['cart_count']
-                
-                if product_id in product_embedding_dict:
-                    user_product_embeddings.append(product_embedding_dict[product_id])
-                    user_product_weights.append(cart_count)
+            # Get the product IDs and their weights
+            user_product_ids = user_carts['product_id'].tolist()
+            user_product_weights = user_carts['cart_count'].tolist()
             
-            # Skip if no valid embeddings
-            if len(user_product_embeddings) == 0:
+            # Filter to only include products in our embedding dictionary
+            valid_indices = [i for i, pid in enumerate(user_product_ids) if pid in product_embedding_dict]
+            if not valid_indices:
                 continue
                 
+            filtered_product_ids = [user_product_ids[i] for i in valid_indices]
+            filtered_weights = np.array([user_product_weights[i] for i in valid_indices])
+            
+            # Get product embeddings as a matrix (products × embedding_dim)
+            user_product_embeddings = np.array([product_embedding_dict[pid] for pid in filtered_product_ids])
+            
             # Normalize weights
-            total_weight = sum(user_product_weights)
+            total_weight = filtered_weights.sum()
             if total_weight > 0:
-                normalized_weights = [w / total_weight for w in user_product_weights]
+                normalized_weights = filtered_weights / total_weight
                 
-                # Calculate weighted average embedding
-                weighted_embedding = np.average(
-                    user_product_embeddings, 
-                    axis=0, 
-                    weights=normalized_weights
-                )
+                # Calculate weighted average embedding using matrix multiplication
+                weighted_embedding = user_product_embeddings.T @ normalized_weights
                 
                 # Store in dictionary
                 user_cart_history[user_id] = {
@@ -440,30 +522,41 @@ def register_text_embedding_features():
         logger.info(f"Created weighted embeddings for {len(user_purchase_history)} users' purchase history")
         logger.info(f"Created weighted embeddings for {len(user_cart_history)} users' cart history")
         
-        # Step 3: Calculate distances from target products to user's history
-        # Helper function to calculate cosine similarity
-        def cosine_similarity(a, b):
-            norm_a = np.linalg.norm(a)
-            norm_b = np.linalg.norm(b)
-            if norm_a == 0 or norm_b == 0:
-                return 0
-            return np.dot(a, b) / (norm_a * norm_b)
-        
-        # Helper function to calculate minimum distance to any product in a list
-        def min_distance(embedding, product_embeddings):
-            if not product_embeddings:
-                return 0
-            similarities = [cosine_similarity(embedding, p_embed) for p_embed in product_embeddings]
-            return max(similarities)  # Max similarity = min distance
-        
-        # Process target data in batches 
-        result_dfs = []
-        
-        # Convert to pandas for easier processing
+        # Step 3: Calculate distances efficiently using vectorized operations
+        # Convert target data to pandas for processing
         target_pd = target_df.to_pandas()
         
+        # Create matrices for batch processing
+        # Get unique combinations of user_id and product_id
+        user_product_pairs = target_pd[['user_id', 'product_id']].values
+        unique_users = target_pd['user_id'].unique()
+        unique_target_products = target_pd['product_id'].unique()
+        
+        # Compute target product embeddings matrix (only for products that exist in our dictionary)
+        valid_target_products = [p for p in unique_target_products if p in product_embedding_dict]
+        target_embeddings = np.array([product_embedding_dict[p] for p in valid_target_products])
+        target_product_to_idx = {p: i for i, p in enumerate(valid_target_products)}
+        
+        # Helper function to calculate cosine similarity between matrices
+        def batch_cosine_similarity(matrix_a, matrix_b):
+            # Normalize matrices
+            norm_a = np.linalg.norm(matrix_a, axis=1, keepdims=True)
+            norm_a = np.where(norm_a == 0, 1e-10, norm_a)  # Avoid division by zero
+            
+            norm_b = np.linalg.norm(matrix_b, axis=1, keepdims=True)
+            norm_b = np.where(norm_b == 0, 1e-10, norm_b)  # Avoid division by zero
+            
+            matrix_a_normalized = matrix_a / norm_a
+            matrix_b_normalized = matrix_b / norm_b
+            
+            # Calculate dot product
+            similarity_matrix = np.dot(matrix_a_normalized, matrix_b_normalized.T)
+            return similarity_matrix
+        
+        # Initialize array to store features
         target_features = []
         
+        # Process targets more efficiently
         for _, row in target_pd.iterrows():
             user_id = row['user_id']
             product_id = row['product_id']
@@ -474,31 +567,45 @@ def register_text_embedding_features():
             min_purchase_distance = 0
             min_cart_distance = 0
             
-            # Get target product embedding
+            # Process only if product is in our dictionary
             if product_id in product_embedding_dict:
                 target_embedding = product_embedding_dict[product_id]
                 
                 # Calculate similarity to purchase history
                 if user_id in user_purchase_history:
+                    # Calculate weighted similarity
                     purchase_history_embedding = user_purchase_history[user_id]['weighted_embedding']
-                    purchase_weighted_similarity = cosine_similarity(target_embedding, purchase_history_embedding)
-                    
-                    # Min distance to any purchased product
-                    min_purchase_distance = min_distance(
-                        target_embedding, 
-                        user_purchase_history[user_id]['product_embeddings']
+                    purchase_weighted_similarity = np.dot(target_embedding, purchase_history_embedding) / (
+                        np.linalg.norm(target_embedding) * np.linalg.norm(purchase_history_embedding) + 1e-10
                     )
+                    
+                    # Calculate minimum distance to any purchased product using vectorized operations
+                    user_product_matrix = user_purchase_history[user_id]['product_embeddings']
+                    target_embedding_reshaped = target_embedding.reshape(1, -1)
+                    
+                    # Calculate all similarities at once
+                    similarities = np.dot(user_product_matrix, target_embedding) / (
+                        np.linalg.norm(user_product_matrix, axis=1) * np.linalg.norm(target_embedding) + 1e-10
+                    )
+                    min_purchase_distance = similarities.max() if len(similarities) > 0 else 0
                 
                 # Calculate similarity to cart history
                 if user_id in user_cart_history:
+                    # Calculate weighted similarity
                     cart_history_embedding = user_cart_history[user_id]['weighted_embedding']
-                    cart_weighted_similarity = cosine_similarity(target_embedding, cart_history_embedding)
-                    
-                    # Min distance to any carted product
-                    min_cart_distance = min_distance(
-                        target_embedding, 
-                        user_cart_history[user_id]['product_embeddings']
+                    cart_weighted_similarity = np.dot(target_embedding, cart_history_embedding) / (
+                        np.linalg.norm(target_embedding) * np.linalg.norm(cart_history_embedding) + 1e-10
                     )
+                    
+                    # Calculate minimum distance to any carted product using vectorized operations
+                    user_product_matrix = user_cart_history[user_id]['product_embeddings']
+                    target_embedding_reshaped = target_embedding.reshape(1, -1)
+                    
+                    # Calculate all similarities at once
+                    similarities = np.dot(user_product_matrix, target_embedding) / (
+                        np.linalg.norm(user_product_matrix, axis=1) * np.linalg.norm(target_embedding) + 1e-10
+                    )
+                    min_cart_distance = similarities.max() if len(similarities) > 0 else 0
             
             # Store features
             target_features.append({
@@ -511,7 +618,6 @@ def register_text_embedding_features():
             })
         
         # Convert to DataFrame
-        import pandas as pd
         features_df = pd.DataFrame(target_features)
         
         # Convert to polars
@@ -566,9 +672,11 @@ def register_text_embedding_features():
         product_names = products['product_name'].to_list()
         product_embeddings = text_processor.get_embeddings(product_names)
         
-        # Step 2: Cluster products using k-means
+        # Step 2: Cluster products using k-means (vectorized)
         try:
             from sklearn.cluster import KMeans
+            import numpy as np
+            import pandas as pd
             
             # Choose number of clusters
             n_clusters = config.get('text_processing.n_clusters', 15)
@@ -577,53 +685,78 @@ def register_text_embedding_features():
             kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
             cluster_labels = kmeans.fit_predict(product_embeddings)
             
-            # Create product_id to cluster mapping
+            # Create product_id to cluster mapping as a vectorized operation
             product_id_list = products['product_id'].to_list()
-            product_cluster_dict = {
-                pid: label for pid, label in zip(product_id_list, cluster_labels)
-            }
+            
+            # Create a DataFrame with product_id and cluster_label
+            product_clusters_df = pd.DataFrame({
+                'product_id': product_id_list,
+                'cluster': cluster_labels
+            })
             
             logger.info(f"Clustered {len(products)} products into {n_clusters} clusters")
             
-            # Step 3: Calculate user interaction statistics with each cluster
+            # Step 3: Calculate user interaction statistics with each cluster using vectorized operations
             # Get purchase history
             purchase_history = history_df.filter(pl.col('action_type') == "AT_Purchase").select(
                 'user_id', 'product_id'
             )
             
-            # Add cluster labels to purchase history
+            # Convert to pandas for faster operations
             purchase_history_pd = purchase_history.to_pandas()
-            purchase_history_pd['cluster'] = purchase_history_pd['product_id'].map(
-                lambda pid: product_cluster_dict.get(pid, -1)
+            
+            # Efficiently add cluster labels using merge instead of map
+            purchase_history_with_clusters = purchase_history_pd.merge(
+                product_clusters_df, on='product_id', how='left'
             )
             
-            # Count purchases per user-cluster
-            user_cluster_counts = purchase_history_pd.groupby(['user_id', 'cluster']).size().reset_index(
-                name='cluster_purchase_count'
-            )
+            # Fill missing cluster values with -1
+            purchase_history_with_clusters['cluster'] = purchase_history_with_clusters['cluster'].fillna(-1).astype(int)
             
-            # Calculate total purchases per user
-            user_total_purchases = user_cluster_counts.groupby('user_id')['cluster_purchase_count'].sum().reset_index(
+            # Calculate statistics using optimized DataFrame operations
+            # Get cluster counts per user-cluster pair (vectorized)
+            user_cluster_matrix = pd.crosstab(
+                purchase_history_with_clusters['user_id'], 
+                purchase_history_with_clusters['cluster']
+            ).reset_index()
+            
+            # Calculate total purchases per user (vectorized)
+            user_total_purchases = user_cluster_matrix.set_index('user_id').sum(axis=1).reset_index(
                 name='total_purchases'
             )
             
-            # Calculate cluster purchase ratio
+            # Convert the crosstab matrix to long format for easier merging
+            user_cluster_counts = pd.melt(
+                user_cluster_matrix, 
+                id_vars=['user_id'], 
+                var_name='cluster', 
+                value_name='cluster_purchase_count'
+            )
+            
+            # Merge to get total purchases
             user_cluster_counts = user_cluster_counts.merge(
                 user_total_purchases, on='user_id', how='left'
             )
+            
+            # Calculate ratio vectorized
             user_cluster_counts['cluster_purchase_ratio'] = (
                 user_cluster_counts['cluster_purchase_count'] / user_cluster_counts['total_purchases']
             )
             
             # Step 4: Add cluster labels and purchase ratios to target data
-            # Add cluster labels to target DataFrame
+            # Convert target to pandas for processing
             target_pd = target_df.to_pandas()
-            target_pd['cluster'] = target_pd['product_id'].map(
-                lambda pid: product_cluster_dict.get(pid, -1)
+            
+            # Add cluster labels using merge instead of map (vectorized)
+            target_with_clusters = target_pd.merge(
+                product_clusters_df, on='product_id', how='left'
             )
             
-            # Merge with user-cluster purchase ratios
-            result_df = target_pd.merge(
+            # Fill missing cluster values with -1
+            target_with_clusters['cluster'] = target_with_clusters['cluster'].fillna(-1).astype(int)
+            
+            # Merge with user-cluster purchase ratios (vectorized)
+            result_df = target_with_clusters.merge(
                 user_cluster_counts[['user_id', 'cluster', 'cluster_purchase_ratio']], 
                 on=['user_id', 'cluster'], 
                 how='left'
@@ -686,13 +819,13 @@ def register_text_embedding_features():
         product_names = products['product_name'].to_list()
         product_embeddings = text_processor.get_embeddings(product_names)
         
-        # Create embedding lookup dictionary
+        # Create embedding lookup dictionary and matrix
         product_id_list = products['product_id'].to_list()
         product_embedding_dict = {
             pid: embedding for pid, embedding in zip(product_id_list, product_embeddings)
         }
         
-        # Step 2: Calculate user purchase history embedding statistics
+        # Step 2: Calculate user purchase history embedding statistics using vectorized operations
         # Get user purchase/view history
         user_history = history_df.filter(
             (pl.col('action_type') == "AT_Purchase") | (pl.col('action_type') == "AT_View")
@@ -703,33 +836,53 @@ def register_text_embedding_features():
             pl.col('action_type').count().alias('interaction_count')
         )
         
-        # Convert to pandas for easier processing
+        # Convert to pandas for vectorized operations
         user_history_pd = user_history_grouped.to_pandas()
         
-        # Calculate user embedding statistics
+        import numpy as np
+        import pandas as pd
+        
+        # Create matrices for efficient computation
         user_stats = {}
         
-        for user_id in user_history_pd['user_id'].unique():
+        # Get unique users
+        unique_user_ids = user_history_pd['user_id'].unique()
+        
+        # Prepare a dictionary mapping product_id to embedding array index
+        product_id_to_idx = {pid: i for i, pid in enumerate(product_id_list)}
+        
+        # Create a master product embedding matrix
+        product_embedding_matrix = np.array([product_embedding_dict[pid] for pid in product_id_list])
+        
+        # Compute user statistics using vectorized operations
+        for user_id in unique_user_ids:
+            # Get product IDs for this user
             user_products = user_history_pd[user_history_pd['user_id'] == user_id]['product_id'].tolist()
             
-            # Get embeddings for this user's products
-            user_product_embeddings = [
-                product_embedding_dict[pid] for pid in user_products 
-                if pid in product_embedding_dict
-            ]
+            # Get valid product IDs (ones that have embeddings)
+            valid_product_ids = [pid for pid in user_products if pid in product_embedding_dict]
             
-            if len(user_product_embeddings) == 0:
+            if len(valid_product_ids) == 0:
                 continue
                 
-            # Calculate embedding centroid (mean)
-            embedding_centroid = np.mean(user_product_embeddings, axis=0)
+            # Get indices of embeddings in the embedding matrix
+            embedding_indices = [product_id_to_idx[pid] for pid in valid_product_ids]
             
-            # Calculate embedding diversity (average distance from centroid)
-            distances = [
-                np.linalg.norm(embed - embedding_centroid) 
-                for embed in user_product_embeddings
-            ]
-            embedding_diversity = np.mean(distances) if distances else 0
+            # Extract embeddings as a matrix
+            user_product_matrix = product_embedding_matrix[embedding_indices]
+            
+            # Calculate centroid vectorized
+            embedding_centroid = np.mean(user_product_matrix, axis=0)
+            
+            # Calculate distances from centroid vectorized
+            # Reshape centroid for broadcasting
+            centroid_reshaped = embedding_centroid.reshape(1, -1)
+            
+            # Calculate distances from all points to centroid at once
+            distances = np.linalg.norm(user_product_matrix - centroid_reshaped, axis=1)
+            
+            # Calculate diversity (mean distance)
+            embedding_diversity = np.mean(distances) if len(distances) > 0 else 0
             
             # Store in dictionary
             user_stats[user_id] = {
@@ -739,46 +892,43 @@ def register_text_embedding_features():
         
         logger.info(f"Calculated embedding statistics for {len(user_stats)} users")
         
-        # Step 3: Calculate diversity features for target items
-        target_features = []
-        
-        # Convert to pandas for easier processing
+        # Step 3: Calculate diversity features for target items using vectorized operations
+        # Convert target data for easier processing
         target_pd = target_df.to_pandas()
         
-        for _, row in target_pd.iterrows():
-            user_id = row['user_id']
-            product_id = row['product_id']
-            
-            # Initialize features
-            distance_from_centroid = 0
-            relative_diversity = 0
-            
-            # Get target product embedding
+        # Extract user_ids and product_ids
+        target_user_ids = target_pd['user_id'].values
+        target_product_ids = target_pd['product_id'].values
+        
+        # Initialize feature arrays
+        num_targets = len(target_pd)
+        distances_from_centroid = np.zeros(num_targets)
+        relative_diversities = np.zeros(num_targets)
+        
+        # Process targets in batches based on user_id for more efficient computation
+        for i, (user_id, product_id) in enumerate(zip(target_user_ids, target_product_ids)):
             if product_id in product_embedding_dict and user_id in user_stats:
                 target_embedding = product_embedding_dict[product_id]
-                
-                # Calculate distance from user's centroid
                 centroid = user_stats[user_id]['embedding_centroid']
-                distance_from_centroid = np.linalg.norm(target_embedding - centroid)
                 
-                # Calculate relative diversity (how much more diverse this product is)
+                # Calculate distance from centroid
+                distance = np.linalg.norm(target_embedding - centroid)
+                distances_from_centroid[i] = distance
+                
+                # Calculate relative diversity
                 user_diversity = user_stats[user_id]['embedding_diversity']
                 if user_diversity > 0:
-                    relative_diversity = distance_from_centroid / user_diversity
+                    relative_diversities[i] = distance / user_diversity
                 else:
-                    relative_diversity = distance_from_centroid  # If user has no diversity, use raw distance
-            
-            # Store features
-            target_features.append({
-                'user_id': user_id,
-                'product_id': product_id,
-                'distance_from_centroid': distance_from_centroid,
-                'relative_diversity': relative_diversity
-            })
+                    relative_diversities[i] = distance
         
-        # Convert to DataFrame
-        import pandas as pd
-        features_df = pd.DataFrame(target_features)
+        # Create feature DataFrame in one go
+        features_df = pd.DataFrame({
+            'user_id': target_user_ids,
+            'product_id': target_product_ids,
+            'distance_from_centroid': distances_from_centroid,
+            'relative_diversity': relative_diversities
+        })
         
         # Convert to polars
         features_pl = pl.from_pandas(features_df)
