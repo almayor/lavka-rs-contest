@@ -616,8 +616,9 @@ def register_text_embedding_features():
         embed_pl = pl.from_pandas(embed_df)
         
         # Check for NaN values - using polars-specific approach
-        # First sum null counts for each column, then sum the totals
-        nan_count = embed_pl.null_count().sum().sum()
+        # Get the total count of null values across all columns
+        null_df = embed_pl.null_count()
+        nan_count = null_df.select(pl.sum(pl.all())).item()
         if nan_count > 0:
             logger.warning(f"Found {nan_count} NaN values in embeddings")
         
@@ -626,8 +627,9 @@ def register_text_embedding_features():
         result = target_df.join(embed_pl, on='product_id', how='left')
         
         # Check for missing values after join
-        # Correct polars syntax for summing null counts
-        missing_count = result.select(feature_names).null_count().sum().sum()
+        # Using polars-specific approach to count nulls
+        null_df = result.select(feature_names).null_count()
+        missing_count = null_df.select(pl.sum(pl.all())).item()
         if missing_count > 0:
             logger.warning(f"After join, found {missing_count} missing embedding values")
             missing_products = target_df.filter(
@@ -800,8 +802,9 @@ def register_text_embedding_features():
         embed_pl = pl.from_pandas(embed_df)
         
         # Check for NaN values - using polars-specific approach
-        # First sum null counts for each column, then sum the totals
-        nan_count = embed_pl.null_count().sum().sum()
+        # Get the total count of null values across all columns
+        null_df = embed_pl.null_count()
+        nan_count = null_df.select(pl.sum(pl.all())).item()
         if nan_count > 0:
             logger.warning(f"Found {nan_count} NaN values in embeddings")
         
@@ -810,8 +813,9 @@ def register_text_embedding_features():
         result = target_df.join(embed_pl, on='product_category', how='left')
         
         # Check for missing values after join
-        # Correct polars syntax for summing null counts
-        missing_count = result.select(feature_names).null_count().sum().sum()
+        # Using polars-specific approach to count nulls
+        null_df = result.select(feature_names).null_count()
+        missing_count = null_df.select(pl.sum(pl.all())).item()
         if missing_count > 0:
             logger.warning(f"After join, found {missing_count} missing embedding values")
             missing_categories = target_df.filter(
