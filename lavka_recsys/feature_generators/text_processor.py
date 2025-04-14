@@ -3,8 +3,8 @@ import polars as pl
 from typing import List, Dict, Any
 import re
 
-from .custom_logging import get_logger
-from .config import Config
+from ..custom_logging import get_logger
+from ..config import Config
 
 class TextProcessor:
     """Simplified text processing with pretrained models"""
@@ -179,7 +179,7 @@ class TextProcessor:
 # Add methods to FeatureFactory for text embeddings
 def register_text_embedding_features():
     """Register text embedding methods with FeatureFactory"""
-    from .feature_factory import FeatureFactory
+    from ..feature_factory import FeatureFactory
     
     @FeatureFactory.register('product_embeddings')
     def generate_product_embeddings(

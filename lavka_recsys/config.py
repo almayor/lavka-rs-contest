@@ -109,16 +109,16 @@ class Config:
         """Enable setting via bracket notation."""
         self.set(key, value)
 
-    def save(self, filename='experiment_config.json'):
-        """Save the configuration to a JSON file."""
+    def save(self, filename='experiment_config.yaml'):
+        """Save the configuration to a YAML file."""
         with open(filename, 'w') as f:
-            json.dump(self.config, f, indent=4)
+            yaml.dump(self.config, f, default_flow_style=False, sort_keys=False)
 
     @classmethod
-    def load(cls, filename='experiment_config.json'):
-        """Load a configuration from a JSON file."""
+    def load(cls, filename='experiment_config.yaml'):
+        """Load a configuration from a YAML file."""
         with open(filename, 'r') as f:
-            config_dict = json.load(f)
+            config_dict = yaml.safe_load(f)
         return cls(config_dict)
 
     def to_dict(self):
@@ -133,8 +133,8 @@ class Config:
         return new_config
 
     def __str__(self):
-        """Return a pretty-printed JSON representation of the configuration."""
-        return json.dumps(self.config, sort_keys=True, indent=4)
+        """Return a pretty-printed YAML representation of the configuration."""
+        return yaml.dump(self.config, default_flow_style=False, sort_keys=False)
 
     def __repr__(self):
         """Return a string representation of the configuration."""

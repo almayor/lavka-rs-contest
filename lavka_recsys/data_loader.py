@@ -47,42 +47,58 @@ class DataLoader:
     
     def create_validation_split(
             self,
-            validation_days: int = 30,
-            train_days: int = 30
+            validation_days: int = None,
+            target_days: int = None
         ) -> Tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
         """
-        Create a single validation split using the last X days of data.
+        Create a single validation split using TimeSplitter with STANDARD split type.
+        
         Args:
-            validation_days (int): Number of days for validation.
-            train_days (int): Number of days for training.
+            validation_days (int): Optional override for validation days
+            target_days (int): Optional override for target days
+            
         Returns:
             Tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]: 
-                Tuple of (history_df, train_df, val_df)
+                Tuple of (history_df, train_df, val_df) where train_df is the target window
         """
-        self.logger.debug("Creating validation split...")
+        self.logger.debug("Creating validation split using TimeSplitter...")
         
-        # Ensure data is sorted by timestamp
-        df = self.train_df.sort('timestamp')
+        # Get configuration values if not provided
+        if validation_days is None:
+            validation_days = self.config.get('training.validation_days')
+        if target_days is None:
+            target_days = self.config.get('training.target_days', 7)
+            
+        # Create time splitter
+        from .time_splitter import TimeSplitter, SplitType
+        time_splitter = TimeSplitter(self.config)
         
-        # Use last N days for validation
-        max_time = df['timestamp'].max()
-        val_start_time = max_time - pl.duration(days=validation_days)
+        # Get the most recent standard split
+        splits = list(time_splitter.create_splits(
+            self.train_df,
+            split_type=SplitType.STANDARD,
+            target_days=target_days,
+            validation_days=validation_days
+        ))
         
-        # Use previous M days for training
-        train_start_time = val_start_time - pl.duration(days=train_days)
+        if not splits:
+            self.logger.warning("No valid splits were created, falling back to simple split")
+            # Fallback to a simple split
+            df = self.train_df.sort('timestamp')
+            max_time = df['timestamp'].max()
+            history_df = df.filter(pl.col('timestamp') < (max_time - pl.duration(days=target_days)))
+            train_df = df.filter(pl.col('timestamp') >= (max_time - pl.duration(days=target_days)))
+            val_df = pl.DataFrame(schema=df.schema)  # Empty dataframe with same schema
+            return history_df, train_df, val_df
         
-        # Split data
-        history_df = df.filter(pl.col('timestamp') < train_start_time)
-        train_df = df.filter(
-            (pl.col('timestamp') >= train_start_time) & 
-            (pl.col('timestamp') < val_start_time)
-        )
-        val_df = df.filter(pl.col('timestamp') >= val_start_time)
+        # Extract the components from the first (and only) split
+        history_df, train_df, val_history_df, val_df = splits[0]
         
-        # Get actual datetime values from the dataframes for logging
-        # This approach is safer than trying to format the expressions directly
+        # Log the split information
         history_end = history_df['timestamp'].max() if len(history_df) > 0 else None
+        train_start = train_df['timestamp'].min() if len(train_df) > 0 else None
         train_end = train_df['timestamp'].max() if len(train_df) > 0 else None
+        val_start = val_df['timestamp'].min() if len(val_df) > 0 else None
         val_end = val_df['timestamp'].max() if len(val_df) > 0 else None
         
         # Format the datetimes
@@ -92,41 +108,63 @@ class DataLoader:
             return "unknown"
             
         history_end_str = format_time(history_end)
+        train_start_str = format_time(train_start)
         train_end_str = format_time(train_end)
+        val_start_str = format_time(val_start)
         val_end_str = format_time(val_end)
         
         self.logger.info(f"Validation split: history until {history_end_str}")
-        self.logger.info(f"Training: {history_end_str} to {train_end_str}")
-        self.logger.info(f"Validation: {train_end_str} to {val_end_str}")
+        self.logger.info(f"Training: {train_start_str} to {train_end_str} ({len(train_df)} records)")
+        if len(val_df) > 0:
+            self.logger.info(f"Validation: {val_start_str} to {val_end_str} ({len(val_df)} records)")
+        else:
+            self.logger.info("No validation data available")
         self.logger.info(f"Split data: {len(history_df)} history, {len(train_df)} train, {len(val_df)} validation rows")
         
         return history_df, train_df, val_df
     
     def create_final_split(self) -> Tuple[pl.DataFrame, pl.DataFrame]:
         """
-        Create a final split for training the production model.
-        Uses all data until the last 30 days for history, and the last 30 days for training.
+        Create a final split for training the production model using TimeSplitter.
+        Uses the configured target_days for the final training window.
         
         Returns:
             Tuple[pl.DataFrame, pl.DataFrame]: Tuple of (history_df, train_df)
         """
-        self.logger.debug("Creating final split for production model...")
+        self.logger.debug("Creating final split for production model using TimeSplitter...")
         
-        # Ensure data is sorted by timestamp
-        df = self.train_df.sort('timestamp')
+        # Get configuration values
+        target_days = self.config.get('training.target_days', 30)
+            
+        # Create time splitter
+        from .time_splitter import TimeSplitter, SplitType
+        time_splitter = TimeSplitter(self.config)
         
-        # Use last 30 days for final training
-        max_time = df['timestamp'].max()
-        split_time = max_time - pl.duration(days=30)
+        # Get the most recent standard split without validation
+        splits = list(time_splitter.create_splits(
+            self.train_df,
+            split_type=SplitType.STANDARD,
+            target_days=target_days,
+            validation_days=None
+        ))
         
-        # Split data
-        history_df = df.filter(pl.col('timestamp') < split_time)
-        train_df = df.filter(pl.col('timestamp') >= split_time)
+        if not splits:
+            self.logger.warning("No valid splits were created, falling back to simple split")
+            # Fallback to a simple split
+            df = self.train_df.sort('timestamp')
+            max_time = df['timestamp'].max()
+            history_df = df.filter(pl.col('timestamp') < (max_time - pl.duration(days=target_days)))
+            train_df = df.filter(pl.col('timestamp') >= (max_time - pl.duration(days=target_days)))
+            return history_df, train_df
+        
+        # Extract the components from the first (and only) split
+        # We only need history_df and train_df
+        history_df, train_df, _, _ = splits[0]
         
         # Get actual datetime values from the dataframes for logging
         # This approach is safer than trying to format the expressions directly
-        split_time_actual = history_df['timestamp'].max()
-        max_time_actual = train_df['timestamp'].max()
+        split_time_actual = history_df['timestamp'].max() if len(history_df) > 0 else None
+        max_time_actual = train_df['timestamp'].max() if len(train_df) > 0 else None
         
         # Format the datetimes for logging
         if split_time_actual is not None:

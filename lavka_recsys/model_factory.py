@@ -24,13 +24,14 @@ class Model:
         self.model = None
         self.logger = get_logger(self.__class__.__name__)
     
-    def train(self, train_features, train_labels, cat_columns=None, **kwargs):
+    def train(self, train_features, train_labels, cat_columns=None, train_request_ids=None, **kwargs):
         """
         Train model (to be implemented by subclasses).
         Args:
             train_features (pd.DataFrame or pl.DataFrame): Training features.
             train_labels (pd.Series or pl.Series): Training labels.
             cat_columns (list): Categorical column names.
+            train_request_ids (pd.Series or pl.Series): Request IDs for ranking models.
             kwargs: Additional parameters for training.
         """
         raise NotImplementedError
@@ -72,13 +73,14 @@ class CatBoostModel(Model):
         self.params = params
         self.model = CatBoostClassifier(**self.params)
     
-    def train(self, train_features, train_labels, eval_set=None, cat_columns=None):
+    def train(self, train_features, train_labels, eval_set=None, cat_columns=None, train_request_ids=None):
         """Train CatBoost model.
         Args:
             train_features (pd.DataFrame or pl.DataFrame): Training features.
             train_labels (pd.Series or pl.Series): Training labels.
-            eval_set (tuple): Tuple of evaluation features and labels.
+            eval_set (tuple): Tuple of (eval_features, eval_labels, eval_request_ids).
             cat_columns (list): Categorical column names.
+            train_request_ids (pd.Series or pl.Series): Request IDs for training data.
         """
         from catboost import Pool
         import pandas as pd
@@ -120,21 +122,25 @@ class CatBoostModel(Model):
         # Prepare eval set if provided
         eval_pool = None
         if eval_set is not None:
-            eval_features, eval_labels = eval_set
-            
-            if isinstance(eval_features, pl.DataFrame):
-                eval_features = eval_features.to_pandas()
-            
-            if isinstance(eval_labels, pl.Series):
-                eval_labels = eval_labels.to_list()
-            
-            # Also convert categorical columns in evaluation set
-            if cat_columns:
-                for col in cat_columns:
-                    if col in eval_features.columns:
-                        eval_features[col] = eval_features[col].astype(str)
-            
-            eval_pool = Pool(eval_features, eval_labels, cat_features=cat_columns)
+            # Handle both formats: (features, labels) or (features, labels, request_ids)
+            if len(eval_set) >= 2:
+                eval_features, eval_labels = eval_set[0], eval_set[1]
+                eval_request_ids = eval_set[2] if len(eval_set) > 2 else None
+                
+                if isinstance(eval_features, pl.DataFrame):
+                    eval_features = eval_features.to_pandas()
+                
+                if isinstance(eval_labels, pl.Series):
+                    eval_labels = eval_labels.to_list()
+                
+                # Also convert categorical columns in evaluation set
+                if cat_columns:
+                    for col in cat_columns:
+                        if col in eval_features.columns:
+                            eval_features[col] = eval_features[col].astype(str)
+                
+                # For non-ranking models, we ignore the request_ids
+                eval_pool = Pool(eval_features, eval_labels, cat_features=cat_columns)
         
         # Check if model already has trees (for incremental learning)
         tree_count = getattr(self.model, 'tree_count_', None)
@@ -301,8 +307,15 @@ class LightGBMModel(Model):
         self.params = params
         self.model = None  # Will be created during training
     
-    def train(self, train_features, train_labels, eval_set=None):
-        """Train LightGBM model"""
+    def train(self, train_features, train_labels, eval_set=None, cat_columns=None, train_request_ids=None):
+        """Train LightGBM model
+        Args:
+            train_features (pd.DataFrame or pl.DataFrame): Training features.
+            train_labels (pd.Series or pl.Series): Training labels.
+            eval_set (tuple): Tuple of (eval_features, eval_labels, eval_request_ids).
+            cat_columns (list): Categorical column names.
+            train_request_ids (pd.Series or pl.Series): Request IDs for training data.
+        """
         import lightgbm as lgb
         
         # Convert to pandas for LightGBM
@@ -318,16 +331,19 @@ class LightGBMModel(Model):
         # Prepare eval set if provided
         eval_datasets = None
         if eval_set is not None:
-            eval_features, eval_labels = eval_set
-            
-            if isinstance(eval_features, pl.DataFrame):
-                eval_features = eval_features.to_pandas()
-            
-            if isinstance(eval_labels, pl.Series):
-                eval_labels = eval_labels.to_list()
+            # Handle both formats: (features, labels) or (features, labels, request_ids)
+            if len(eval_set) >= 2:
+                eval_features, eval_labels = eval_set[0], eval_set[1]
+                # We can ignore eval_request_ids for LightGBM standard models
                 
-            eval_data = lgb.Dataset(eval_features, label=eval_labels)
-            eval_datasets = [eval_data]
+                if isinstance(eval_features, pl.DataFrame):
+                    eval_features = eval_features.to_pandas()
+                
+                if isinstance(eval_labels, pl.Series):
+                    eval_labels = eval_labels.to_list()
+                
+                eval_data = lgb.Dataset(eval_features, label=eval_labels)
+                eval_datasets = [eval_data]
         
         # Train model
         self.model = lgb.train(
@@ -364,6 +380,389 @@ class LightGBMModel(Model):
         return model
 
 
+class CatBoostRankerModel(Model):
+    """CatBoost model implementation for ranking tasks"""
+    
+    def __init__(self, **params):
+        super().__init__('catboost_ranker', params)
+        from catboost import CatBoostRanker
+        
+        # Set default loss function if not provided
+        if 'loss_function' not in params:
+            params['loss_function'] = 'YetiRank'
+            
+        self.params = params
+        self.model = CatBoostRanker(**self.params)
+    
+    def train(self, train_features, train_labels, eval_set=None, cat_columns=None, train_request_ids=None):
+        """Train CatBoost ranker model.
+        Args:
+            train_features (pd.DataFrame or pl.DataFrame): Training features.
+            train_labels (pd.Series or pl.Series): Training labels.
+            eval_set (tuple): Tuple of (eval_features, eval_labels, eval_request_ids).
+            cat_columns (list): Categorical column names.
+            train_request_ids (pd.Series or pl.Series): Request IDs for training data.
+        """
+        from catboost import Pool
+        import pandas as pd
+    
+        # Convert to pandas for CatBoost
+        if isinstance(train_features, pl.DataFrame):
+            train_features = train_features.to_pandas()
+        
+        if isinstance(train_labels, pl.Series):
+            train_labels = train_labels.to_list()
+        
+        # Convert categorical columns to string type to avoid CatBoost errors with floats
+        if cat_columns:
+            safe_cat_columns = []
+            for col in cat_columns:
+                if col in train_features.columns:
+                    # Convert category to string to avoid float/int issues
+                    self.logger.info(f"Converting categorical column '{col}' to string type")
+                    train_features[col] = train_features[col].astype(str)
+                    safe_cat_columns.append(col)
+                else:
+                    self.logger.warning(f"Categorical column '{col}' not found in features")
+            
+            # Use only the columns that actually exist
+            cat_columns = safe_cat_columns
+        
+        self.logger.info(
+            "Training CatBoost ranker model with columns: "
+            f"{train_features.columns.tolist()} "
+            f"(cat_columns: {cat_columns})"
+        )
+        
+        # Extract group ids for ranking (needed for ranking models)
+        group_ids = None
+        request_id_col = None
+        
+        # First try to use the passed train_request_ids
+        if train_request_ids is not None:
+            self.logger.info("Using provided train_request_ids for ranking model")
+            if isinstance(train_request_ids, pl.Series):
+                train_request_ids = train_request_ids.to_pandas()
+            
+            # Add the request_ids as a column to sort by
+            request_id_col = 'request_id'
+            train_features[request_id_col] = train_request_ids
+            
+            # Convert to string to avoid numeric issues with large IDs
+            train_features[request_id_col] = train_features[request_id_col].astype(str)
+            self.logger.info(f"Added request IDs as a column and converted to strings")
+        # Fallback to looking for request_id in features
+        elif 'request_id' in train_features.columns:
+            self.logger.info("Using request_id column from features for grouping in ranking model")
+            request_id_col = 'request_id'
+            # Convert to string to avoid numeric issues with large IDs
+            train_features[request_id_col] = train_features[request_id_col].astype(str)
+        elif 'group_id' in train_features.columns:
+            self.logger.info("Using group_id column from features for grouping in ranking model")
+            request_id_col = 'group_id'
+            # Convert to string to avoid numeric issues with large IDs
+            train_features[request_id_col] = train_features[request_id_col].astype(str)
+        else:
+            self.logger.warning("No grouping information found for ranking model. Using default grouping.")
+        
+        # Sort by group id if available to ensure CatBoost's requirement that queryIds should be grouped
+        if request_id_col is not None:
+            self.logger.info(f"Sorting data by {request_id_col} for grouped ranking")
+            train_features = train_features.sort_values(by=request_id_col)
+            
+            # Reorder train_labels to match the sorted features
+            if isinstance(train_labels, pl.Series):
+                train_labels = pd.Series(train_labels.to_list(), index=train_features.index).loc[train_features.index].reset_index(drop=True)
+            else:
+                train_labels = pd.Series(train_labels, index=train_features.index).loc[train_features.index].reset_index(drop=True)
+            
+            # Extract the sorted group_ids
+            group_ids = train_features[request_id_col].values
+            
+            # Remove the request_id column to avoid using it as a feature
+            train_features = train_features.drop(columns=[request_id_col])
+        
+        
+        # Create pool
+        train_pool = Pool(
+            train_features, train_labels,
+            cat_features=cat_columns,
+            group_id=group_ids
+        )
+        
+        # Prepare eval set if provided
+        eval_pool = None
+        if eval_set is not None:
+            # Handle both formats: (features, labels) or (features, labels, request_ids)
+            if len(eval_set) >= 2:
+                eval_features, eval_labels = eval_set[0], eval_set[1]
+                eval_request_ids = eval_set[2] if len(eval_set) > 2 else None
+                
+                if isinstance(eval_features, pl.DataFrame):
+                    eval_features = eval_features.to_pandas()
+                
+                if isinstance(eval_labels, pl.Series):
+                    eval_labels = eval_labels.to_list()
+                
+                # Also convert categorical columns in evaluation set
+                if cat_columns:
+                    for col in cat_columns:
+                        if col in eval_features.columns:
+                            eval_features[col] = eval_features[col].astype(str)
+                
+                # Extract group ids for evaluation set
+                eval_group_ids = None
+                eval_request_id_col = None
+                
+                # First try to use the passed eval_request_ids
+                if eval_request_ids is not None:
+                    self.logger.info("Using provided eval_request_ids for ranking model evaluation")
+                    if isinstance(eval_request_ids, pl.Series):
+                        eval_request_ids = eval_request_ids.to_pandas()
+                    
+                    # Add the request_ids as a column to sort by
+                    eval_request_id_col = 'request_id'
+                    eval_features[eval_request_id_col] = eval_request_ids
+                    
+                    # Convert to string to avoid numeric issues with large IDs
+                    eval_features[eval_request_id_col] = eval_features[eval_request_id_col].astype(str)
+                    self.logger.info(f"Added eval request IDs as a column and converted to strings")
+                # Fallback to looking for request_id in features
+                elif 'request_id' in eval_features.columns:
+                    self.logger.info("Using request_id column from eval features for grouping")
+                    eval_request_id_col = 'request_id'
+                    # Convert to string to avoid numeric issues
+                    eval_features[eval_request_id_col] = eval_features[eval_request_id_col].astype(str)
+                elif 'group_id' in eval_features.columns:
+                    self.logger.info("Using group_id column from eval features for grouping")
+                    eval_request_id_col = 'group_id'
+                    # Convert to string to avoid numeric issues
+                    eval_features[eval_request_id_col] = eval_features[eval_request_id_col].astype(str)
+                
+                # Sort by group id if available to ensure CatBoost's requirement that queryIds should be grouped
+                if eval_request_id_col is not None:
+                    self.logger.info(f"Sorting eval data by {eval_request_id_col} for grouped ranking")
+                    eval_features = eval_features.sort_values(by=eval_request_id_col)
+                    
+                    # Reorder eval_labels to match the sorted features
+                    if isinstance(eval_labels, list):
+                        eval_labels = pd.Series(eval_labels, index=eval_features.index).loc[eval_features.index].reset_index(drop=True).tolist()
+                    else:
+                        eval_labels = pd.Series(eval_labels, index=eval_features.index).loc[eval_features.index].reset_index(drop=True)
+                    
+                    # Extract the sorted group_ids
+                    eval_group_ids = eval_features[eval_request_id_col].values
+                    
+                    # Remove the request_id column to avoid using it as a feature
+                    eval_features = eval_features.drop(columns=[eval_request_id_col])
+                
+                eval_pool = Pool(
+                    eval_features, 
+                    eval_labels, 
+                    cat_features=cat_columns,
+                    group_id=eval_group_ids
+                )
+        
+        # Create a new instance with the same params for training
+        from catboost import CatBoostRanker
+        self.model = CatBoostRanker(**self.params)
+        
+        self.logger.info("Training CatBoost ranker model")
+        # Train with evaluation
+        if eval_pool is not None:
+            self.model.fit(train_pool, eval_set=eval_pool)
+        else:
+            self.model.fit(train_pool)
+            
+        # Log the number of trees
+        try:
+            tree_count = self.model.get_tree_count()
+            self.logger.info(f"Model now has {tree_count} trees")
+        except:
+            self.logger.info("Could not determine tree count")
+        
+        return self
+    
+    def predict(self, features, request_ids=None, **kwargs):
+        """Make relevance predictions with CatBoost ranker
+        
+        Args:
+            features (pd.DataFrame or pl.DataFrame): Features for prediction
+            request_ids (pd.Series or pl.Series): Optional request IDs for ranking
+            **kwargs: Additional arguments
+            
+        Returns:
+            Prediction scores
+        """
+        # Convert to pandas for CatBoost
+        if isinstance(features, pl.DataFrame):
+            features = features.to_pandas()
+            
+        # Save a copy of the column names before any transformations
+        original_columns = list(features.columns)
+        
+        # Make a copy of the dataframe to avoid modifying the original
+        features_for_pred = features.copy()
+        
+        # Extract request_ids from features if not provided externally
+        group_ids = None
+        request_id_col = None
+        original_index = features_for_pred.index.copy()  # Keep original index for returning predictions in the same order
+        
+        if request_ids is not None:
+            # Convert to pandas if needed
+            if isinstance(request_ids, pl.Series):
+                request_ids = request_ids.to_pandas()
+                
+            # Add request_ids as a column for sorting
+            request_id_col = 'request_id'
+            features_for_pred[request_id_col] = request_ids.astype(str)
+            self.logger.info(f"Added request_ids as a column for prediction and converted to strings")
+        
+        # Check for request_id/group_id columns in features
+        elif 'request_id' in features_for_pred.columns:
+            request_id_col = 'request_id'
+            features_for_pred[request_id_col] = features_for_pred[request_id_col].astype(str)
+            self.logger.info(f"Using request_id column from features for prediction")
+        elif 'group_id' in features_for_pred.columns:
+            request_id_col = 'group_id'
+            features_for_pred[request_id_col] = features_for_pred[request_id_col].astype(str)
+            self.logger.info(f"Using group_id column from features for prediction")
+            
+        # Sort by group id if available to ensure CatBoost's requirement that queryIds should be grouped
+        if request_id_col is not None:
+            self.logger.info(f"Sorting prediction data by {request_id_col} for grouped ranking")
+            features_for_pred = features_for_pred.sort_values(by=request_id_col)
+            
+            # Extract the sorted group_ids
+            group_ids = features_for_pred[request_id_col].values
+            
+            # Remove the request_id column to avoid using it as a feature
+            features_for_pred = features_for_pred.drop(columns=[request_id_col])
+        
+        # Handle categorical features
+        try:
+            # First try to get categorical feature indices from the model
+            feature_names = self.model.feature_names_
+            cat_features = getattr(self.model, 'get_cat_feature_indices', lambda: [])()
+            
+            # If we have categorical features, convert them to strings
+            if cat_features:
+                # Get the actual categorical column names
+                cat_columns = [feature_names[i] for i in cat_features if i < len(feature_names)]
+                
+                # Convert them to string
+                for col in cat_columns:
+                    if col in features_for_pred.columns:
+                        self.logger.info(f"Converting categorical column for prediction: {col}")
+                        features_for_pred[col] = features_for_pred[col].astype(str)
+            
+        except Exception as e:
+            # If there was any error getting categorical features from the model,
+            # try a more aggressive approach - convert all object/string columns to strings
+            self.logger.warning(f"Error detecting categorical columns from model: {str(e)}")
+            self.logger.info("Converting all potential categorical columns to strings")
+            
+            for col in features_for_pred.columns:
+                # Convert any object or string columns to strings
+                if features_for_pred[col].dtype == 'object' or 'str' in str(features_for_pred[col].dtype).lower():
+                    self.logger.info(f"Converting potential categorical column: {col}")
+                    features_for_pred[col] = features_for_pred[col].fillna('').astype(str)
+        
+        # Ensure we have the exact same columns the model was trained on
+        try:
+            # If the model has feature_names_ attribute, use it to ensure column order
+            if hasattr(self.model, 'feature_names_'):
+                # Check for missing columns
+                missing_cols = set(self.model.feature_names_) - set(features_for_pred.columns)
+                if missing_cols:
+                    self.logger.warning(f"Missing columns in prediction data: {missing_cols}")
+                    # Add missing columns as nulls
+                    for col in missing_cols:
+                        features_for_pred[col] = None
+                        
+                # Check for extra columns
+                extra_cols = set(features_for_pred.columns) - set(self.model.feature_names_)
+                if extra_cols:
+                    self.logger.warning(f"Extra columns in prediction data will be ignored: {extra_cols}")
+                    # Only keep needed columns
+                    features_for_pred = features_for_pred[self.model.feature_names_]
+                    
+                # Ensure correct column order
+                features_for_pred = features_for_pred[self.model.feature_names_]
+                
+        except Exception as e:
+            self.logger.warning(f"Error aligning prediction columns: {str(e)}")
+            # If we can't match columns exactly, just proceed with what we have
+        
+        # Create a Pool if we have group_ids
+        if group_ids is not None:
+            from catboost import Pool
+            try:
+                # Get categorical features
+                cat_features = []
+                if hasattr(self.model, 'get_cat_feature_indices'):
+                    cat_indices = self.model.get_cat_feature_indices()
+                    if hasattr(self.model, 'feature_names_'):
+                        feature_names = self.model.feature_names_
+                        cat_features = [feature_names[i] for i in cat_indices if i < len(feature_names)]
+                
+                # Create prediction pool with group_ids
+                pool = Pool(
+                    data=features_for_pred,
+                    cat_features=cat_features,
+                    group_id=group_ids
+                )
+                self.logger.info("Using Pool with group_ids for prediction")
+                predictions = self.model.predict(pool)
+                
+                # If we rearranged the data, we need to reorder the predictions to match the original order
+                if group_ids is not None and hasattr(features_for_pred, 'index') and hasattr(original_index, 'equals') and not original_index.equals(features_for_pred.index):
+                    self.logger.info("Reordering predictions to match original data order")
+                    # Create a series with the current index
+                    pred_series = pd.Series(predictions, index=features_for_pred.index)
+                    # Reindex to get original order
+                    predictions = pred_series.reindex(original_index).values
+                
+                return predictions
+            except Exception as e:
+                self.logger.warning(f"Failed to use Pool with group_ids: {str(e)}")
+                
+        # Fallback to standard prediction without grouping
+        predictions = self.model.predict(features_for_pred)
+        
+        # If we rearranged the data, we need to reorder the predictions to match the original order
+        if hasattr(features_for_pred, 'index') and hasattr(original_index, 'equals') and not original_index.equals(features_for_pred.index):
+            self.logger.info("Reordering predictions to match original data order")
+            try:
+                # Create a series with the current index
+                pred_series = pd.Series(predictions, index=features_for_pred.index)
+                # Reindex to get original order
+                predictions = pred_series.reindex(original_index).values
+            except Exception as e:
+                self.logger.warning(f"Failed to reorder predictions: {str(e)}")
+        
+        return predictions
+    
+    def get_feature_importance(self):
+        """Get feature importance from CatBoost ranker"""
+        return dict(zip(self.model.feature_names_, self.model.feature_importances_))
+    
+    def save(self, filename):
+        """Save model to file"""
+        self.model.save_model(filename)
+    
+    @classmethod
+    def load(cls, filename):
+        """Load model from file"""
+        from catboost import CatBoostRanker
+        
+        model = cls()
+        model.model = CatBoostRanker()
+        model.model.load_model(filename)
+        return model
+
+
 class ModelFactory:
     """Factory for creating and managing models"""
     
@@ -371,6 +770,7 @@ class ModelFactory:
         self.config = config
         self.models = {
             'catboost': CatBoostModel,
+            'catboost_ranker': CatBoostRankerModel,
             'lightgbm': LightGBMModel,
             # Add more models as needed
         }

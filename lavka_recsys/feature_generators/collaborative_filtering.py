@@ -6,7 +6,7 @@ import polars as pl
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import svds
 
-from lavka_recsys.feature_factory import FeatureFactory
+from ..feature_factory import FeatureFactory
 
 def get_npmi_matrix(interaction_matrix: csr_matrix) -> np.ndarray:
     """

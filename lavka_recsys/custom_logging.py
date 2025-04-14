@@ -1,8 +1,11 @@
 import logging
 import sys
 import os
+from typing import Optional
 
-def setup_logging(config=None):
+from .config import Config
+
+def setup_logging(config: Optional[Config] = None):
     """
     Configure logging to write to both file and console based on config.
     
