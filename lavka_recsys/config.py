@@ -124,6 +124,13 @@ class Config:
     def to_dict(self):
         """Return the configuration as a dictionary."""
         return self.config
+        
+    def copy(self):
+        """Create a deep copy of this configuration object."""
+        import copy
+        new_config = Config()
+        new_config.config = copy.deepcopy(self.config)
+        return new_config
 
     def __str__(self):
         """Return a pretty-printed JSON representation of the configuration."""

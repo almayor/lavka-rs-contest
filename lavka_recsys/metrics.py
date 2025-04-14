@@ -35,18 +35,19 @@ class RankingMetrics:
         
         # Process each group efficiently
         for _, group in pred_df.group_by('request_id'):
-            # Sort by target in descending order and take top 10
-            top_rows = group.sort('target', descending=True).head(10)
-            
-            # Skip if sum of targets is 0
-            if top_rows['target'].sum() == 0:
+            # Skip if group is empty or has no positive examples
+            if len(group) == 0 or group['target'].sum() == 0:
                 continue
+                
+            # Sort by prediction score in descending order for the predicted rankings
+            # This is what the model would rank items as
+            sorted_by_pred = group.sort('predict', descending=True).head(k)
             
             # Get values as numpy arrays
-            t_values = top_rows['target'].to_numpy()
-            p_values = top_rows['predict'].to_numpy()
+            t_values = sorted_by_pred['target'].to_numpy()
+            p_values = sorted_by_pred['predict'].to_numpy()
             
-            # Pad to length 10 if needed
+            # Pad to length k if needed
             padding = k - len(t_values)
             if padding > 0:
                 t_values = np.pad(t_values, (0, padding), mode='constant', constant_values=0)
@@ -54,11 +55,12 @@ class RankingMetrics:
             
             true_li.append(t_values)
             pred_li.append(p_values)
-
-            if not true_li:
-                return None
-            else:
-                return np.array(true_li), np.array(pred_li)
+        
+        # Return matrices or None if no valid groups
+        if not true_li:
+            return None, None
+        else:
+            return np.array(true_li), np.array(pred_li)
 
     @staticmethod
     def map_at_k(true_relevance, predicted_scores, group_idx, k=10):
@@ -121,7 +123,17 @@ class RankingMetrics:
             group_idx,
             k=k
         )
-        return ndcg_score(true_array, pred_array, k=k)
+        
+        # Return 0 if no valid groups found
+        if true_array is None or pred_array is None or len(true_array) == 0:
+            return 0.0
+            
+        # Calculate nDCG using sklearn
+        try:
+            return ndcg_score(true_array, pred_array, k=k)
+        except Exception as e:
+            # In case of error, return 0
+            return 0.0
     
     @staticmethod
     def novelty_at_k(recommendations, popularity_df, k=10):

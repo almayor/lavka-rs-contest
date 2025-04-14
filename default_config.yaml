@@ -49,6 +49,19 @@ data:
   test_path: "data/test.parquet"
   sample_size: null  # Set to a number for debugging (e.g., 10000)
 
+# Training configuration for full history approach
+training:
+  target_days: 7       # Target window is 7 days (increased to better match test window size)
+  step_days: 7         # Move window 7 days at a time
+  max_splits: 10       # Use more sliding windows to capture more patterns
+  validation_days: 7   # Use 7 days after target window for validation
+
+# Kaggle test simulation configuration
+kaggle_simulation:
+  test_days: 30        # Last 30 days reserved for testing (simulating Kaggle test set)
+  train_days: 30       # Days before test period used for training
+  validation_ratio: 0.2  # Portion of training data to use for validation
+
 # Text processing configuration
 text_processing:
   model_type: "sentence-transformers"
@@ -60,6 +73,7 @@ output:
   results_dir: "results"
   save_model: true
   save_predictions: true
+  save_evaluation_results: true  # Save Kaggle simulation evaluation results
 
 # History cleaning
 history_cleaning:

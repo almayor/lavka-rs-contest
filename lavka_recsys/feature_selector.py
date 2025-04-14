@@ -72,17 +72,13 @@ class FeatureSelector:
             List of selected feature names
         """
         
-        feature_names = train_features.columns
+        column_names = train_features.columns
         
-        # Check cache if enabled
-        if use_cache and self.load_from_cache(feature_names, cat_columns):
-            return self.selected_features
-        
-        # Continue with normal feature selection if not using cache or cache miss
+        # Process feature selection (cache checking is now handled by Experiment)
         if cat_columns is not None:
             self.cat_columns = cat_columns
             train_features = train_features.drop(cat_columns)
-            feature_names = [col for col in feature_names if col not in cat_columns]
+            column_names = [col for col in column_names if col not in cat_columns]
         
         # Convert to numpy for sklearn
         train_features_np = train_features.to_numpy()
@@ -91,25 +87,25 @@ class FeatureSelector:
         # Apply feature selection method
         self.logger.info(f"Selecting features using method: {self.method}, threshold: {self.threshold}, n_features: {self.n_features}")
         if self.method == 'variance':
-            selected_indices = self._select_by_variance(train_features_np, feature_names)
+            selected_indices = self._select_by_variance(train_features_np, column_names)
         elif self.method == 'importance':
             selected_indices = self._select_by_importance(
-                train_features_np, train_target_np, feature_names
+                train_features_np, train_target_np, column_names
             )
         elif self.method == 'correlation':
             selected_indices = self._select_by_correlation(
-                train_features_np, train_target_np, feature_names
+                train_features_np, train_target_np, column_names
             )
         else:
             self.logger.error(f"Unknown feature selection method: {self.method}.")
             raise ValueError(f"Unknown feature selection method: {self.method}")
             
         # Get selected feature names
-        selected_features = [feature_names[i] for i in selected_indices]
+        selected_features = [column_names[i] for i in selected_indices]
         
-        self.logger.info(f"Selected {len(selected_features)} features out of {len(feature_names)}")
-        self.logger.info(f"Removed {len(feature_names) - len(selected_features)} features")
-        self.logger.info(f"Removed features: {set(feature_names) - set(selected_features)}")
+        self.logger.info(f"Selected {len(selected_features)} features out of {len(column_names)}")
+        self.logger.info(f"Removed {len(column_names) - len(selected_features)} features")
+        self.logger.info(f"Removed features: {set(column_names) - set(selected_features)}")
         self.logger.info(f"Selected features: {selected_features}")
         
         self.trained = True
@@ -118,14 +114,14 @@ class FeatureSelector:
         
         # Save to cache if enabled
         if use_cache:
-            self.save_to_cache(feature_names=feature_names, cat_columns=cat_columns)
+            self.save_to_cache(column_names=column_names, cat_columns=cat_columns)
 
         return selected_features
         
     def _select_by_variance(
             self,
             X: np.ndarray,
-            feature_names: List[str],
+            column_names: List[str],
         ) -> List[int]:
         """Select features based on variance threshold"""
         selector = VarianceThreshold(threshold=self.threshold)
@@ -138,7 +134,7 @@ class FeatureSelector:
             self, 
             X: np.ndarray, 
             y: np.ndarray,
-            feature_names: List[str], 
+            column_names: List[str], 
         ) -> List[int]:
         """Select features based on feature importance"""
         # Train a random forest to get feature importance
@@ -174,19 +170,19 @@ class FeatureSelector:
             self, 
             X: np.ndarray, 
             y: np.ndarray,
-            feature_names: List[str],
+            column_names: List[str],
         ) -> List[int]:
         """
         Select features based on correlation with target 
         and remove highly intercorrelated features
         """
         # Convert to DataFrame for further processing
-        X_df = pl.DataFrame(X, schema=feature_names)
+        X_df = pl.DataFrame(X, schema=column_names)
         y_series = pl.Series("target", y)
         
         # Calculate correlation with target
         corr_with_target = []
-        for i, feature in enumerate(feature_names):
+        for i, feature in enumerate(column_names):
             # Compute correlation between each feature and the target using numpy
             feature_values = X_df.select(pl.col(feature)).to_numpy().flatten()
             target_values = y_series.to_numpy()
@@ -217,9 +213,9 @@ class FeatureSelector:
             selected = [corr_with_target[0][0]] if corr_with_target else []
             
         if selected:
-            self.logger.info(f"Selected features: {[feature_names[idx] for idx in selected]}")
+            self.logger.info(f"Selected features: {[column_names[idx] for idx in selected]}")
             # Remove highly intercorrelated features
-            final_selected = self._remove_correlated(X_df, selected, feature_names, threshold=0.9)
+            final_selected = self._remove_correlated(X_df, selected, column_names, threshold=0.9)
             return final_selected
         else:
             self.logger.warning("No features available for selection.")
@@ -229,7 +225,7 @@ class FeatureSelector:
             self, 
             X_df: pl.DataFrame, 
             selected_indices: List[int],
-            feature_names: List[str],
+            column_names: List[str],
             threshold: float = 0.9
         ) -> List[int]:
         """Remove highly correlated features from the selected set"""
@@ -238,7 +234,7 @@ class FeatureSelector:
             return selected_indices
             
         # Create correlation matrix for selected features
-        selected_feature_names = [feature_names[idx] for idx in selected_indices]
+        selected_feature_names = [column_names[idx] for idx in selected_indices]
         
         try:
             selected_df = X_df.select(selected_feature_names)
@@ -275,8 +271,8 @@ class FeatureSelector:
                         # (which corresponds to higher correlation with target)
                         to_drop.add(j)
                         
-                        correlated_feature = feature_names[selected_indices[j]]
-                        correlating_feature = feature_names[selected_indices[i]]
+                        correlated_feature = column_names[selected_indices[j]]
+                        correlating_feature = column_names[selected_indices[i]]
                         self.logger.info(f"Feature {correlating_feature} is highly correlated with: {correlated_feature}")
                 
             # Get final selected indices
@@ -292,18 +288,23 @@ class FeatureSelector:
     
     def generate_cache_key(
         self,
-        feature_names: List[str],
-        cat_columns: Optional[List[str]],
+        column_names: List[str] = None,
+        cat_columns: Optional[List[str]] = None,
     ) -> str:
-        """Generate a cache key based on feature names and parameters"""
-        # Sort feature names and cat_columns for consistency
-        sorted_feature_names = sorted(feature_names)
-        sorted_cat_columns = sorted(cat_columns) if cat_columns else []
+        """
+        Generate a cache key based on requested feature names from config and parameters
         
-        # Create a dictionary with all parameters
+        Args:
+            column_names: List of column names in the generated features (not used for key generation)
+            cat_columns: List of categorical column names (not used for key generation)
+        """
+        # Get requested features from config - this is what determines the cache key
+        requested_features = self.config.get("features", [])
+        sorted_requested_features = sorted(requested_features)
+        
+        # Create a dictionary with only the parameters that affect feature selection
         cache_params = {
-            "feature_names": sorted_feature_names,
-            "cat_columns": sorted_cat_columns,
+            "requested_features": sorted_requested_features,  # Use requested feature names from config
             "method": self.method,
             "threshold": self.threshold,
             "n_features": self.n_features
@@ -315,21 +316,35 @@ class FeatureSelector:
         # Create hash
         hash_obj = hashlib.md5(params_str.encode())
         hash_str = hash_obj.hexdigest()
+        
+        # Print detailed debug info
+        self.logger.info(f"Generated cache key: {hash_str}")
+        self.logger.info(f"Based on requested features: {sorted_requested_features}")
+        self.logger.info(f"Feature selection method: {self.method}, threshold: {self.threshold}, n_features: {self.n_features}")
+        
         return hash_str
 
     def get_cache_path(self, cache_key: str) -> str:
         """Get the full path for a cache file"""
-        results_dir = self.config.get("output.results_dir")
+        results_dir = self.config.get("output.results_dir", "results")
+        
+        # Make sure the directory exists
         if not os.path.exists(results_dir):
             os.makedirs(results_dir, exist_ok=True)
-        return os.path.join(results_dir, f"feature_selection_{cache_key}.pkl")
+            
+        cache_path = os.path.join(results_dir, f"feature_selection_{cache_key}.pkl")
+        self.logger.debug(f"Cache path: {cache_path}")
+        return cache_path
 
     def save_to_cache(
         self,
-        feature_names: List[str],
+        column_names: List[str],
         cat_columns: Optional[List[str]]
     ):
         """Save the feature selection results to cache"""
+        # Get the actual features requested from config (not columns generated)
+        requested_features = self.config.get("features", [])
+        
         cache_data = {
             "selected_features": self.selected_features,
             "cat_columns": cat_columns,
@@ -337,52 +352,80 @@ class FeatureSelector:
             # Save all parameters to verify cache
             "method": self.method,
             "threshold": self.threshold,
-            "n_features": self.n_features
+            "n_features": self.n_features,
+            "requested_features": requested_features
         }
-        cache_key = self.generate_cache_key(
-            feature_names=feature_names,
-            cat_columns=cat_columns,
-        )
+        
+        # Generate cache key based on config only
+        cache_key = self.generate_cache_key()
         cache_path = self.get_cache_path(cache_key)
+        
         with open(cache_path, 'wb') as f:
             pickle.dump(cache_data, f)
         
         self.logger.info(f"Saved feature selection results to cache: {cache_path}")
+        self.logger.info(f"Contains {len(self.selected_features)} selected features")
 
-    def load_from_cache(
-        self,
-        feature_names: List[str],
-        cat_columns: Optional[List[str]],
-    ) -> bool:
-        """Load feature selection results from cache if they exist and parameters match"""
-        cache_key = self.generate_cache_key(
-            feature_names=feature_names,
-            cat_columns=cat_columns,
-        )
+    def load_from_cache(self) -> bool:
+        """
+        Load feature selection results directly from cache based on config parameters.
+        This doesn't require any training data.
         
+        Returns:
+            bool: True if successfully loaded from cache, False otherwise
+        """
+        cache_key = self.generate_cache_key()
         cache_path = self.get_cache_path(cache_key)
-
+        
+        self.logger.info(f"Checking for cache at: {cache_path}")
+        
         if not os.path.exists(cache_path):
+            self.logger.info(f"No cache file found at: {cache_path}")
             return False
         
         try:
+            self.logger.info(f"Found cache file, attempting to load: {cache_path}")
             with open(cache_path, 'rb') as f:
                 cache_data = pickle.load(f)
+            
+            # Get requested features from config
+            requested_features = self.config.get("features", [])
+            
+            # Log the comparison details
+            self.logger.info(f"Cache vs Current settings:")
+            self.logger.info(f"  Method: {cache_data['method']} vs {self.method}")
+            self.logger.info(f"  Threshold: {cache_data['threshold']} vs {self.threshold}")
+            self.logger.info(f"  N features: {cache_data['n_features']} vs {self.n_features}")
+            
+            # Check if feature sets match
+            cache_features = set(cache_data.get("requested_features", []))
+            current_features = set(requested_features)
+            features_match = cache_features == current_features
+            
+            if not features_match:
+                self.logger.info(f"Feature sets don't match:")
+                self.logger.info(f"  Cache features: {sorted(cache_features)}")
+                self.logger.info(f"  Current features: {sorted(current_features)}")
+                self.logger.info(f"  Missing: {sorted(current_features - cache_features)}")
+                self.logger.info(f"  Extra: {sorted(cache_features - current_features)}")
             
             # Verify parameters match to prevent collisions
             if (cache_data["method"] == self.method and
                 cache_data["threshold"] == self.threshold and
-                cache_data["n_features"] == self.n_features):
+                cache_data["n_features"] == self.n_features and
+                features_match):
 
-                self.logger.info(f"Loaded feature selection results from cache: {cache_path}")
+                self.logger.info(f"All parameters match! Loading feature selection from cache")
                 self.selected_features = cache_data["selected_features"]
                 self.cat_columns = cache_data["cat_columns"]
                 self.trained = cache_data["trained"]
                 self.logger.info(f"Using cached feature selection result with {len(self.selected_features)} features")
                 return True
             else:
-                self.logger.warning(f"Cache parameters mismatch, not using cache: {cache_path}")
+                self.logger.warning(f"Cache parameters mismatch, not using cache")
                 return False
         except Exception as e:
             self.logger.warning(f"Failed to load cache: {str(e)}")
+            import traceback
+            self.logger.warning(traceback.format_exc())
             return False

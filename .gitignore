@@ -3,3 +3,5 @@ data/
 results/
 playground.ipynb
 debugging_fs.pkl
+feature_cache/
+model_cache/
