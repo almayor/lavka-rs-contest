@@ -15,6 +15,27 @@ class TextProcessor:
         self.logger = get_logger(self.__class__.__name__)
         self.model = None
         self.embedding_size = 0
+        self.use_gpu = False
+        self.device = None
+        
+        # Check for GPU availability early
+        try:
+            import torch
+            # Set default GPU behavior
+            use_gpu = self.config.get('text_processing.use_gpu', True)
+            self.use_gpu = use_gpu and torch.cuda.is_available()
+            if self.use_gpu:
+                self.device = torch.device("cuda")
+                self.logger.info("GPU is available and will be used for text processing")
+            else:
+                self.device = torch.device("cpu")
+                if use_gpu:
+                    self.logger.warning("GPU was requested but is not available, using CPU")
+                else:
+                    self.logger.info("Using CPU for text processing (by configuration)")
+        except ImportError:
+            self.logger.warning("PyTorch not available, GPU acceleration disabled")
+            self.use_gpu = False
         
         # Load pretrained model
         model_type = self.config.get('text_processing.model_type', 'sentence-transformers')
@@ -33,17 +54,37 @@ class TextProcessor:
             self._load_sentence_transformers()
     
     def _load_sentence_transformers(self):
-        """Load SentenceTransformers model"""
+        """Load SentenceTransformers model with GPU acceleration if available"""
         try:
             from sentence_transformers import SentenceTransformer
+            import torch
+            
+            # Get model name from config
             model_name = self.config.get(
                 'text_processing.model_name', 
                 'paraphrase-multilingual-MiniLM-L12-v2'  # Small but effective model
             )
-            self.model = SentenceTransformer(model_name)
+            
+            # Check if GPU is available and if user wants to use it
+            use_gpu = self.config.get('text_processing.use_gpu', True)
+            device = None
+            
+            if use_gpu and torch.cuda.is_available():
+                device = "cuda"
+                self.logger.info("GPU detected and will be used for text embedding")
+            else:
+                if use_gpu and not torch.cuda.is_available():
+                    self.logger.warning("GPU requested but not available, using CPU instead")
+                device = "cpu"
+                self.logger.info("Using CPU for text embedding")
+                
+            # Load model on specified device
+            self.model = SentenceTransformer(model_name, device=device)
             self.embedding_size = self.model.get_sentence_embedding_dimension()
             self.model_type = 'sentence-transformers'
-            self.logger.info(f"Loaded sentence-transformers model: {model_name}")
+            
+            self.logger.info(f"Loaded sentence-transformers model: {model_name} on {device}")
+            
         except ImportError:
             self.logger.error(
                 "sentence-transformers not available. "
@@ -55,6 +96,20 @@ class TextProcessor:
         """Load Word2Vec model"""
         try:
             import gensim.downloader as api
+            import torch
+            
+            # Check if GPU is available for post-processing
+            use_gpu = self.config.get('text_processing.use_gpu', True)
+            self.use_gpu = use_gpu and torch.cuda.is_available()
+            
+            if self.use_gpu:
+                self.device = torch.device("cuda")
+                self.logger.info("GPU will be used for vector operations with Word2Vec")
+            else:
+                self.device = torch.device("cpu")
+                self.logger.info("CPU will be used for vector operations with Word2Vec")
+                
+            # Load the model (Word2Vec itself doesn't use GPU directly)
             model_name = self.config.get(
                 'text_processing.model_name', 
                 'word2vec-ruscorpora-300'  # Reasonable size/performance trade-off
@@ -74,6 +129,20 @@ class TextProcessor:
         """Load FastText model"""
         try:
             import fasttext
+            import torch
+            
+            # Check if GPU is available for post-processing
+            use_gpu = self.config.get('text_processing.use_gpu', True)
+            self.use_gpu = use_gpu and torch.cuda.is_available()
+            
+            if self.use_gpu:
+                self.device = torch.device("cuda")
+                self.logger.info("GPU will be used for vector operations with FastText")
+            else:
+                self.device = torch.device("cpu")
+                self.logger.info("CPU will be used for vector operations with FastText")
+            
+            # Load the model (FastText itself doesn't use GPU directly)
             model_path = self.config.get(
                 'text_processing.model_path',
                 'cc.ru.300.bin'  # Default Russian model
@@ -192,6 +261,31 @@ class TextProcessor:
             return embeddings
             
         try:
+            # Use cuML's PCA for GPU acceleration if available
+            if self.use_gpu:
+                try:
+                    import cuml
+                    self.logger.info("Using GPU-accelerated PCA with cuML")
+                    
+                    # Initialize and fit cuML PCA
+                    gpu_pca = cuml.PCA(n_components=dimensions, random_state=42)
+                    reduced = gpu_pca.fit_transform(embeddings)
+                    
+                    # Convert back to numpy array
+                    if hasattr(reduced, 'get'):  # For cuML arrays
+                        reduced = reduced.get()
+                    else:
+                        reduced = np.array(reduced)
+                        
+                    self.logger.info(
+                        f"Reduced embeddings from {embeddings.shape[1]} to {dimensions} dimensions using GPU"
+                    )
+                    return reduced
+                    
+                except (ImportError, ModuleNotFoundError):
+                    self.logger.warning("cuML not available, falling back to CPU implementation")
+            
+            # If we're here, either GPU is not available or cuML failed to import
             from sklearn.decomposition import PCA
             
             # Use batch processing for large datasets
@@ -238,7 +332,7 @@ class TextProcessor:
                         reduced[i:end] = pca.transform(embeddings[i:end])
             
             self.logger.info(
-                f"Reduced embeddings from {embeddings.shape[1]} to {dimensions} dimensions"
+                f"Reduced embeddings from {embeddings.shape[1]} to {dimensions} dimensions using CPU"
             )
             return reduced
             

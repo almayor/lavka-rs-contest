@@ -60,9 +60,9 @@ features:
   - "svd-cf"                # Collaborative filtering
   - "product_embeddings"    # NLP feature
   - "category_embeddings"   # NLP feature
-  - "user_product_distance" # Weighted similarity between user history and product
-  - "text_similarity_cluster" # Product clusters based on text similarity
-  - "text_diversity_features" # How different a product is from user's history
+  - "user_product_distance" # NLP feature
+  - "text_similarity_cluster" # NLP feature
+  - "text_diversity_features" # NLP feature
 
 # Target definition
 target: "CartUpdate_Purchase_vs_View"
@@ -82,7 +82,7 @@ experiment:
 
 # Training configuration
 training:
-  split_type: "expanding_window"  # "standard", "fixed_window", or "expanding_window"
+  split_type: "standard"  # "standard", "fixed_window", or "expanding_window"
   history_days: 30     # Only used for fixed_window splits
   target_days: 30       # Target window is 7 days (increased to better match test window size)
   step_days: 7         # Move window 7 days at a time
@@ -100,6 +100,8 @@ text_processing:
   model_type: "sentence-transformers"
   model_name: "paraphrase-multilingual-MiniLM-L12-v2"  # Small but effective model
   embedding_dimensions: 20  # Reduce dimensionality for efficiency
+  use_gpu: true           # Enable GPU acceleration if available
+  n_clusters: 15          # Number of clusters for text_similarity_cluster feature
 
 # Output settings
 output:
