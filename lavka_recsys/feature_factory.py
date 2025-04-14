@@ -127,7 +127,7 @@ class FeatureFactory:
         self.feature_selector = feature_selector
     
     def generate_batch(
-            self, history_df, target_df, requested_features=None, requested_target=None
+            self, history_df, target_df, requested_features=None, requested_target=None, show_progress=True
         ) -> Tuple[pl.DataFrame, pl.Series, List[str], pl.Series]:
         """
         Generate features and target for a batch of requests.
@@ -136,6 +136,7 @@ class FeatureFactory:
             target_df (pl.DataFrame): Target data.
             requested_features (str | List[str] | None): Features to generate (if None, config is used).
             requested_target (str | None): Target to generate (if None, config is used).
+            show_progress (bool): Whether to show a progress bar during feature generation.
         Returns:
             Tuple[pl.DataFrame, pl.Series, List[str], pl.Series]: Tuple containing:
                 - Generated features (pl.DataFrame)
@@ -144,7 +145,7 @@ class FeatureFactory:
                 - Request IDs per row (pl.Series)
         """
         request_ids = target_df['request_id']
-        features, cat_columns = self.generate_features(history_df, target_df, requested_features)
+        features, cat_columns = self.generate_features(history_df, target_df, requested_features, show_progress)
         target, _ = self.generate_target(history_df, target_df, requested_target)
         mask = ~target.is_null()
         if self.feature_selector:
@@ -157,7 +158,8 @@ class FeatureFactory:
         )
         
     def generate_features_only(
-            self, history_df: pl.DataFrame, target_df: pl.DataFrame, requested_features: List[str] | None = None
+            self, history_df: pl.DataFrame, target_df: pl.DataFrame, requested_features: List[str] | None = None,
+            show_progress: bool = True
         ) -> Tuple[pl.DataFrame, List[str], pl.Series]:
         """
         Generate only features without target (for prediction/inference).
@@ -165,6 +167,7 @@ class FeatureFactory:
             history_df (pl.DataFrame): Historical data.
             target_df (pl.DataFrame): Target data.
             requested_features (List[str] | None): Features to generate (if None, config is used).
+            show_progress (bool): Whether to show a progress bar during feature generation.
         Returns:
             Tuple[pl.DataFrame, List[str], pl.Series]: Tuple containing:
                 - Generated features (pl.DataFrame)
@@ -172,7 +175,7 @@ class FeatureFactory:
                 - Request IDs per row (pl.Series)
         """
         request_ids = target_df['request_id']
-        features, cat_columns = self.generate_features(history_df, target_df, requested_features)
+        features, cat_columns = self.generate_features(history_df, target_df, requested_features, show_progress)
         
         if self.feature_selector:
             features = self.feature_selector(features)
@@ -180,7 +183,8 @@ class FeatureFactory:
         return features, cat_columns, request_ids
 
     def generate_features(
-            self, history_df: pl.DataFrame, target_df: pl.DataFrame, requested_features: List[str] | None = None
+            self, history_df: pl.DataFrame, target_df: pl.DataFrame, requested_features: List[str] | None = None,
+            show_progress: bool = True
         ) -> pl.DataFrame:
         """
         Generate only the requested features and their dependencies
@@ -188,6 +192,7 @@ class FeatureFactory:
             history_df (pl.DataFrame): Historical data.
             target_df (pl.DataFrame): Target data.
             requested_features (List[str] | None): Features to generate (if None, config is used).
+            show_progress (bool): Whether to show a progress bar during feature generation.
         Returns:
             Tuple[pl.DataFrame, List[str]]: Tuple containing:
                 - Generated features (pl.DataFrame)
@@ -202,7 +207,14 @@ class FeatureFactory:
                 
         # Generate each requested feature (and dependencies)
         all_columns, all_cat_columns = set(), set()
-        for feature_name in requested_features:
+        
+        # Create progress bar if requested
+        feature_iterator = tqdm(requested_features, desc="Generating features") if show_progress else requested_features
+        
+        for feature_name in feature_iterator:
+            if show_progress:
+                feature_iterator.set_description(f"Generating feature: {feature_name}")
+                
             target_df, columns = self._generate_feature(
                 feature_name, history_df, target_df
             )
