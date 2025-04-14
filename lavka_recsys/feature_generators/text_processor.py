@@ -170,6 +170,7 @@ class TextProcessor:
         """
         import time
         import traceback
+        import numpy as np  # Ensure numpy is imported in this scope
         start_time = time.time()
         
         self.logger.info(f"Getting embeddings for {len(texts)} texts using model type: {self.model_type}")
@@ -186,7 +187,7 @@ class TextProcessor:
             return np.zeros((0, self.embedding_size or 1))
         
         # Clean texts (remove empty strings, handle non-string inputs) - vectorized
-        import numpy as np  # Import numpy here for this method's scope
+        # numpy already imported above
         
         # Log detailed text stats
         empty_texts = sum(1 for t in texts if not t)
@@ -485,16 +486,24 @@ def register_text_embedding_features():
     # Import numpy here once for all inner functions to use
     import numpy as np
     
+    # Import these at the top level of the function to ensure they're available in all inner scopes
+    import time
+    import traceback
+    import logging
+    import pandas as pd
+    
     @FeatureFactory.register('product_embeddings')
     def generate_product_embeddings(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
         """Generate product name embeddings using pretrained model"""
-        # Get a logger
+        # Get a logger - these are already imported at the outer function level
+        # but including again to ensure proper scope access
+        import numpy as np
         import logging
         import time
         import traceback
-        import numpy as np
+        import pandas as pd
         logger = logging.getLogger("ProductEmbeddings")
         
         try:
@@ -603,7 +612,7 @@ def register_text_embedding_features():
         logger.info(f"Created {len(feature_names)} embedding feature columns")
         
         # Convert to DataFrame
-        import pandas as pd
+        # pandas already imported
         logger.info("Converting embeddings to DataFrame")
         embed_df = pd.DataFrame(
             embeddings, 
@@ -643,11 +652,13 @@ def register_text_embedding_features():
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
         """Generate category name embeddings using pretrained model"""
-        # Get a logger
+        # Get a logger - these are already imported at the outer function level
+        # but including again to ensure proper scope access
+        import numpy as np
         import logging
         import time
         import traceback
-        import numpy as np
+        import pandas as pd
         logger = logging.getLogger("CategoryEmbeddings")
         
         try:
@@ -841,8 +852,13 @@ def register_text_embedding_features():
         Returns:
             DataFrame with added distance features
         """
-        # Get a logger
+        # Get a logger - these are already imported at the outer function level
+        # but including again to ensure proper scope access
+        import numpy as np
         import logging
+        import time
+        import traceback
+        import pandas as pd
         logger = logging.getLogger("UserProductDistance")
         
         # Create text processor
@@ -1019,6 +1035,8 @@ def register_text_embedding_features():
         
         # Helper function to calculate cosine similarity between matrices
         def batch_cosine_similarity(matrix_a, matrix_b):
+            # Ensure numpy is available in this scope
+            import numpy as np
             # Check if GPU acceleration should be used
             use_gpu = config.get('text_processing.use_gpu', True)
             
@@ -1026,7 +1044,8 @@ def register_text_embedding_features():
             if use_gpu and (matrix_a.shape[0] > 1000 or matrix_b.shape[0] > 1000):
                 try:
                     import cuml
-                    # np is already imported globally
+                    # Import numpy again to be safe
+                    import numpy as np
                     from cuml.metrics.pairwise_distances import cosine_similarity as cuml_cosine
                     logger.info("Using GPU-accelerated cosine similarity with cuML")
                     
@@ -1082,9 +1101,12 @@ def register_text_embedding_features():
                 # Helper function for cosine similarity calculation
                 def calculate_cosine_similarity(vec_a, vec_b, use_cuml=False):
                     """Calculate cosine similarity with GPU acceleration option"""
+                    # Ensure numpy is available in this scope
+                    import numpy as np
                     if use_cuml:
                         try:
                             import cuml
+                            import numpy as np  # Import numpy again to be safe
                             from cuml.metrics.pairwise_distances import cosine_similarity as cuml_cosine
                             
                             # Reshape vectors to 2D for cuML
@@ -1244,8 +1266,13 @@ def register_text_embedding_features():
         Returns:
             DataFrame with added text similarity cluster features
         """
-        # Get a logger
+        # Get a logger - these are already imported at the outer function level
+        # but including again to ensure proper scope access
+        import numpy as np
         import logging
+        import time
+        import traceback
+        import pandas as pd
         logger = logging.getLogger("TextSimilarityCluster")
         
         # Create text processor
@@ -1436,8 +1463,13 @@ def register_text_embedding_features():
         Returns:
             DataFrame with added text diversity features
         """
-        # Get a logger
+        # Get a logger - these are already imported at the outer function level
+        # but including again to ensure proper scope access
+        import numpy as np
         import logging
+        import time
+        import traceback
+        import pandas as pd
         logger = logging.getLogger("TextDiversityFeatures")
         
         # Create text processor
