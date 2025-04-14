@@ -186,7 +186,7 @@ class TextProcessor:
             return np.zeros((0, self.embedding_size or 1))
         
         # Clean texts (remove empty strings, handle non-string inputs) - vectorized
-        import numpy as np
+        import numpy as np  # Import numpy here for this method's scope
         
         # Log detailed text stats
         empty_texts = sum(1 for t in texts if not t)
@@ -481,6 +481,9 @@ def register_text_embedding_features():
     """Register text embedding methods with FeatureFactory"""
     from ..feature_factory import FeatureFactory
     
+    # Import numpy here once for all inner functions to use
+    import numpy as np
+    
     @FeatureFactory.register('product_embeddings')
     def generate_product_embeddings(
         history_df: pl.DataFrame, target_df: pl.DataFrame
@@ -612,8 +615,9 @@ def register_text_embedding_features():
         logger.info("Converting pandas DataFrame to polars")
         embed_pl = pl.from_pandas(embed_df)
         
-        # Check for NaN values
-        nan_count = embed_pl.null_count().sum(axis=1).sum()
+        # Check for NaN values - using polars-specific approach
+        # First sum null counts for each column, then sum the totals
+        nan_count = embed_pl.null_count().sum().sum()
         if nan_count > 0:
             logger.warning(f"Found {nan_count} NaN values in embeddings")
         
@@ -622,7 +626,8 @@ def register_text_embedding_features():
         result = target_df.join(embed_pl, on='product_id', how='left')
         
         # Check for missing values after join
-        missing_count = result.select(feature_names).null_count().sum(axis=1).sum()
+        # Correct polars syntax for summing null counts
+        missing_count = result.select(feature_names).null_count().sum().sum()
         if missing_count > 0:
             logger.warning(f"After join, found {missing_count} missing embedding values")
             missing_products = target_df.filter(
@@ -794,8 +799,9 @@ def register_text_embedding_features():
         logger.info("Converting pandas DataFrame to polars")
         embed_pl = pl.from_pandas(embed_df)
         
-        # Check for NaN values
-        nan_count = embed_pl.null_count().sum(axis=1).sum()
+        # Check for NaN values - using polars-specific approach
+        # First sum null counts for each column, then sum the totals
+        nan_count = embed_pl.null_count().sum().sum()
         if nan_count > 0:
             logger.warning(f"Found {nan_count} NaN values in embeddings")
         
@@ -804,7 +810,8 @@ def register_text_embedding_features():
         result = target_df.join(embed_pl, on='product_category', how='left')
         
         # Check for missing values after join
-        missing_count = result.select(feature_names).null_count().sum(axis=1).sum()
+        # Correct polars syntax for summing null counts
+        missing_count = result.select(feature_names).null_count().sum().sum()
         if missing_count > 0:
             logger.warning(f"After join, found {missing_count} missing embedding values")
             missing_categories = target_df.filter(
@@ -1020,6 +1027,7 @@ def register_text_embedding_features():
             if use_gpu and (matrix_a.shape[0] > 1000 or matrix_b.shape[0] > 1000):
                 try:
                     import cuml
+                    # np is already imported globally
                     from cuml.metrics.pairwise_distances import cosine_similarity as cuml_cosine
                     logger.info("Using GPU-accelerated cosine similarity with cuML")
                     
