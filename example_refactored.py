@@ -108,7 +108,7 @@ def run_hyperparameter_tuning():
     }
     
     # Run tuning with visualization generation
-    best_experiment, best_config, study, visualizations = Experiment.tune_configurations(
+    best_experiment, best_config, study, visualizations = Experiment.tune(
         config, parameter_spaces, n_trials=5,  # Use fewer trials for demo
         create_visualizations=True
     )

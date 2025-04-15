@@ -81,25 +81,15 @@ class FeatureFactory:
         
         return decorator
 
-    def __init__(self, config: Config, feature_selector: Optional[Callable] = None):
+    def __init__(self, config: Config):
         """Initialize feature factory"""
         self.config = config
         self.logger = get_logger(self.__class__.__name__)
-        self.feature_selector = feature_selector
+        self.selected_features = None  # Will store selected features when set
 
-    def register_feature_selector(self, feature_selector: Callable):
-        """
-        Register a feature selector function to be applied after feature generation.
-        Args:
-            feature_selector (Callable): Function to select features.
-        """
-        self.logger.debug("Registering feature selector")
-        self.feature_selector = feature_selector
-        
     def set_selected_features(self, selected_features: List[str]):
         """
         Set a list of selected features to use.
-        This is an alternative to using a feature selector function.
         
         Args:
             selected_features: List of feature column names to keep
@@ -107,24 +97,35 @@ class FeatureFactory:
         self.logger.info(f"Setting {len(selected_features)} selected features")
         self.logger.debug(f"Selected features: {selected_features}")
         
-        # Create a simple feature selector function that selects only these features
-        def feature_selector(df: pl.DataFrame) -> pl.DataFrame:
-            # Get categorical columns
-            cat_cols = []
-            for feature_name, feature_info in self._feature_registry.items():
-                cat_cols.extend(feature_info.get('categorical_cols', []))
-            
-            # Select columns to keep
-            columns_to_select = list(set(cat_cols) | set(selected_features))
-            
-            # Filter to only include columns that exist in df
-            available_columns = [col for col in columns_to_select if col in df.columns]
-            
-            self.logger.debug(f"Applying feature selection to keep {len(available_columns)} columns")
-            return df.select(available_columns)
+        # Simply store the selected features list
+        self.selected_features = selected_features
         
-        # Register this selector
-        self.feature_selector = feature_selector
+    def _apply_feature_selection(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        Apply feature selection to a DataFrame based on the selected_features list.
+        
+        Args:
+            df: DataFrame to apply feature selection to
+            
+        Returns:
+            DataFrame with only the selected features and required categorical columns
+        """
+        if not self.selected_features:
+            return df
+            
+        # Get categorical columns to preserve
+        all_cat_cols = set()
+        for feature_name, feature_info in self._feature_registry.items():
+            all_cat_cols.update(feature_info.get('categorical_cols', []))
+        
+        # Select columns to keep - include categorical columns and selected features
+        columns_to_select = list(set(all_cat_cols) | set(self.selected_features))
+        
+        # Filter to only include columns that exist in df
+        available_columns = [col for col in columns_to_select if col in df.columns]
+        
+        self.logger.debug(f"Applying feature selection to keep {len(available_columns)} columns")
+        return df.select(available_columns)
     
     def generate_batch(
             self, history_df, target_df, requested_features=None, requested_target=None, show_progress=True
@@ -148,8 +149,11 @@ class FeatureFactory:
         features, cat_columns = self.generate_features(history_df, target_df, requested_features, show_progress)
         target, _ = self.generate_target(history_df, target_df, requested_target)
         mask = ~target.is_null()
-        if self.feature_selector:
-            features = self.feature_selector(features)
+        
+        # Apply feature selection if we have selected features
+        if self.selected_features:
+            features = self._apply_feature_selection(features)
+            
         return (
             features.filter(mask),
             target.filter(mask),
@@ -177,8 +181,9 @@ class FeatureFactory:
         request_ids = target_df['request_id']
         features, cat_columns = self.generate_features(history_df, target_df, requested_features, show_progress)
         
-        if self.feature_selector:
-            features = self.feature_selector(features)
+        # Apply feature selection if we have selected features
+        if self.selected_features:
+            features = self._apply_feature_selection(features)
             
         return features, cat_columns, request_ids
 
@@ -229,8 +234,10 @@ class FeatureFactory:
         self.logger.info(f"All categorical column names: {all_cat_columns}")
         
         target_df = target_df.select(all_columns)
-        if self.feature_selector:
-            target_df = self.feature_selector(target_df)
+        
+        # Apply feature selection if we have selected features
+        if self.selected_features:
+            target_df = self._apply_feature_selection(target_df)
         
         return target_df, all_cat_columns
     

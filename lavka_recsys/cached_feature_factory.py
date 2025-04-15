@@ -227,12 +227,12 @@ class CachedFeatureFactory:
         if cached_data is not None:
             features, target, cat_columns, request_ids = cached_data
             
-            # Apply feature selection to cached features if feature selector is registered
-            if self.feature_factory.feature_selector is not None:
+            # Apply feature selection to cached features if we have selected features
+            if self.feature_factory.selected_features:
                 self.logger.info("Applying feature selection to cached batch features...")
                 try:
                     original_shape = features.shape
-                    features = self.feature_factory.feature_selector(features)
+                    features = self.feature_factory._apply_feature_selection(features)
                     self.logger.info(f"Applied feature selection: reduced from {original_shape[1]} to {features.shape[1]} columns")
                 except Exception as e:
                     self.logger.warning(f"Error applying feature selection to cached batch features: {str(e)}")
@@ -283,12 +283,12 @@ class CachedFeatureFactory:
             # Extract just the features, cat_columns, and request_ids (no target)
             features, _, cat_columns, request_ids = cached_data
             
-            # Apply feature selection to cached features if feature selector is registered
-            if self.feature_factory.feature_selector is not None:
+            # Apply feature selection to cached features if we have selected features
+            if self.feature_factory.selected_features:
                 self.logger.info("Applying feature selection to cached features...")
                 try:
                     original_shape = features.shape
-                    features = self.feature_factory.feature_selector(features)
+                    features = self.feature_factory._apply_feature_selection(features)
                     self.logger.info(f"Applied feature selection: reduced from {original_shape[1]} to {features.shape[1]} columns")
                 except Exception as e:
                     self.logger.warning(f"Error applying feature selection to cached features: {str(e)}")
@@ -313,15 +313,20 @@ class CachedFeatureFactory:
         
         return features, cat_columns, request_ids
     
-    def register_feature_selector(self, feature_selector):
+    @property
+    def selected_features(self):
+        """Pass through to access selected_features from the underlying feature factory"""
+        return self.feature_factory.selected_features
+        
+    def set_selected_features(self, selected_features: List[str]):
         """
-        Register a feature selector with the underlying feature factory.
+        Set selected features in the underlying feature factory.
         
         Args:
-            feature_selector: Feature selector to register
+            selected_features: List of selected features to use
         """
-        self.feature_factory.register_feature_selector(feature_selector)
-        self.logger.info("Feature selector registered with the feature factory")
+        self.feature_factory.set_selected_features(selected_features)
+        self.logger.info(f"Set {len(selected_features)} selected features in CachedFeatureFactory")
         
     # Provide direct access to the underlying feature factory's methods
     def __getattr__(self, name):

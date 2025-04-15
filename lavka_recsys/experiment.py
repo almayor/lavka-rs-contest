@@ -155,8 +155,8 @@ class Experiment:
         return evaluation_results
     
     @staticmethod
-    def tune_configurations(base_config, parameter_spaces, n_trials=10, 
-                           create_visualizations=True, results_dir=None, **kwargs):
+    def tune(base_config, parameter_spaces, n_trials=10, 
+             create_visualizations=True, results_dir=None, **kwargs):
         """
         Static method that generates and runs multiple experiments with different configurations.
         

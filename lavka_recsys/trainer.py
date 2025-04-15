@@ -148,7 +148,8 @@ class Trainer:
             return False
     
     def create_cache_key_dict(self, split_type: SplitType, model_params: Optional[Dict] = None, 
-                             provided_train_df: Optional[pl.DataFrame] = None) -> Dict:
+                             provided_train_df: Optional[pl.DataFrame] = None, 
+                             actual_features: Optional[List[str]] = None) -> Dict:
         """
         Create a dictionary for model cache key based on configuration.
         
@@ -156,6 +157,7 @@ class Trainer:
             split_type: Type of split used for training
             model_params: Optional model parameters (for tuning)
             provided_train_df: Optional training data signature 
+            actual_features: The actual feature list used for training (if different from config)
             
         Returns:
             Dict: Dictionary for cache key
@@ -164,7 +166,7 @@ class Trainer:
         cache_key_dict = {
             'model_type': self.config.get('model.type'),
             'model_config': model_params or self.config.get(f'model.config.{self.config.get("model.type")}'),
-            'features': self.config.get('features'),
+            'features': actual_features or self.config.get('features'),
             'training': {
                 'split_type': split_type.value,
                 'history_days': self.config.get('training.history_days'),
@@ -216,8 +218,22 @@ class Trainer:
         start_time = time.time()
         self.logger.info(f"Starting training with {split_type.value} strategy")
         
+        # Get feature names - check if feature factory has a subset of selected features
+        if hasattr(self.feature_factory, 'selected_features') and self.feature_factory.selected_features:
+            feature_names = self.feature_factory.selected_features
+            self.logger.info(f"Using {len(feature_names)} selected features from feature factory")
+        else:
+            feature_names = self.config.get("features")
+            self.logger.info(f"Using {len(feature_names)} features from config")
+        
         # Create cache key and try to load cached model if enabled
-        cache_key_dict = self.create_cache_key_dict(split_type, model_params, provided_train_df)
+        used_features = self.feature_factory.selected_features or feature_names
+        cache_key_dict = self.create_cache_key_dict(
+            split_type, 
+            model_params, 
+            provided_train_df,
+            actual_features=used_features
+        )
         cached_model = self.try_load_cached_model(cache_key_dict)
         if cached_model:
             self.logger.info("Using cached model - skipping training")
@@ -232,7 +248,14 @@ class Trainer:
             train_df, _ = self.data_loader.load_data()
             
         # Get configuration parameters
-        feature_names = self.config.get("features")
+        # Check if feature factory has selected features
+        if hasattr(self.feature_factory, 'selected_features') and self.feature_factory.selected_features:
+            feature_names = self.feature_factory.selected_features
+            self.logger.info(f"Using {len(feature_names)} selected features from feature factory")
+        else:
+            feature_names = self.config.get("features")
+            self.logger.info(f"Using {len(feature_names)} features from config")
+            
         target_name = self.config.get('target')
         history_days = self.config.get('training.history_days')
         target_days = self.config.get('training.target_days', 1)
@@ -347,7 +370,12 @@ class Trainer:
                 self.logger.warning(f"Error calculating validation metrics: {str(e)}")
         
         # Save model to cache if enabled
-        cache_key_dict = self.create_cache_key_dict(SplitType.STANDARD, model_params)
+        used_features = self.feature_factory.selected_features or feature_names
+        cache_key_dict = self.create_cache_key_dict(
+            SplitType.STANDARD, 
+            model_params,
+            actual_features=used_features
+        )
         self.save_model_to_cache(model, cache_key_dict)
         
         return model
@@ -545,7 +573,12 @@ class Trainer:
                 self.logger.warning(f"Error calculating validation metrics: {str(e)}")
         
         # Save model to cache if enabled
-        cache_key_dict = self.create_cache_key_dict(split_type, model_params)
+        used_features = self.feature_factory.selected_features or feature_names
+        cache_key_dict = self.create_cache_key_dict(
+            split_type, 
+            model_params,
+            actual_features=used_features
+        )
         self.save_model_to_cache(model, cache_key_dict)
         
         return model
