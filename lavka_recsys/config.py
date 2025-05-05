@@ -1,12 +1,14 @@
+import copy
 import os
 import json
 import dpath
 import yaml
 
 class Config:
-    """Configuration management for experiments using dpath for nested access.
+    """Immutable configuration management for experiments using dpath for nested access.
 
     This version loads default configuration from a YAML or JSON file.
+    Any modification returns a new Config instance; the original is remains unchanged.
     """
 
     def __init__(self, config_dict=None, default_config_path=None):
@@ -20,12 +22,12 @@ class Config:
                 directory as this module. It will fall back to 'default_config.json' if the YAML file
                 is not found.
         """
-        self.config = config_dict or {}
+        self._config = copy.deepcopy(config_dict) if config_dict is not None else {}
         self._set_defaults(default_config_path=default_config_path)
 
     def _set_defaults(self, default_config_path=None):
         """
-        Merge default configuration into self.config using dpath.
+        Merge default configuration into self._config using dpath.
 
         This method loads the default configuration from a YAML or JSON file and merges them into
         the existing configuration without overwriting keys that are already present.
@@ -57,7 +59,7 @@ class Config:
             )
         
         # Merge defaults into the current configuration.
-        self.config = dpath.merge(default_config, self.config, flags=dpath.MergeType.REPLACE)
+        self._config = dpath.merge(default_config, self._config, flags=dpath.MergeType.REPLACE)
 
     def get(self, path, default=None, sep='.'):
         """
@@ -73,15 +75,13 @@ class Config:
             The value stored at the specified key path.
         """
         try:
-            return dpath.get(self.config, path, separator=sep)
+            return dpath.get(self._config, path, separator=sep)
         except KeyError:
-            # If the key is not found, set it to the default value.
-            dpath.set(self.config, path, default, separator=sep)
             return default
 
     def set(self, path, value, sep='.', override=True):
         """
-        Update a configuration value using a unified nested key.
+        Return a new Config with the updated value at `path`.
 
         Parameters:
             path (str): A dot-separated string representing the nested key path.
@@ -90,29 +90,30 @@ class Config:
             override (bool): If True, missing keys will be automatically created.
                              If False, a KeyError is raised for missing keys.
         """
+        new_config = copy.deepcopy(self._config)
         if not override:
             try:
-                dpath.get(self.config, path, separator=sep)
+                dpath.get(self._config, path, separator=sep)
             except KeyError as e:
                 raise KeyError(f"Cannot set value for nested key '{path}' because it does not exist: {e}")
         
-        dpath.set(self.config, path, value, separator=sep)
+        dpath.set(new_config, path, value, separator=sep)
+        return Config(config_dict=new_config)
 
     def __getitem__(self, key, sep='.', ):
         """Enable retrieval via bracket notation. Fail if key is not found."""
         try:
-            return dpath.get(self.config, key, separator=sep)
+            return dpath.get(self._config, key, separator=sep)
         except KeyError:
             raise KeyError(f"Key '{key}' not found in configuration")
 
     def __setitem__(self, key, value):
-        """Enable setting via bracket notation."""
-        self.set(key, value)
+        raise TypeError("Config is immutable; use .set(path, value) to obtain a modified copy.")
 
     def save(self, filename='experiment_config.yaml'):
         """Save the configuration to a YAML file."""
         with open(filename, 'w') as f:
-            yaml.dump(self.config, f, default_flow_style=False, sort_keys=False)
+            yaml.dump(self._config, f, default_flow_style=False, sort_keys=False)
 
     @classmethod
     def load(cls, filename='experiment_config.yaml'):
@@ -122,20 +123,17 @@ class Config:
         return cls(config_dict)
 
     def to_dict(self):
-        """Return the configuration as a dictionary."""
-        return self.config
+        """Return a copy of the configuration as a dictionary."""
+        return copy.deepcopy(self._config)
         
     def copy(self):
         """Create a deep copy of this configuration object."""
-        import copy
-        new_config = Config()
-        new_config.config = copy.deepcopy(self.config)
-        return new_config
+        return Config(config_dict=self.to_dict())
 
     def __str__(self):
         """Return a pretty-printed YAML representation of the configuration."""
-        return yaml.dump(self.config, default_flow_style=False, sort_keys=False)
+        return yaml.dump(self._config, default_flow_style=False, sort_keys=False)
 
     def __repr__(self):
         """Return a string representation of the configuration."""
-        return f"Config({self.config})"
+        return f"Config({self._config})"
