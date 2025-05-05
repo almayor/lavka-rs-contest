@@ -61,8 +61,8 @@ model:
 # Target definition
 target: "CartUpdate_Purchase_vs_View"
 
-# Features
-features:
+# Feature generators
+feature_generators:
   - "source_type"
   - "count_purchase_user_product"
   - "count_purchase_user_store"
@@ -95,7 +95,7 @@ features:
   # - "text_diversity_features" # How different a product is from user's history
 
 # Feature generation settings
-feature_generation:
+feature_config:
   session_window_minutes: 30  # Session window duration in minutes
   user_segments:
     new_user_threshold: 5      # Less than this many interactions is a new user

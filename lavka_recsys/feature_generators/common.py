@@ -447,7 +447,7 @@ def register_common_fgens():
         """
         # Get session window duration from config or use default (30 minutes)
         config = Config()
-        session_window_minutes = config.get('feature_generation.session_window_minutes', 30)
+        session_window_minutes = config.get('feature_config.session_window_minutes', 30)
         
         # Define session window 
         session_window = pl.duration(minutes=session_window_minutes)
@@ -700,10 +700,10 @@ def register_common_fgens():
         
         # Get segment thresholds from config
         config = Config()
-        new_user_threshold = config.get('feature_generation.user_segments.new_user_threshold', 5)
-        high_converter_threshold = config.get('feature_generation.user_segments.high_converter_threshold', 0.2)
-        power_user_threshold = config.get('feature_generation.user_segments.power_user_threshold', 20)
-        loyal_user_days = config.get('feature_generation.user_segments.loyal_user_days', 30)
+        new_user_threshold = config.get('feature_config.user_segments.new_user_threshold', 5)
+        high_converter_threshold = config.get('feature_config.user_segments.high_converter_threshold', 0.2)
+        power_user_threshold = config.get('feature_config.user_segments.power_user_threshold', 20)
+        loyal_user_days = config.get('feature_config.user_segments.loyal_user_days', 30)
         
         # Define segments using config values
         def assign_segment(row):

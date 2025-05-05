@@ -162,7 +162,7 @@ def generate_my_feature_generator(
       return feature_df
 ```
 
-Then you can switch on this feature generator by adding its name to `config.get('features')`.
+Then you can switch on this feature generator by adding its name to `config.get('feature_generators')`.
 Similarly, to add a new target alternative, register them as:
 
 ```python

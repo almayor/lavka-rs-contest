@@ -297,7 +297,7 @@ class CachedFeatureFactory:
         """
         Generate or load cached (features, target, cat_cols, request_ids).
         """
-        feature_names = feature_names or self.config.get('features', [])  # type: ignore
+        feature_names = feature_names or self.config.get('feature_generators', [])  # type: ignore
         target_name = target_name or self.config['target']
         key = self._default_key(history_df, target_df, feature_names, target_name)
 
@@ -321,7 +321,7 @@ class CachedFeatureFactory:
         """
         Generate or load cached (features, cat_cols, request_ids).
         """
-        feature_names = feature_names or self.config.get('features', [])  # type: ignore
+        feature_names = feature_names or self.config.get('feature_generators', [])  # type: ignore
         key = self._default_key(history_df, target_df, feature_names, None)
 
         cached = self._load(key)
