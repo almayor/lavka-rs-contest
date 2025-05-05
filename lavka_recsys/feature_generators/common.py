@@ -1,5 +1,5 @@
 from ..feature_factory import FeatureFactory
-from ..config import Config
+from ..utils.config import Config
 
 import polars as pl
 import numpy as np

@@ -5,8 +5,8 @@ from enum import Enum
 import os
 import polars as pl
 
-from .config import Config
-from .custom_logging import get_logger
+from .utils.config import Config
+from .utils.custom_logging import get_logger
 
 
 class DataLoader:

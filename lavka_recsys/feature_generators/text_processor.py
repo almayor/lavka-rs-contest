@@ -3,8 +3,8 @@ import polars as pl
 from typing import List, Dict, Any
 import re
 
-from ..custom_logging import get_logger
-from ..config import Config
+from ..utils.custom_logging import get_logger
+from ..utils.config import Config
 
 class TextProcessor:
     """Simplified text processing with pretrained models"""

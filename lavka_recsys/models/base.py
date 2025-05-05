@@ -1,5 +1,5 @@
 from typing import Iterable
-from ..custom_logging import get_logger
+from ..utils.custom_logging import get_logger
 
 
 class Model:

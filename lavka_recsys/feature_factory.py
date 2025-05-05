@@ -6,8 +6,8 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Optional
 
-from .config import Config
-from .custom_logging import get_logger
+from .utils.config import Config
+from .utils.custom_logging import get_logger
 
 
 class FeatureFactory:
