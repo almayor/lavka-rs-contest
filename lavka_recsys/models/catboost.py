@@ -59,24 +59,23 @@ class CatBoostModel(Model):
             - group_ids: sorted
             - original_index
         """
-        if isinstance(features, pl.DataFrame):
-            features = features.to_pandas()
+        features = features.to_pandas()
         if isinstance(labels, pl.Series):
             labels = labels.to_list()
         
+         # Sort by group id if available to ensure CatBoost's requirement that queryIds should be grouped
+        self.logger.info("Sorting data by group_id for grouped ranking")
+        order = np.argsort(group_ids)
         original_index = features.index.copy()
 
-        # Sort by group id if available to ensure CatBoost's requirement that queryIds should be grouped
-        self.logger.info("Sorting data by group_id for grouped ranking")
-        sort_order = np.argsort(group_ids)
-        features = features.iloc[sort_order]
-        group_ids = group_ids[sort_order]
+        features = features.iloc[order]
+        group_ids = pd.Series(group_ids, index=features.index).iloc[order]
         if labels is not None:
-            labels = pd.Series(labels, index=features.index).loc[features.index].reset_index(drop=True)
+            labels = pd.Series(labels, index=features.index).iloc[order]
 
-        # Convert group_ids to string for CatBoost
-        group_ids = pd.Series(group_ids, index=features.index).astype(str)
-        
+        # Also converting group_ids to str
+        group_ids = group_ids.astype(str)
+
         return features, labels, group_ids, original_index
 
     def _extract_group_ids(self, features):
@@ -132,13 +131,23 @@ class CatBoostClassifierModel(CatBoostModel):
             val_features, val_labels, val_group_ids, _ = self._sort_by_group_id(
                 val_features, val_group_ids, labels=val_labels
             )
-        train_pool = self._prepare_pool(train_features, labels=train_labels, group_ids=train_group_ids, cat_columns=cat_columns)
+        train_pool = self._prepare_pool(
+            train_features,
+            labels=train_labels,
+            group_ids=train_group_ids,
+            cat_columns=cat_columns
+        )
         val_pool = None
         if val_features is not None and val_labels is not None:
-            val_pool = self._prepare_pool(val_features, val_labels, group_ids=val_group_ids, cat_columns=cat_columns)
+            val_pool = self._prepare_pool(
+                val_features,
+                val_labels,
+                group_ids=val_group_ids,
+                cat_columns=cat_columns
+            )
         
         self.logger.info(
-            f"Training CatBoostClassifier model with columns: {train_features.columns.tolist()} "
+            f"Training CatBoostClassifier model with columns: {train_features.columns} "
             f"(cat_columns: {cat_columns})"
         )
         self.model.fit(train_pool, eval_set=val_pool, verbose=False, plot=True)
@@ -146,9 +155,6 @@ class CatBoostClassifierModel(CatBoostModel):
     
     def predict(self, features: pd.DataFrame | pl.DataFrame, **kwargs):
         """Make probability predictions with CatBoost"""
-        # Make a copy of the dataframe to avoid modifying the original
-        feature_names = self.model.feature_names_
-
         # Ensure we have the exact same columns the model was trained on
         missing = set(self.model.feature_names_) - set(features.columns)
         if missing:
@@ -276,9 +282,16 @@ class CatBoostRankerModel(CatBoostModel):
         cat_cols = [self.model.feature_names_[i] for i in cat_idxs] if cat_idxs else None
         pool = self._prepare_pool(features, group_ids=group_ids, cat_columns=cat_cols)
 
-        preds = self.model.predict(pool)
-        series = pd.Series(preds, index=features.index)
-        return series.reindex(original_index).values
+        preds_sorted = self.model.predict(pool)
+
+        # attach predictions to the (still‑valid) index labels, then
+        # re‑order them back to the caller’s original row order
+        preds = (
+            pd.Series(preds_sorted, index=features.index)
+            .reindex(original_index)
+            .values
+        )
+        return preds
     
     def get_feature_importance(self):
         return self._feature_importances

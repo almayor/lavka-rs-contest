@@ -38,8 +38,9 @@ model:
   config:
     catboost_classifier:
       loss_function: "Logloss"
-      eval_metric: "NDCG:top=10"
+      eval_metric: "AUC" #"NDCG:top=10"
       early_stopping_rounds: 50
+      custom_metric: ["AUC", "NDCG:top=10"]
     catboost_ranker:
       iterations: 500            # Increased iterations for better convergence
       loss_function: "YetiRankPairwise"  # Changed to pairwise loss for better ranking
@@ -57,12 +58,12 @@ target: "CartUpdate_Purchase_vs_View"
 features:
   - "source_type"
   - "count_purchase_user_product"
-  # - "count_purchase_user_store"
-  # - "ctr_product"
-  # - "cart_to_purchase_rate"         
-  # - "purchase_view_ratio"          
-  # - "recency_user_product"
-  # - "user_stats"
+  - "count_purchase_user_store"
+  - "ctr_product"
+  - "cart_to_purchase_rate"         
+  - "purchase_view_ratio"          
+  - "recency_user_product"
+  - "user_stats"
   - "product_stats"
   # - "store_stats"
   # - "city_stats"

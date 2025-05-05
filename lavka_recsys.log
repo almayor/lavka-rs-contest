@@ -1977,3 +1977,403 @@
 2025-05-05 13:53:22,851 - lavka_recsys.FeatureFactory - INFO - All categorical column names: None
 2025-05-05 13:53:22,938 - lavka_recsys.Experiment(popularity_baseline_9550a7) - INFO - Submission saved: results/submissions/popularity_baseline_9550a7_submission.csv
 2025-05-05 13:53:22,941 - lavka_recsys.Experiment(popularity_baseline_9550a7) - INFO - Submission model saved: results/submissions/popularity_baseline_9550a7_model.pkl
+2025-05-05 16:26:37,714 - lavka_recsys.Experiment(catboost_classifier_04eb5e) - INFO - Initialized experiment: catboost_classifier_04eb5e
+2025-05-05 16:26:37,736 - lavka_recsys.Experiment(catboost_classifier_04eb5e) - INFO - Config saved: results/catboost_classifier_04eb5e_config.json
+2025-05-05 16:26:37,737 - lavka_recsys.Experiment(catboost_classifier_04eb5e) - INFO - Setting up experiment environment...
+2025-05-05 16:26:37,738 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 16:26:37,899 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 16:26:37,952 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 16:26:37,978 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 16:26:38,215 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 16:26:38,242 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 16:26:38,247 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 16:26:38,249 - lavka_recsys.Experiment(catboost_classifier_04eb5e) - INFO - Setup complete.
+2025-05-05 16:26:38,254 - lavka_recsys.Experiment(catboost_classifier_04eb5e) - INFO - Starting experiment run...
+2025-05-05 16:26:38,677 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 16:26:38,699 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 16:26:38,703 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 16:26:38,729 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 16:26:38,733 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 16:26:38,758 - lavka_recsys.CachedFeatureFactory - INFO - Generating feature batch
+2025-05-05 16:26:38,760 - lavka_recsys.FeatureFactory - INFO - Invoking feature generators: source_type, count_purchase_user_product, count_purchase_user_store, ctr_product, cart_to_purchase_rate, purchase_view_ratio, recency_user_product, user_stats, product_stats
+2025-05-05 16:26:38,761 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: source_type
+2025-05-05 16:26:38,761 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: count_purchase_user_product
+2025-05-05 16:26:39,054 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: count_purchase_user_store
+2025-05-05 16:26:39,141 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: ctr_product
+2025-05-05 16:26:39,535 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: cart_to_purchase_rate
+2025-05-05 16:26:39,947 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: purchase_view_ratio
+2025-05-05 16:26:40,356 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: recency_user_product
+2025-05-05 16:26:41,444 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: user_stats
+2025-05-05 16:26:41,781 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: product_stats
+2025-05-05 16:26:42,169 - lavka_recsys.FeatureFactory - INFO - Joined features
+2025-05-05 16:26:42,170 - lavka_recsys.FeatureFactory - INFO - All column names: {'source_type', 'count_purchase_u_p', 'user_total_purchases', 'user_unique_products', 'ctr_product', 'user_total_interactions', 'purchase_view_ratio', 'cart_to_purchase_rate', 'product_total_interactions', 'product_total_views', 'product_unique_users', 'user_total_views', 'days_since_interaction_u_p', 'product_total_purchases', 'count_purchase_u_s'}
+2025-05-05 16:26:42,171 - lavka_recsys.FeatureFactory - INFO - All categorical column names: ['source_type']
+2025-05-05 16:26:42,172 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: CartUpdate_Purchase_vs_View
+2025-05-05 16:26:43,392 - lavka_recsys.CachedFeatureFactory - DEBUG - Saved cache results/feature_cache/cache_bf618251cfa2d097ad4312554b944c57.pkl
+2025-05-05 16:26:43,421 - lavka_recsys.CachedFeatureFactory - INFO - Generating feature batch
+2025-05-05 16:26:43,422 - lavka_recsys.FeatureFactory - INFO - Invoking feature generators: source_type, count_purchase_user_product, count_purchase_user_store, ctr_product, cart_to_purchase_rate, purchase_view_ratio, recency_user_product, user_stats, product_stats
+2025-05-05 16:26:43,422 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: source_type
+2025-05-05 16:26:43,423 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: count_purchase_user_product
+2025-05-05 16:26:43,710 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: count_purchase_user_store
+2025-05-05 16:26:43,774 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: ctr_product
+2025-05-05 16:26:44,203 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: cart_to_purchase_rate
+2025-05-05 16:26:44,559 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: purchase_view_ratio
+2025-05-05 16:26:45,030 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: recency_user_product
+2025-05-05 16:26:46,068 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: user_stats
+2025-05-05 16:26:46,400 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: product_stats
+2025-05-05 16:26:46,763 - lavka_recsys.FeatureFactory - INFO - Joined features
+2025-05-05 16:26:46,765 - lavka_recsys.FeatureFactory - INFO - All column names: {'source_type', 'count_purchase_u_p', 'user_total_purchases', 'user_unique_products', 'ctr_product', 'user_total_interactions', 'purchase_view_ratio', 'cart_to_purchase_rate', 'product_total_interactions', 'product_total_views', 'product_unique_users', 'user_total_views', 'days_since_interaction_u_p', 'product_total_purchases', 'count_purchase_u_s'}
+2025-05-05 16:26:46,765 - lavka_recsys.FeatureFactory - INFO - All categorical column names: ['source_type']
+2025-05-05 16:26:46,767 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: CartUpdate_Purchase_vs_View
+2025-05-05 16:26:47,982 - lavka_recsys.CachedFeatureFactory - DEBUG - Saved cache results/feature_cache/cache_9367ee9403ef9d1a8a4535588987d34c.pkl
+2025-05-05 16:26:47,983 - lavka_recsys.ModelFactory - INFO - Creating catboost_classifier model with params: {'loss_function': 'Logloss', 'eval_metric': 'NDCG:top=10', 'early_stopping_rounds': 50, 'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 16:26:48,141 - lavka_recsys.CatBoostClassifierModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 16:26:51,113 - lavka_recsys.CatBoostClassifierModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 16:26:53,618 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 16:26:54,660 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 16:26:55,645 - lavka_recsys.CatBoostClassifierModel - INFO - Training CatBoostClassifier model with columns: ['source_type', 'count_purchase_u_p', 'user_total_purchases', 'user_unique_products', 'ctr_product', 'user_total_interactions', 'purchase_view_ratio', 'cart_to_purchase_rate', 'product_total_interactions', 'product_total_views', 'product_unique_users', 'user_total_views', 'days_since_interaction_u_p', 'product_total_purchases', 'count_purchase_u_s'] (cat_columns: ['source_type'])
+2025-05-05 16:27:34,859 - lavka_recsys.Experiment(catboost_classifier_04eb5e) - INFO - Training completed in 46.85s
+2025-05-05 16:27:34,864 - lavka_recsys.Experiment(catboost_classifier_04eb5e) - INFO - Evaluating on holdout.
+2025-05-05 16:27:34,928 - lavka_recsys.CachedFeatureFactory - INFO - Generating feature batch
+2025-05-05 16:27:34,929 - lavka_recsys.FeatureFactory - INFO - Invoking feature generators: source_type, count_purchase_user_product, count_purchase_user_store, ctr_product, cart_to_purchase_rate, purchase_view_ratio, recency_user_product, user_stats, product_stats
+2025-05-05 16:27:34,930 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: source_type
+2025-05-05 16:27:34,930 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: count_purchase_user_product
+2025-05-05 16:27:35,403 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: count_purchase_user_store
+2025-05-05 16:27:35,509 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: ctr_product
+2025-05-05 16:27:36,118 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: cart_to_purchase_rate
+2025-05-05 16:27:36,588 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: purchase_view_ratio
+2025-05-05 16:27:37,094 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: recency_user_product
+2025-05-05 16:27:38,337 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: user_stats
+2025-05-05 16:27:38,791 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: product_stats
+2025-05-05 16:27:39,290 - lavka_recsys.FeatureFactory - INFO - Joined features
+2025-05-05 16:27:39,291 - lavka_recsys.FeatureFactory - INFO - All column names: {'source_type', 'count_purchase_u_p', 'user_total_purchases', 'user_unique_products', 'ctr_product', 'user_total_interactions', 'purchase_view_ratio', 'cart_to_purchase_rate', 'product_total_interactions', 'product_total_views', 'product_unique_users', 'user_total_views', 'days_since_interaction_u_p', 'product_total_purchases', 'count_purchase_u_s'}
+2025-05-05 16:27:39,292 - lavka_recsys.FeatureFactory - INFO - All categorical column names: ['source_type']
+2025-05-05 16:27:39,293 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: CartUpdate_Purchase_vs_View
+2025-05-05 16:27:40,621 - lavka_recsys.CachedFeatureFactory - DEBUG - Saved cache results/feature_cache/cache_00773469f1f0e86c2a746a8f6c1c02a8.pkl
+2025-05-05 16:27:40,709 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 16:27:55,127 - lavka_recsys.Experiment(catboost_classifier_04eb5e) - INFO - Run results saved: results/catboost_classifier_04eb5e_results.json
+2025-05-05 16:27:55,130 - lavka_recsys.Experiment(catboost_classifier_04eb5e) - INFO - Run finished and results saved.
+2025-05-05 16:44:05,491 - lavka_recsys.Experiment(catboost_classifier_b5067f) - INFO - Initialized experiment: catboost_classifier_b5067f
+2025-05-05 16:44:05,499 - lavka_recsys.Experiment(catboost_classifier_b5067f) - INFO - Config saved: results/catboost_classifier_b5067f_config.json
+2025-05-05 16:44:05,500 - lavka_recsys.Experiment(catboost_classifier_b5067f) - INFO - Setting up experiment environment...
+2025-05-05 16:44:05,501 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 16:44:05,843 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 16:44:05,902 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 16:44:05,926 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 16:44:06,251 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 16:44:06,277 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 16:44:06,281 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 16:44:06,282 - lavka_recsys.Experiment(catboost_classifier_b5067f) - INFO - Setup complete.
+2025-05-05 16:44:06,282 - lavka_recsys.Experiment(catboost_classifier_b5067f) - INFO - Starting experiment run...
+2025-05-05 16:44:06,782 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 16:44:06,806 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 16:44:06,810 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 16:44:06,841 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 16:44:06,848 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 16:44:06,876 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_bf618251cfa2d097ad4312554b944c57.pkl
+2025-05-05 16:44:07,312 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 16:44:07,340 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_9367ee9403ef9d1a8a4535588987d34c.pkl
+2025-05-05 16:44:07,649 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 16:44:07,652 - lavka_recsys.ModelFactory - INFO - Creating catboost_classifier model with params: {'loss_function': 'Logloss', 'eval_metric': 'AUC', 'early_stopping_rounds': 50, 'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 16:44:07,820 - lavka_recsys.CatBoostClassifierModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 16:44:10,516 - lavka_recsys.CatBoostClassifierModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 16:44:12,997 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 16:44:14,036 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 16:44:14,913 - lavka_recsys.CatBoostClassifierModel - INFO - Training CatBoostClassifier model with columns: ['source_type', 'count_purchase_u_p', 'user_total_purchases', 'user_unique_products', 'ctr_product', 'user_total_interactions', 'purchase_view_ratio', 'cart_to_purchase_rate', 'product_total_interactions', 'product_total_views', 'product_unique_users', 'user_total_views', 'days_since_interaction_u_p', 'product_total_purchases', 'count_purchase_u_s'] (cat_columns: ['source_type'])
+2025-05-05 16:44:55,901 - lavka_recsys.Experiment(catboost_classifier_b5067f) - INFO - Training completed in 48.21s
+2025-05-05 16:44:55,905 - lavka_recsys.Experiment(catboost_classifier_b5067f) - INFO - Evaluating on holdout.
+2025-05-05 16:44:56,036 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_00773469f1f0e86c2a746a8f6c1c02a8.pkl
+2025-05-05 16:44:56,463 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 16:44:56,591 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 16:45:10,613 - lavka_recsys.Experiment(catboost_classifier_b5067f) - INFO - Run results saved: results/catboost_classifier_b5067f_results.json
+2025-05-05 16:45:10,616 - lavka_recsys.Experiment(catboost_classifier_b5067f) - INFO - Run finished and results saved.
+2025-05-05 17:03:05,371 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Initialized experiment: random_baseline_587898
+2025-05-05 17:03:05,393 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Config saved: results/random_baseline_587898_config.json
+2025-05-05 17:03:05,394 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Setting up experiment environment...
+2025-05-05 17:03:05,396 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 17:03:05,718 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 17:03:05,770 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:03:05,806 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:03:06,105 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 17:03:06,133 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 17:03:06,137 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 17:03:06,138 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Setup complete.
+2025-05-05 17:03:06,138 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Starting experiment run...
+2025-05-05 17:03:06,625 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 17:03:06,649 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 17:03:06,653 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 17:03:06,682 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 17:03:06,685 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 17:03:06,713 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_5388820807483b1dbe1f865aa9b8872d.pkl
+2025-05-05 17:03:06,779 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:03:06,807 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_a6549304fb5303e4e7e63eae726ecdd5.pkl
+2025-05-05 17:03:06,889 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:03:06,894 - lavka_recsys.ModelFactory - INFO - Creating random_baseline model with params: {'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 17:03:06,896 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Training completed in 0.00s
+2025-05-05 17:03:06,897 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Evaluating on holdout.
+2025-05-05 17:03:06,929 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_10a606a28690b7c2f44f295f71f07b39.pkl
+2025-05-05 17:03:06,991 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:03:18,168 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Run results saved: results/random_baseline_587898_results.json
+2025-05-05 17:03:18,172 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Run finished and results saved.
+2025-05-05 17:03:18,477 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Initialized experiment: popularity_baseline_03697e
+2025-05-05 17:03:18,484 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Config saved: results/popularity_baseline_03697e_config.json
+2025-05-05 17:03:18,485 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Setting up experiment environment...
+2025-05-05 17:03:18,486 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 17:03:18,767 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 17:03:18,831 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:03:18,845 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:03:18,997 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 17:03:19,024 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 17:03:19,027 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 17:03:19,029 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Setup complete.
+2025-05-05 17:03:19,029 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Starting experiment run...
+2025-05-05 17:03:19,422 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 17:03:19,444 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 17:03:19,448 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 17:03:19,474 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 17:03:19,479 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 17:03:19,505 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_d4b3e671a0b4d39f73f92d7447bc65b1.pkl
+2025-05-05 17:03:19,592 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:03:19,620 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_a96f1fef7779a98755c81c10b65c1729.pkl
+2025-05-05 17:03:19,708 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:03:19,712 - lavka_recsys.ModelFactory - INFO - Creating single_feature model with params: {'feature_name': 'product_total_purchases', 'desc': True, 'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 17:03:19,715 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Training completed in 0.00s
+2025-05-05 17:03:19,717 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Evaluating on holdout.
+2025-05-05 17:03:19,754 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_34dba4fc0062a940cbeb34a41a90b512.pkl
+2025-05-05 17:03:19,817 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:03:30,791 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Run results saved: results/popularity_baseline_03697e_results.json
+2025-05-05 17:03:30,794 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Run finished and results saved.
+2025-05-05 17:03:44,091 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Initialized experiment: catboost_classifier_2b6c6d
+2025-05-05 17:03:44,098 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Config saved: results/catboost_classifier_2b6c6d_config.json
+2025-05-05 17:03:44,100 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Setting up experiment environment...
+2025-05-05 17:03:44,101 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 17:03:44,442 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 17:03:44,493 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:03:44,517 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:03:44,721 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 17:03:44,749 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 17:03:44,753 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 17:03:44,754 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Setup complete.
+2025-05-05 17:03:44,755 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Starting experiment run...
+2025-05-05 17:03:45,218 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 17:03:45,241 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 17:03:45,245 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 17:03:45,270 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 17:03:45,274 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 17:03:45,299 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_bf618251cfa2d097ad4312554b944c57.pkl
+2025-05-05 17:03:45,649 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:03:45,679 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_9367ee9403ef9d1a8a4535588987d34c.pkl
+2025-05-05 17:03:45,999 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:03:46,001 - lavka_recsys.ModelFactory - INFO - Creating catboost_classifier model with params: {'loss_function': 'Logloss', 'eval_metric': 'AUC', 'early_stopping_rounds': 50, 'custom_metric': ['AUC'], 'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 17:03:46,161 - lavka_recsys.CatBoostClassifierModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 17:03:48,723 - lavka_recsys.CatBoostClassifierModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 17:03:51,215 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:03:52,350 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:03:53,442 - lavka_recsys.CatBoostClassifierModel - INFO - Training CatBoostClassifier model with columns: ['source_type', 'count_purchase_u_p', 'user_total_purchases', 'user_unique_products', 'ctr_product', 'user_total_interactions', 'purchase_view_ratio', 'cart_to_purchase_rate', 'product_total_interactions', 'product_total_views', 'product_unique_users', 'user_total_views', 'days_since_interaction_u_p', 'product_total_purchases', 'count_purchase_u_s'] (cat_columns: ['source_type'])
+2025-05-05 17:04:33,912 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Training completed in 47.89s
+2025-05-05 17:04:33,916 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Evaluating on holdout.
+2025-05-05 17:04:33,983 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_00773469f1f0e86c2a746a8f6c1c02a8.pkl
+2025-05-05 17:04:34,382 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:04:34,471 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:04:52,189 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Initialized experiment: random_baseline_587898
+2025-05-05 17:04:52,198 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Config saved: results/random_baseline_587898_config.json
+2025-05-05 17:04:52,199 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Setting up experiment environment...
+2025-05-05 17:04:52,201 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 17:04:52,508 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 17:04:52,576 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:04:52,605 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:04:52,924 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 17:04:52,951 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 17:04:52,955 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 17:04:52,956 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Setup complete.
+2025-05-05 17:04:52,957 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Starting experiment run...
+2025-05-05 17:04:53,437 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 17:04:53,459 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 17:04:53,463 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 17:04:53,497 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 17:04:53,504 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 17:04:53,532 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_5388820807483b1dbe1f865aa9b8872d.pkl
+2025-05-05 17:04:53,596 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:04:53,622 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_a6549304fb5303e4e7e63eae726ecdd5.pkl
+2025-05-05 17:04:53,695 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:04:53,697 - lavka_recsys.ModelFactory - INFO - Creating random_baseline model with params: {'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 17:04:53,698 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Training completed in 0.00s
+2025-05-05 17:04:53,698 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Evaluating on holdout.
+2025-05-05 17:04:53,730 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_10a606a28690b7c2f44f295f71f07b39.pkl
+2025-05-05 17:04:53,795 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:05:05,421 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Run results saved: results/random_baseline_587898_results.json
+2025-05-05 17:05:05,422 - lavka_recsys.Experiment(random_baseline_587898) - INFO - Run finished and results saved.
+2025-05-05 17:05:05,667 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Initialized experiment: popularity_baseline_03697e
+2025-05-05 17:05:05,674 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Config saved: results/popularity_baseline_03697e_config.json
+2025-05-05 17:05:05,675 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Setting up experiment environment...
+2025-05-05 17:05:05,677 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 17:05:06,006 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 17:05:06,087 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:05:06,101 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:05:06,297 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 17:05:06,324 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 17:05:06,328 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 17:05:06,329 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Setup complete.
+2025-05-05 17:05:06,330 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Starting experiment run...
+2025-05-05 17:05:06,725 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 17:05:06,745 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 17:05:06,749 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 17:05:06,773 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 17:05:06,777 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 17:05:06,807 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_d4b3e671a0b4d39f73f92d7447bc65b1.pkl
+2025-05-05 17:05:06,897 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:05:06,923 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_a96f1fef7779a98755c81c10b65c1729.pkl
+2025-05-05 17:05:06,997 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:05:06,999 - lavka_recsys.ModelFactory - INFO - Creating single_feature model with params: {'feature_name': 'product_total_purchases', 'desc': True, 'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 17:05:07,000 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Training completed in 0.00s
+2025-05-05 17:05:07,001 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Evaluating on holdout.
+2025-05-05 17:05:07,032 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_34dba4fc0062a940cbeb34a41a90b512.pkl
+2025-05-05 17:05:07,101 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:05:18,649 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Run results saved: results/popularity_baseline_03697e_results.json
+2025-05-05 17:05:18,653 - lavka_recsys.Experiment(popularity_baseline_03697e) - INFO - Run finished and results saved.
+2025-05-05 17:05:47,136 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Initialized experiment: catboost_classifier_2b6c6d
+2025-05-05 17:05:47,143 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Config saved: results/catboost_classifier_2b6c6d_config.json
+2025-05-05 17:05:47,145 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Setting up experiment environment...
+2025-05-05 17:05:47,146 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 17:05:47,461 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 17:05:47,530 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:05:47,551 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:05:47,715 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 17:05:47,741 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 17:05:47,745 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 17:05:47,746 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Setup complete.
+2025-05-05 17:05:47,746 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Starting experiment run...
+2025-05-05 17:05:48,139 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 17:05:48,160 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 17:05:48,164 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 17:05:48,189 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 17:05:48,194 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 17:05:48,219 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_bf618251cfa2d097ad4312554b944c57.pkl
+2025-05-05 17:05:48,589 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:05:48,621 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_9367ee9403ef9d1a8a4535588987d34c.pkl
+2025-05-05 17:05:48,958 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:05:48,960 - lavka_recsys.ModelFactory - INFO - Creating catboost_classifier model with params: {'loss_function': 'Logloss', 'eval_metric': 'AUC', 'early_stopping_rounds': 50, 'custom_metric': ['AUC'], 'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 17:05:49,137 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:06:39,006 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Initialized experiment: catboost_classifier_2b6c6d
+2025-05-05 17:06:39,015 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Config saved: results/catboost_classifier_2b6c6d_config.json
+2025-05-05 17:06:39,017 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Setting up experiment environment...
+2025-05-05 17:06:39,018 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 17:06:39,321 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 17:06:39,373 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:06:39,404 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:06:39,698 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 17:06:39,723 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 17:06:39,727 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 17:06:39,728 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Setup complete.
+2025-05-05 17:06:39,729 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Starting experiment run...
+2025-05-05 17:06:40,225 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 17:06:40,247 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 17:06:40,251 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 17:06:40,276 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 17:06:40,280 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 17:06:40,305 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_bf618251cfa2d097ad4312554b944c57.pkl
+2025-05-05 17:06:40,722 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:06:40,748 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_9367ee9403ef9d1a8a4535588987d34c.pkl
+2025-05-05 17:06:41,093 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:06:41,096 - lavka_recsys.ModelFactory - INFO - Creating catboost_classifier model with params: {'loss_function': 'Logloss', 'eval_metric': 'AUC', 'early_stopping_rounds': 50, 'custom_metric': ['AUC'], 'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 17:06:41,256 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:08:42,245 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Initialized experiment: catboost_classifier_2b6c6d
+2025-05-05 17:08:42,254 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Config saved: results/catboost_classifier_2b6c6d_config.json
+2025-05-05 17:08:42,256 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Setting up experiment environment...
+2025-05-05 17:08:42,257 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 17:08:42,551 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 17:08:42,604 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:08:42,633 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:08:42,942 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 17:08:42,968 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 17:08:42,972 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 17:08:42,973 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Setup complete.
+2025-05-05 17:08:42,974 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Starting experiment run...
+2025-05-05 17:08:43,407 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 17:08:43,436 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 17:08:43,440 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 17:08:43,465 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 17:08:43,469 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 17:08:43,493 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_bf618251cfa2d097ad4312554b944c57.pkl
+2025-05-05 17:08:43,911 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:08:43,946 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_9367ee9403ef9d1a8a4535588987d34c.pkl
+2025-05-05 17:08:44,294 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:08:44,297 - lavka_recsys.ModelFactory - INFO - Creating catboost_classifier model with params: {'loss_function': 'Logloss', 'eval_metric': 'AUC', 'early_stopping_rounds': 50, 'custom_metric': ['AUC'], 'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 17:08:44,462 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:08:45,160 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:08:45,690 - lavka_recsys.CatBoostClassifierModel - INFO - Training CatBoostClassifier model with columns: ['source_type', 'count_purchase_u_p', 'user_total_purchases', 'user_unique_products', 'ctr_product', 'user_total_interactions', 'purchase_view_ratio', 'cart_to_purchase_rate', 'product_total_interactions', 'product_total_views', 'product_unique_users', 'user_total_views', 'days_since_interaction_u_p', 'product_total_purchases', 'count_purchase_u_s'] (cat_columns: ['source_type'])
+2025-05-05 17:10:04,998 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Training completed in 80.68s
+2025-05-05 17:10:05,002 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Evaluating on holdout.
+2025-05-05 17:10:05,128 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_00773469f1f0e86c2a746a8f6c1c02a8.pkl
+2025-05-05 17:10:05,597 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:10:05,746 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:10:18,980 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Run results saved: results/catboost_classifier_2b6c6d_results.json
+2025-05-05 17:10:18,983 - lavka_recsys.Experiment(catboost_classifier_2b6c6d) - INFO - Run finished and results saved.
+2025-05-05 17:20:30,294 - lavka_recsys.Experiment(catboost_classifier_a5f03a) - INFO - Initialized experiment: catboost_classifier_a5f03a
+2025-05-05 17:20:30,307 - lavka_recsys.Experiment(catboost_classifier_a5f03a) - INFO - Config saved: results/catboost_classifier_a5f03a_config.json
+2025-05-05 17:20:30,308 - lavka_recsys.Experiment(catboost_classifier_a5f03a) - INFO - Setting up experiment environment...
+2025-05-05 17:20:30,310 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 17:20:30,624 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 17:20:30,681 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:20:30,718 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:20:31,018 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 17:20:31,047 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 17:20:31,052 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 17:20:31,053 - lavka_recsys.Experiment(catboost_classifier_a5f03a) - INFO - Setup complete.
+2025-05-05 17:20:31,054 - lavka_recsys.Experiment(catboost_classifier_a5f03a) - INFO - Starting experiment run...
+2025-05-05 17:20:31,551 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 17:20:31,572 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 17:20:31,577 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 17:20:31,603 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 17:20:31,607 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 17:20:31,633 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_bf618251cfa2d097ad4312554b944c57.pkl
+2025-05-05 17:20:32,071 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:20:32,097 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_9367ee9403ef9d1a8a4535588987d34c.pkl
+2025-05-05 17:20:32,442 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:20:32,445 - lavka_recsys.ModelFactory - INFO - Creating catboost_classifier model with params: {'loss_function': 'Logloss', 'eval_metric': 'AUC', 'early_stopping_rounds': 50, 'custom_metric': ['AUC', 'NDCG:top=10'], 'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 17:20:32,624 - lavka_recsys.CatBoostClassifierModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 17:20:35,765 - lavka_recsys.CatBoostClassifierModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 17:20:38,618 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:20:39,797 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:20:40,790 - lavka_recsys.CatBoostClassifierModel - INFO - Training CatBoostClassifier model with columns: Index(['source_type', 'count_purchase_u_p', 'user_total_purchases',
+       'user_unique_products', 'ctr_product', 'user_total_interactions',
+       'purchase_view_ratio', 'cart_to_purchase_rate',
+       'product_total_interactions', 'product_total_views',
+       'product_unique_users', 'user_total_views',
+       'days_since_interaction_u_p', 'product_total_purchases',
+       'count_purchase_u_s'],
+      dtype='object') (cat_columns: ['source_type'])
+2025-05-05 17:21:55,192 - lavka_recsys.Experiment(catboost_classifier_a5f03a) - INFO - Training completed in 82.72s
+2025-05-05 17:21:55,195 - lavka_recsys.Experiment(catboost_classifier_a5f03a) - INFO - Evaluating on holdout.
+2025-05-05 17:21:55,259 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_00773469f1f0e86c2a746a8f6c1c02a8.pkl
+2025-05-05 17:21:55,623 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:21:55,760 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:22:09,307 - lavka_recsys.Experiment(catboost_classifier_a5f03a) - INFO - Run results saved: results/catboost_classifier_a5f03a_results.json
+2025-05-05 17:22:09,312 - lavka_recsys.Experiment(catboost_classifier_a5f03a) - INFO - Run finished and results saved.
+2025-05-05 17:26:27,877 - lavka_recsys.Experiment(catboost_ranker_279422) - INFO - Initialized experiment: catboost_ranker_279422
+2025-05-05 17:26:27,884 - lavka_recsys.Experiment(catboost_ranker_279422) - INFO - Config saved: results/catboost_ranker_279422_config.json
+2025-05-05 17:26:27,889 - lavka_recsys.Experiment(catboost_ranker_279422) - INFO - Setting up experiment environment...
+2025-05-05 17:26:27,891 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 17:26:28,256 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 17:26:28,315 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:26:28,331 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:26:28,532 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 17:26:28,559 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 17:26:28,562 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 17:26:28,563 - lavka_recsys.Experiment(catboost_ranker_279422) - INFO - Setup complete.
+2025-05-05 17:26:28,564 - lavka_recsys.Experiment(catboost_ranker_279422) - INFO - Starting experiment run...
+2025-05-05 17:26:28,969 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 17:26:28,993 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 17:26:28,997 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 17:26:29,023 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 17:26:29,027 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 17:26:29,070 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_bf618251cfa2d097ad4312554b944c57.pkl
+2025-05-05 17:26:29,464 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:26:29,491 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_9367ee9403ef9d1a8a4535588987d34c.pkl
+2025-05-05 17:26:29,846 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:26:29,849 - lavka_recsys.ModelFactory - INFO - Creating catboost_ranker model with params: {'iterations': 500, 'loss_function': 'YetiRankPairwise', 'eval_metric': 'NDCG:top=10', 'early_stopping_rounds': 50, 'custom_metric': ['NDCG:top=10', 'PrecisionAt:top=10', 'RecallAt:top=10'], 'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 17:26:29,972 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 17:26:32,899 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 17:26:35,934 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:26:37,313 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:26:38,377 - lavka_recsys.CatBoostRankerModel - INFO - Training CatBoostRanker model with columns: ['source_type', 'count_purchase_u_p', 'user_total_purchases', 'user_unique_products', 'ctr_product', 'user_total_interactions', 'purchase_view_ratio', 'cart_to_purchase_rate', 'product_total_interactions', 'product_total_views', 'product_unique_users', 'user_total_views', 'days_since_interaction_u_p', 'product_total_purchases', 'count_purchase_u_s'] (cat_columns: ['source_type'])
