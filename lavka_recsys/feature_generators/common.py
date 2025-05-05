@@ -2,9 +2,22 @@ from ..feature_factory import FeatureFactory
 from ..config import Config
 
 import polars as pl
+import numpy as np
+
 
 def register_common_fgens():
     # ========== BASIC FEATURES = ==========
+    @FeatureFactory.register('random_noise', num_cols=['random_noise'])
+    def generate_random_noise(
+        history_df: pl.DataFrame, target_df: pl.DataFrame
+    ) -> pl.DataFrame:
+        """Just a meaningless feature that's need for testing and baselines"""
+        noise = np.random.rand(target_df.height)  #Values between 0 and 1
+        # Add the noise as a new column
+        return target_df.with_columns(
+            pl.Series(name="random_noise", values=noise)
+        )
+
     @FeatureFactory.register('source_type', cat_cols=['source_type'])
     def generate_source_type(
         history_df: pl.DataFrame, target_df: pl.DataFrame
@@ -215,7 +228,7 @@ def register_common_fgens():
         """Generate product-level statistics"""
         features = history_df.group_by('product_id').agg([
             pl.len().alias('product_total_interactions'),
-            pl.col('action_type').eq('AT_CartUpdate').sum().alias('product_total_purchases'),
+            pl.col('action_type').is_in(['AT_CartUpdate', 'AT_Purchase']).sum().alias('product_total_purchases'),
             pl.col('action_type').eq('AT_View').sum().alias('product_total_views'),
             pl.n_unique('user_id').alias('product_unique_users')
         ])

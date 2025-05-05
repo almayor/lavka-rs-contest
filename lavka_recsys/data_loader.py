@@ -37,8 +37,11 @@ class DataLoader:
             raise FileNotFoundError(f"Testing file not found: {test_path}")
         self.logger.info(f"Loading test data from {test_path}")
         self.test_df = pl.read_parquet(test_path)
-
-        self._convert_timestamps()
+        
+        preprocessor = DataPreprocessor(self.config)
+        self.train_df = preprocessor(self.train_df, clean=True)
+        self.test_df  = preprocessor(self.test_df, clean=False)
+        
         if self.config.get('data.holdout.enabled', False):
             self._create_holdout()
 
@@ -128,25 +131,6 @@ class DataLoader:
         self._log_split(
             "Holdout Split", train=self.train_df, holdout=self.holdout_df
         )
-
-    def _convert_timestamps(self, attrs=['train_df', 'test_df', 'holdout_df']):
-        """
-        Convert any epoch-based 'timestamp' columns to Polars Datetime type.
-        """
-        for attr in attrs:
-            df = getattr(self, attr)
-            if df is not None and 'timestamp' in df.columns:
-                # Detect whether timestamp is in seconds or milliseconds
-                sample = df['timestamp'].head(1).to_list()
-                unit = 'ms' if sample and sample[0] > 1e12 else 's'
-                self.logger.debug(f"Converting {attr} 'timestamp' from epoch[{unit}] to datetime")
-                setattr(
-                    self,
-                    attr,
-                    df.with_columns(
-                        pl.from_epoch(pl.col('timestamp'), time_unit=unit).alias('timestamp')
-                    )
-                )
         
     def _log_split(self, name: str, **parts: pl.DataFrame) -> None:
         """
@@ -175,3 +159,54 @@ class DataLoader:
         early_df = df.filter(pl.col('timestamp') < split_timestamp)
         later_df = df.filter(pl.col('timestamp') >= split_timestamp)
         return early_df, later_df
+    
+
+class DataPreprocessor:
+
+    def __init__(self, config: Config):
+        self.config = config
+        self.logger = get_logger(self.__class__.__name__)
+    
+    def __call__(self, df: pl.DataFrame, clean=True):
+        """Preprocessing dataframe. If `clean = False`, no additional cleaning will be done."""
+        df = self._convert_timestamps(df)
+        if not clean:
+            return df
+        if self.config.get('data.cleaning.remove_view_only_requests'):
+            df = self._remove_view_only_requests(df)
+        return df
+
+    def _convert_timestamps(self, df: pl.DataFrame):
+        """
+        Convert any epoch-based 'timestamp' columns to Polars Datetime type.
+        """
+        if 'timestamp' in df.columns:
+            # Detect whether timestamp is in seconds or milliseconds
+            sample = df['timestamp'].head(1).to_list()
+            unit = 'ms' if sample and sample[0] > 1e12 else 's'
+            self.logger.debug(f"Converting 'timestamp' from epoch[{unit}] to datetime")
+            df = df.with_columns(
+                pl.from_epoch(pl.col('timestamp'), time_unit=unit).alias('timestamp')
+            )
+        else:
+            self.logger.warning(f"Skipping timestamp conversion as `timestamp` isn't available")
+        return df
+    
+    def _remove_view_only_requests(self, df):
+        """
+        Remove sessions without a single non-view action.
+        """
+        if 'action_type' in df.columns and 'request_id' in df.columns:
+            # 1. Find all request_ids with at least one action ≠ "AT_View"
+            good_ids = (
+                df
+                .filter(pl.col("action_type") != "AT_View")
+                .select("request_id")
+                .unique()
+            )
+            # 2. Inner‐join back to keep _all_ rows for those requests
+            df = df.join(good_ids, on="request_id", how="inner")
+            self.logger.debug(f"Removing sessions without a single non-view action.")
+        else:
+            self.logger.warning(f"Skipping removing sessions without a single non-view action, as `action_type` and `request_id` aren't available.")
+        return df

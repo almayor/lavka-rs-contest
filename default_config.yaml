@@ -8,6 +8,26 @@ data:
   holdout:
     enabled: true
     holdout_days: 30
+  cleaning:
+    remove_view_only_requests: false
+
+# Output settings
+output:
+  results_dir: "results"
+  model_cache_dir: "results/model_cache"
+  feature_cache_dir: "results/feature_cache"
+  feature_selection_cache_dir: "results/feature_selection_cache"
+  metrics_dir: "results/metrics"
+  visualizations_dir: "results/visualizations"
+  save_model: true
+  save_predictions: true
+  save_evaluation_results: true  # Save Kaggle simulation evaluation results
+
+# Logging configuration
+logging:
+  console_level: "INFO"
+  file_level: "DEBUG"
+  file: "lavka_recsys.log"
 
 # Model configuration
 model:
@@ -17,24 +37,18 @@ model:
   thread_count: -1                # Number of CPU threads (-1 means auto)
   config:
     catboost_classifier:
-      iterations: 500
-      learning_rate: 0.1
-      depth: 6
-      l2_leaf_reg: 3.0
-      verbose: 10
       loss_function: "Logloss"
       eval_metric: "NDCG:top=10"
       early_stopping_rounds: 50
     catboost_ranker:
       iterations: 500            # Increased iterations for better convergence
-      # learning_rate: 0.05         # Lower learning rate for better generalization
-      # depth: 8                    # Deeper trees for more complex relationships
-      # l2_leaf_reg: 3.0
-      verbose: 1
       loss_function: "YetiRankPairwise"  # Changed to pairwise loss for better ranking
       eval_metric: "NDCG:top=10"
       early_stopping_rounds: 50
       custom_metric: ["NDCG:top=10", "PrecisionAt:top=10", "RecallAt:top=10"]
+    single_feature:
+      feature_name: "product_total_purchases"
+      desc: True
 
 # Target definition
 target: "CartUpdate_Purchase_vs_View"
@@ -49,7 +63,7 @@ features:
   # - "purchase_view_ratio"          
   # - "recency_user_product"
   # - "user_stats"
-  # - "product_stats"
+  - "product_stats"
   # - "store_stats"
   # - "city_stats"
   # - "product_temporal_patterns"
@@ -83,21 +97,3 @@ feature_generation:
     model_type: "sentence-transformers"
     model_name: "paraphrase-multilingual-MiniLM-L12-v2"  # Small but effective model
     embedding_dimensions: 20  # Reduce dimensionality for efficiency
-
-# Output settings
-output:
-  results_dir: "results"
-  model_cache_dir: "results/model_cache"
-  feature_cache_dir: "results/feature_cache"
-  feature_selection_cache_dir: "results/feature_selection_cache"
-  metrics_dir: "results/metrics"
-  visualizations_dir: "results/visualizations"
-  save_model: true
-  save_predictions: true
-  save_evaluation_results: true  # Save Kaggle simulation evaluation results
-
-# Logging configuration
-logging:
-  console_level: "INFO"
-  file_level: "DEBUG"
-  file: "lavka_recsys.log"

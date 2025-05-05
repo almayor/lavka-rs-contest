@@ -11,7 +11,7 @@ from ..config import Config
 
 from .base import Model
 from .catboost import CatBoostClassifierModel, CatBoostRankerModel
-from .baseline import RandomModel
+from .baseline import RandomModel, SingleFeatureModel
 
 class ModelFactory:
     """Factory for creating and managing models"""
@@ -23,6 +23,7 @@ class ModelFactory:
             'catboost_classifier': CatBoostClassifierModel,
             'catboost_ranker': CatBoostRankerModel,
             'random_baseline': RandomModel,
+            'single_feature': SingleFeatureModel,
             # Add more models as needed
         }
     

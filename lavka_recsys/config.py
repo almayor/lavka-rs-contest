@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import copy
 import os
 import json
 import dpath
 import yaml
+
+from typing import Any
 
 class Config:
     """Immutable configuration management for experiments using dpath for nested access.
@@ -61,7 +65,7 @@ class Config:
         # Merge defaults into the current configuration.
         self._config = dpath.merge(default_config, self._config, flags=dpath.MergeType.REPLACE)
 
-    def get(self, path, default=None, sep='.'):
+    def get(self, path, default=None, sep='.') -> Any:
         """
         Retrieve a configuration value from a nested dictionary using a unified path.
 
@@ -79,7 +83,7 @@ class Config:
         except KeyError:
             return default
 
-    def set(self, path, value, sep='.', override=True):
+    def set(self, path, value, sep='.', override=True) -> Config:
         """
         Return a new Config with the updated value at `path`.
 
@@ -100,7 +104,7 @@ class Config:
         dpath.set(new_config, path, value, separator=sep)
         return Config(config_dict=new_config)
 
-    def __getitem__(self, key, sep='.', ):
+    def __getitem__(self, key, sep='.', ) -> Any:
         """Enable retrieval via bracket notation. Fail if key is not found."""
         try:
             return dpath.get(self._config, key, separator=sep)
@@ -126,7 +130,7 @@ class Config:
         """Return a copy of the configuration as a dictionary."""
         return copy.deepcopy(self._config)
         
-    def copy(self):
+    def copy(self) -> Config:
         """Create a deep copy of this configuration object."""
         return Config(config_dict=self.to_dict())
 
