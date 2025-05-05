@@ -59,7 +59,7 @@ class CatBoostModel(Model):
             - group_ids: sorted
             - original_index
         """
-        features = features.to_pandas()
+        features = self._to_pandas(features)
         if isinstance(labels, pl.Series):
             labels = labels.to_list()
         
