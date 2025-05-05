@@ -289,16 +289,17 @@ class CachedFeatureFactory:
 
     def generate_batch(
         self,
-        history: pl.DataFrame,
-        target: pl.DataFrame,
+        history_df: pl.DataFrame,
+        target_df: pl.DataFrame,
         feature_names: Optional[list[str]] = None,
         target_name: Optional[str] = None
     ) -> tuple[pl.DataFrame, Any, list[str], Any]:
         """
         Generate or load cached (features, target, cat_cols, request_ids).
         """
-        feats = feature_names or self.config.get('features', [])  # type: ignore
-        key = self._default_key(history, target, feats, target_name)
+        feature_names = feature_names or self.config.get('features', [])  # type: ignore
+        target_name = target_name or self.config['target']
+        key = self._default_key(history_df, target_df, feature_names, target_name)
 
         cached = self._load(key)
         if cached is not None:
@@ -307,21 +308,21 @@ class CachedFeatureFactory:
 
         # No cache: generate
         self.logger.info("Generating feature batch")
-        batch = self.factory.generate_batch(history, target, feats, target_name)  # type: ignore
+        batch = self.factory.generate_batch(history_df, target_df, feature_names, target_name)  # type: ignore
         self._save(key, batch)
         return batch
 
     def generate_features_only(
         self,
-        history: pl.DataFrame,
-        target: pl.DataFrame,
+        history_df: pl.DataFrame,
+        target_df: pl.DataFrame,
         feature_names: Optional[list[str]] = None
     ) -> tuple[pl.DataFrame, list[str], pl.Series]:
         """
         Generate or load cached (features, cat_cols, request_ids).
         """
-        feats = feature_names or self.config.get('features', [])  # type: ignore
-        key = self._default_key(history, target, feats, None)
+        feature_names = feature_names or self.config.get('features', [])  # type: ignore
+        key = self._default_key(history_df, target_df, feature_names, None)
 
         cached = self._load(key)
         if cached is not None:
@@ -330,28 +331,30 @@ class CachedFeatureFactory:
 
         # No cache: generate
         self.logger.info("Generating feature batch")
-        return self.factory.generate_features_only(history, target, feature_names)
+        batch = self.factory.generate_features_only(history_df, target_df, feature_names)
+        self._save(key, batch)
+        return batch
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.factory, name)
     
     @staticmethod
     def _default_key(
-        history: pl.DataFrame,
-        target: pl.DataFrame,
-        features: list[str],
+        history_df: pl.DataFrame,
+        target_df: pl.DataFrame,
+        feature_names: list[str],
         target_name: Optional[str]
     ) -> str:
         """
         Create a simple cache key based on time ranges and feature list.
         """
-        hist_t0 = int(history['timestamp'].min().timestamp()) if not history.is_empty() else 0
-        hist_t1 = int(history['timestamp'].max().timestamp()) if not history.is_empty() else 0
-        targ_t0 = int(target['timestamp'].min().timestamp()) if not target.is_empty() else 0
-        targ_t1 = int(target['timestamp'].max().timestamp()) if not target.is_empty() else 0
-        feats = ','.join(sorted(features))
+        hist_t0 = int(history_df['timestamp'].min().timestamp()) if not history_df.is_empty() else 0
+        hist_t1 = int(history_df['timestamp'].max().timestamp()) if not history_df.is_empty() else 0
+        targ_t0 = int(target_df['timestamp'].min().timestamp()) if not target_df.is_empty() else 0
+        targ_t1 = int(target_df['timestamp'].max().timestamp()) if not target_df.is_empty() else 0
+        feats = ','.join(sorted(feature_names))
         name = target_name or ''
-        hist_nrows = len(history)
-        targ_nrows = len(target)
+        hist_nrows = len(history_df)
+        targ_nrows = len(target_df)
         raw = f"{hist_t0}-{hist_t1}-{targ_t0}-{targ_t1}-{feats}-{name}-{hist_nrows}-{targ_nrows}"
         return hashlib.md5(raw.encode()).hexdigest()

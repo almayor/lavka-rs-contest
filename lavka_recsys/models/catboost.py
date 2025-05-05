@@ -219,16 +219,17 @@ class CatBoostRankerModel(CatBoostModel):
         # Extract groups if not provided
         if train_group_ids is None:
             train_features, train_group_ids = self._extract_group_ids(train_features)
-        if val_group_ids is None:
+        if val_group_ids is None and val_features is not None:
             val_features, val_group_ids = self._extract_group_ids(val_features)
         
         # Sort features and group_ids by group_id
         train_features, train_labels, train_group_ids, _ = self._sort_by_group_id(
             train_features, train_group_ids, labels=train_labels
         )
-        val_features, val_labels, val_group_ids, _ = self._sort_by_group_id(
-            val_features, val_group_ids, labels=val_labels
-        )
+        if val_group_ids is not None:
+            val_features, val_labels, val_group_ids, _ = self._sort_by_group_id(
+                val_features, val_group_ids, labels=val_labels
+            )
         
         train_pool = self._prepare_pool(
             train_features,
