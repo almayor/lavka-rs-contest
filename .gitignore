@@ -9,3 +9,4 @@ week02_seminar.ipynb
 *.cpython
 *.pyc
 *.log
+.vscode/
