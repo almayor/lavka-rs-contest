@@ -4,7 +4,7 @@ import polars as pl
 
 from functools import wraps
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any, Optional
 
 from .config import Config
 from .custom_logging import get_logger
@@ -135,15 +135,11 @@ class FeatureFactory:
         """
         request_ids = target_df['request_id']
         features, cat_columns = self.generate_features(history_df, target_df, requested_fgens)
-        
-        if self.feature_selector:
-            features = self.feature_selector(features)
-            
         return features, cat_columns, request_ids
 
     def generate_features(
             self, history_df: pl.DataFrame, target_df: pl.DataFrame, requested_fgens: list[str] | None = None
-        ) -> pl.DataFrame:
+        ) -> tuple[pl.DataFrame, list[str]]:
         """
         Generate only the requested features and their dependencies
         Args:
@@ -222,7 +218,7 @@ class FeatureFactory:
         # Check if feature exists
         if fgen_name not in self.__class__._fgen_registry:
             self.logger.error(f"Feature '{fgen_name}' is not registered")
-            self.logger.error(f"Available features: {list(self.__class__._feature_registry.keys())}")
+            self.logger.error(f"Available features: {list(self.__class__._fgen_registry.keys())}")
             raise ValueError(f"Feature '{fgen_name}' is not registered")
         
         # Get feature info
@@ -295,9 +291,9 @@ class CachedFeatureFactory:
         self,
         history: pl.DataFrame,
         target: pl.DataFrame,
-        feature_names: Optional[List[str]] = None,
+        feature_names: Optional[list[str]] = None,
         target_name: Optional[str] = None
-    ) -> Tuple[pl.DataFrame, Any, List[str], Any]:
+    ) -> tuple[pl.DataFrame, Any, list[str], Any]:
         """
         Generate or load cached (features, target, cat_cols, request_ids).
         """
@@ -319,8 +315,8 @@ class CachedFeatureFactory:
         self,
         history: pl.DataFrame,
         target: pl.DataFrame,
-        feature_names: Optional[List[str]] = None
-    ) -> Tuple[pl.DataFrame, List[str], Any]:
+        feature_names: Optional[list[str]] = None
+    ) -> tuple[pl.DataFrame, list[str], pl.Series]:
         """
         Generate or load cached (features, cat_cols, request_ids).
         """
@@ -335,7 +331,7 @@ class CachedFeatureFactory:
     def _default_key(
         history: pl.DataFrame,
         target: pl.DataFrame,
-        features: List[str],
+        features: list[str],
         target_name: Optional[str]
     ) -> str:
         """

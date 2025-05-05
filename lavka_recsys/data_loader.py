@@ -29,11 +29,11 @@ class DataLoader:
         train_path = self.config.get('data.train_path')
         if not train_path or not os.path.exists(train_path):
             raise FileNotFoundError(f"Training file not found: {train_path}")
-        self.(f"Loading training data from {train_path}")
+        self.logger.info(f"Loading training data from {train_path}")
         self.train_df = pl.read_parquet(train_path)
         
         test_path = self.config.get('data.test_path')
-        if not train_path or not os.path.exists(train_path):
+        if not test_path or not os.path.exists(test_path):
             raise FileNotFoundError(f"Testing file not found: {test_path}")
         self.logger.info(f"Loading test data from {test_path}")
         self.test_df = pl.read_parquet(test_path)

@@ -13,7 +13,7 @@ from .config import Config
 from .custom_logging import get_logger
 from .data_loader import DataLoader
 from .model_factory import ModelFactory, Model
-from .cached_feature_factory import CachedFeatureFactory
+from .feature_factory import CachedFeatureFactory
 from .metrics import RankingMetrics
 
 

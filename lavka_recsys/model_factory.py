@@ -344,7 +344,7 @@ class ModelFactory:
     def create_model(self, override_params=None) -> Model:
         """Create a model instance based on type"""
         mtype = self.config.get('model.type')
-        if mtype not in self.models:
+        if mtype not in self._registry:
             raise ValueError(f"Unknown model type: {mtype}")
             
         # Get model parameters from config
