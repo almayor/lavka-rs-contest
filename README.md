@@ -149,11 +149,11 @@ To add custom features, register a feature generator in the feature factory:
 ```python
 from lavka_recsys import FeatureFactory
 
-@FeatureFactory.register('my_custom_feature', 
+@FeatureFactory.register('my_custom_feature_generator', 
                          num_cols=['feature1', 'feature2'], 
                          cat_cols=['cat_feature'], 
                          depends_on=["another_feature"])
-def generate_my_feature(
+def generate_my_feature_generator(
     history_df: pl.DataFrame,
     feature_df: pl.DataFrame
 ) -> pl.DataFrame:
