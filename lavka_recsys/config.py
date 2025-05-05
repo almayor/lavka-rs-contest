@@ -73,10 +73,10 @@ class Config:
             The value stored at the specified key path.
         """
         try:
-            return dpath.util.get(self.config, path, separator=sep)
+            return dpath.get(self.config, path, separator=sep)
         except KeyError:
             # If the key is not found, set it to the default value.
-            dpath.util.set(self.config, path, default, separator=sep)
+            dpath.set(self.config, path, default, separator=sep)
             return default
 
     def set(self, path, value, sep='.', override=True):

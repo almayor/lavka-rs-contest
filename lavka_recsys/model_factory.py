@@ -1,4 +1,5 @@
 from tqdm.auto import tqdm
+from typing import Iterable
 
 import numpy as np
 import pandas as pd
@@ -67,7 +68,7 @@ class CatBoostModel(Model):
 
     def _prepare_pool(self,
         features: pd.DataFrame | pl.DataFrame,
-        labels: iter[str] = None,
+        labels: Iterable[str] = None,
         *,
         group_ids = None,
         cat_columns = None
@@ -80,7 +81,7 @@ class CatBoostModel(Model):
             cat_columns (list): Categorical column names.
         """
         from catboost import Pool
-    
+
         features = self._to_pandas(features)
         labels_list = None
         if labels is not None:
@@ -90,6 +91,9 @@ class CatBoostModel(Model):
         for col in cat_columns:
             self.logger.info(f"Converting '{col}' to string for CatBoost")
             features[col] = features[col].astype(str)
+        
+        if group_ids is not None:
+            group_ids = [str(id) for id in group_ids]
 
         return Pool(
             data=features,
@@ -97,6 +101,51 @@ class CatBoostModel(Model):
             cat_features=cat_columns,
             group_id=group_ids
         )
+    
+    def _sort_by_group_id(self, features, group_ids, labels=None):
+        """Sort features and labels by group IDs
+        Returns
+            - features: sorted by group_ids
+            - labels: sorted by group_ids
+            - group_ids: sorted
+            - original_index
+        """
+        if isinstance(features, pl.DataFrame):
+            features = features.to_pandas()
+        if isinstance(labels, pl.Series):
+            labels = labels.to_list()
+        
+        original_index = features.index.copy()
+
+        # Sort by group id if available to ensure CatBoost's requirement that queryIds should be grouped
+        self.logger.info("Sorting data by group_id for grouped ranking")
+        sort_order = np.argsort(group_ids)
+        features = features.iloc[sort_order]
+        group_ids = group_ids[sort_order]
+        if labels is not None:
+            labels = pd.Series(labels, index=features.index).loc[features.index].reset_index(drop=True)
+
+        # Convert group_ids to string for CatBoost
+        group_ids = pd.Series(group_ids, index=features.index).astype(str)
+        
+        return features, labels, group_ids, original_index
+
+    def _extract_group_ids(self, features):
+        """Extract group IDs from features and labels, if necessary, then, sort the data"""
+        if isinstance(features, pl.DataFrame):
+            features = features.to_pandas()
+
+        if 'group_id' in features.columns:
+            group_id_col = 'group_id'
+        elif 'request_id' in features.columns:
+            group_id_col = 'request_id'
+        else:
+            self.logger.error('Missing either `group_id` or `request_id` in features dataframe')
+            raise ValueError('Missing either `group_id` or `request_id` in features dataframe')
+        
+        group_ids = features[group_id_col].astype(str).values    
+        features = features.drop(columns=[group_id_col])
+        return features, group_ids
 
 
 class CatBoostClassifierModel(CatBoostModel):
@@ -110,10 +159,12 @@ class CatBoostClassifierModel(CatBoostModel):
     
     def train(self,
         train_features: pd.DataFrame | pl.DataFrame,
-        train_labels: iter[str],
+        train_labels: Iterable[str],
         *,
+        train_group_ids=None,
         val_features=None,
         val_labels=None,
+        val_group_ids=None,
         cat_columns=None,
         **kwargs
     ):
@@ -124,19 +175,27 @@ class CatBoostClassifierModel(CatBoostModel):
             train_group_ids (pd.Series or pl.Series): Request IDs for training data.
             cat_columns (list): Categorical column names.
         """
-        train_pool = self._prepare_pool(train_features, labels=train_labels, cat_columns=cat_columns)
+        if train_group_ids is not None:
+            train_features, train_labels, train_group_ids, _ = self._sort_by_group_id(
+                train_features, train_group_ids, labels=train_labels
+            )
+        if val_group_ids is not None:
+            val_features, val_labels, val_group_ids, _ = self._sort_by_group_id(
+                val_features, val_group_ids, labels=val_labels
+            )
+        train_pool = self._prepare_pool(train_features, labels=train_labels, group_ids=train_group_ids, cat_columns=cat_columns)
         val_pool = None
         if val_features is not None and val_labels is not None:
-            val_pool = self._prepare_pool(val_features, val_labels, cat_columns=cat_columns)
+            val_pool = self._prepare_pool(val_features, val_labels, group_ids=val_group_ids, cat_columns=cat_columns)
         
         self.logger.info(
-            f"Training CatBoost model with columns: {train_features.columns.tolist()} "
+            f"Training CatBoostClassifier model with columns: {train_features.columns.tolist()} "
             f"(cat_columns: {cat_columns})"
         )
         self.model.fit(train_pool, eval_set=val_pool, verbose=False, plot=True)
         return self
     
-    def predict(self, features: pd.DataFrame | pl.DataFrame):
+    def predict(self, features: pd.DataFrame | pl.DataFrame, **kwargs):
         """Make probability predictions with CatBoost"""
         # Make a copy of the dataframe to avoid modifying the original
         feature_names = self.model.feature_names_
@@ -183,7 +242,7 @@ class CatBoostRankerModel(CatBoostModel):
     
     def train(self,
         train_features: pd.DataFrame | pl.DataFrame,
-        train_labels: iter[str],
+        train_labels: Iterable[str],
         *,
         train_group_ids = None,
         val_features = None,
@@ -204,13 +263,17 @@ class CatBoostRankerModel(CatBoostModel):
         """
         # Extract groups if not provided
         if train_group_ids is None:
-            train_features, train_labels, train_group_ids, _ = self._extract_group_ids(
-                train_features, train_labels
-            )
+            train_features, train_group_ids = self._extract_group_ids(train_features)
         if val_group_ids is None:
-            val_features, val_labels, val_group_ids, _ = self._extract_group_ids(
-                val_features, val_labels
-            )
+            val_features, val_group_ids = self._extract_group_ids(val_features)
+        
+        # Sort features and group_ids by group_id
+        train_features, train_labels, train_group_ids, _ = self._sort_by_group_id(
+            train_features, train_group_ids, labels=train_labels
+        )
+        val_features, val_labels, val_group_ids, _ = self._sort_by_group_id(
+            val_features, val_group_ids, labels=val_labels
+        )
         
         train_pool = self._prepare_pool(
             train_features,
@@ -223,6 +286,10 @@ class CatBoostRankerModel(CatBoostModel):
             labels=val_labels,
             group_ids=val_group_ids,
             cat_columns=cat_columns,
+        )
+        self.logger.info(
+            f"Training CatBoostRanker model with columns: {train_features.columns.tolist()} "
+            f"(cat_columns: {cat_columns})"
         )
         self.model.fit(train_pool, eval_set=val_pool, plot=True, verbose=False)
 
@@ -242,11 +309,14 @@ class CatBoostRankerModel(CatBoostModel):
             Prediction scores
         """   
         features = self._to_pandas(features)
-        # Save the "true" order of the rows
-        original_index = features.index.copy()
     
         if group_ids is None:
-           features, _, group_ids, _ = self._extract_group_ids(features)
+           features, group_ids = self._extract_group_ids(features)
+        
+        # Sort features and group_ids by group_id
+        features, _, group_ids, original_index = self._sort_by_group_id(
+            features, group_ids, labels=None
+        )
  
         # Ensure we have the exact same columns the model was trained on
         missing = set(self.model.feature_names_) - set(features.columns)
@@ -274,33 +344,6 @@ class CatBoostRankerModel(CatBoostModel):
             except Exception as e:
                 self.logger.warning(f'Failed to calculate feature importances using {typo}: {str(e)}')
                 continue
-
-    def _extract_group_ids(self, features, labels=None):
-        if isinstance(features, pl.DataFrame):
-            features = features.to_pandas()
-        if isinstance(labels, pl.Series):
-            labels = labels.to_list()
-        
-        original_index = features.index.copy()
-
-        if 'group_id' in features.columns:
-            group_id_col = 'group_id'
-        elif 'request_id' in features.columns:
-            group_id_col = 'request_id'
-        else:
-            self.logger.error('Missing either `group_id` or `request_id` in features dataframe')
-            raise ValueError('Missing either `group_id` or `request_id` in features dataframe')
-        
-        # Sort by group id if available to ensure CatBoost's requirement that queryIds should be grouped
-        self.logger.info(f"Sorting data by {group_id_col} for grouped ranking")
-        features = features.sort_values(by=group_id_col)
-        group_ids = features[group_id_col].astype(str).values    
-        features = features.drop(columns=[group_id_col])
-
-        if labels is not None:
-            labels = pd.Series(labels, index=features.index).loc[features.index].reset_index(drop=True)
-        
-        return features, labels, group_ids, original_index
     
     def save(self, filename):
         """Save model to file"""

@@ -111,7 +111,7 @@ class DataLoader:
             raise ValueError("Test data not loaded. Call setup() first.")
         
         #Undo holdout split
-        if self.holdout_df:
+        if self.holdout_df is not None:
             train_df = pl.concat([self.train_df, self.holdout_df])
             self.logger.info("Holdout data merged back into training data.")
         else:
@@ -150,7 +150,7 @@ class DataLoader:
         
     def _log_split(self, name: str, **parts: pl.DataFrame) -> None:
         """
-        Log time range and row count for each split component.
+        Log time range, row count, and span in days for each split component.
         """
         self.logger.info(f"{name}:")
         for part_name, df in parts.items():
@@ -160,7 +160,12 @@ class DataLoader:
             else:
                 t0 = df['timestamp'].min()
                 t1 = df['timestamp'].max()
-                self.logger.info(f"  {part_name}: {t0} → {t1} ({cnt} rows)")
+                # Compute full-day span
+                days = (t1 - t0).days
+                self.logger.info(
+                    f"  {part_name}: {t0} → {t1} "
+                    f"({cnt:_} rows, {days} days)"
+                )
         
 
     @staticmethod  

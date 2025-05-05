@@ -2,8 +2,8 @@
 
 # Data paths
 data:
-  train_path: "data/train.parquet"
-  test_path: "data/test.parquet"
+  train_path: "../../data/lavka/train.parquet"
+  test_path: "../../data/lavka/test.parquet"
   target_days: 30
   holdout:
     enabled: true
@@ -32,7 +32,7 @@ model:
       # l2_leaf_reg: 3.0
       verbose: 1
       loss_function: "YetiRankPairwise"  # Changed to pairwise loss for better ranking
-      eval_metric: "NDCG"
+      eval_metric: "NDCG:top=10"
       early_stopping_rounds: 50
       custom_metric: ["NDCG:top=10", "PrecisionAt:top=10", "RecallAt:top=10"]
 
@@ -65,11 +65,11 @@ features:
   - "npmi-cf"               # Collaborative filtering
   - "puresvd-cf"            # Collaborative filtering
   - "svd-cf"                # Collaborative filtering
-  - "product_embeddings"    # NLP feature
-  - "category_embeddings"   # NLP feature
-  - "user_product_distance" # Weighted similarity between user history and product
-  - "text_similarity_cluster" # Product clusters based on text similarity
-  - "text_diversity_features" # How different a product is from user's history
+  # - "product_embeddings"    # NLP feature
+  # - "category_embeddings"   # NLP feature
+  # - "user_product_distance" # Weighted similarity between user history and product
+  # - "text_similarity_cluster" # Product clusters based on text similarity
+  # - "text_diversity_features" # How different a product is from user's history
 
 # Feature generation settings
 feature_generation:

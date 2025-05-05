@@ -109,7 +109,7 @@ class FeatureFactory:
         """
         request_ids = target_df['request_id']
         features, cat_columns = self.generate_features(history_df, target_df, requested_fgens)
-        target, _ = self.generate_target(history_df, target_df, requested_target)
+        target = self.generate_target(history_df, target_df, requested_target)
         mask = ~target.is_null()
         return (
             features.filter(mask),

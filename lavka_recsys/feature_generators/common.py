@@ -149,7 +149,7 @@ def register_common_fgens():
             purchase_view_ratio=pl.col('purchase_view_ratio').fill_null(0)
         )
 
-    @FeatureFactory.register('recency_user_product', num_cols=['last_interaction_u_p'])
+    @FeatureFactory.register('recency_user_product', num_cols=['days_since_interaction_u_p'])
     def generate_recency_user_product(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -167,7 +167,7 @@ def register_common_fgens():
             how='left'
         ).drop('last_interaction_u_p')
 
-    @FeatureFactory.register('recency_user_store', num_cols=['last_interaction_u_s'])
+    @FeatureFactory.register('recency_user_store', num_cols=['days_since_interaction_u_s'])
     def generate_recency_user_store(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
