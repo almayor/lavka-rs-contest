@@ -220,7 +220,7 @@ class Experiment:
         sub_dir = self.config.get('output.submissions_dir', os.path.join(self.results_dir, 'submissions'))
         os.makedirs(sub_dir, exist_ok=True)
         submission_path = os.path.join(sub_dir, f"{self.name}_submission.csv")
-        submission_df.write_csv(submission_path, index=False)
+        submission_df.write_csv(submission_path)
         self.logger.info(f"Submission saved: {submission_path}")
         model_path = os.path.join(sub_dir, f"{self.name}_model.pkl")
         model.save(model_path)

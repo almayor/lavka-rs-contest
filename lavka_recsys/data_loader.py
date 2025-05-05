@@ -87,7 +87,7 @@ class DataLoader:
             raise ValueError("Train data not loaded. Call setup() first.")
 
         #Undo holdout split
-        if self.holdout_df:
+        if self.holdout_df is not None:
             train_df = pl.concat([self.train_df, self.holdout_df])
             self.logger.info("Holdout data merged back into training data.")
         else:

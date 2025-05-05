@@ -31,16 +31,18 @@ class Model:
         """
         raise NotImplementedError
     
-    def predict(self, features, *, cat_columns=None, group_ids=None, **kwargs):
+    def predict(self, features, *, cat_columns=None, group_ids=None, **kwargs) -> Iterable[float]:
         """
         Make relevance predictions (to be implemented by subclasses).
         Args:
             features (pd.DataFrame or pl.DataFrame): Features for prediction.
             kwargs: Additional parameters for prediction.
+        Returns:
+            an iterable of scores
         """
         raise NotImplementedError
     
-    def get_feature_importance(self):
+    def get_feature_importance(self) -> dict[str, float]:
         """
         Get feature importance if available.
         Returns:
@@ -56,6 +58,29 @@ class Model:
     def load(cls, filename):
         """Load model from file"""
         raise NotImplementedError
+    
+
+class RandomModel(Model):
+    """Model outputing random values (baseline)"""
+
+    def __init__(self, **params):
+        super().__init__('random_baseline')
+    
+    def train(self, *args, **kwargs):
+        pass
+
+    def predict(self, features, *args, **kwargs):
+        return np.random.rand(len(features),)
+    
+    def get_feature_importance(self):
+        return {}
+    
+    def save(self, *args, **kwargs):
+        pass
+
+    @classmethod
+    def load(cls, *args, **kwargs):
+        return cls()
     
 
 class CatBoostModel(Model):
@@ -381,6 +406,7 @@ class ModelFactory:
         self._registry = {
             'catboost_classifier': CatBoostClassifierModel,
             'catboost_ranker': CatBoostRankerModel,
+            'random_baseline': RandomModel,
             # Add more models as needed
         }
     

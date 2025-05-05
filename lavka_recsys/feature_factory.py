@@ -320,9 +320,17 @@ class CachedFeatureFactory:
         """
         Generate or load cached (features, cat_cols, request_ids).
         """
-        batch = self.generate_batch(history, target, feature_names, None)
-        feat_df, _, cat_cols, req_ids = batch
-        return feat_df, cat_cols, req_ids
+        feats = feature_names or self.config.get('features', [])  # type: ignore
+        key = self._default_key(history, target, feats, None)
+
+        cached = self._load(key)
+        if cached is not None:
+            self.logger.info("Using cached feature batch")
+            return cached
+
+        # No cache: generate
+        self.logger.info("Generating feature batch")
+        return self.factory.generate_features_only(history, target, feature_names)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.factory, name)
@@ -337,9 +345,13 @@ class CachedFeatureFactory:
         """
         Create a simple cache key based on time ranges and feature list.
         """
-        t0 = int(history['timestamp'].min().timestamp()) if not history.is_empty() else 0
-        t1 = int(target['timestamp'].max().timestamp()) if not target.is_empty() else 0
+        hist_t0 = int(history['timestamp'].min().timestamp()) if not history.is_empty() else 0
+        hist_t1 = int(history['timestamp'].max().timestamp()) if not history.is_empty() else 0
+        targ_t0 = int(target['timestamp'].min().timestamp()) if not target.is_empty() else 0
+        targ_t1 = int(target['timestamp'].max().timestamp()) if not target.is_empty() else 0
         feats = ','.join(sorted(features))
         name = target_name or ''
-        raw = f"{t0}-{t1}-{feats}-{name}"
+        hist_nrows = len(history)
+        targ_nrows = len(target)
+        raw = f"{hist_t0}-{hist_t1}-{targ_t0}-{targ_t1}-{feats}-{name}-{hist_nrows}-{targ_nrows}"
         return hashlib.md5(raw.encode()).hexdigest()
