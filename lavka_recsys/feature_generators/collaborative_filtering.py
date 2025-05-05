@@ -7,6 +7,7 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import svds
 
 from ..feature_factory import FeatureFactory
+from ..utils.matrix_operations import build_interaction_matrix
 
 def get_npmi_matrix(interaction_matrix: csr_matrix) -> np.ndarray:
     """
@@ -65,41 +66,6 @@ def get_npmi_matrix(interaction_matrix: csr_matrix) -> np.ndarray:
     
     return npmi_matrix
 
-
-def get_interaction_matrix(df_history: pl.DataFrame) -> Tuple[csr_matrix, dict, dict]:
-    """
-    Create an csr sparse interaction matrix from the history DataFrame. Each cell indicates the number of times
-    a user has purchased a product. The matrix is in the form of (num_users, num_products).
-    Also returns mappings user_id -> index and product_id -> index for easy lookup.
-    """
-    # Assuming your DataFrame is named `df` and has columns "user_id" and "product_id"
-    df_counts = (
-        df_history.group_by(["user_id", "product_id"])
-        .agg(pl.len().alias("purchase_count"))
-    )
-    unique_users = df_counts["user_id"].unique().to_list()
-    unique_products = df_counts["product_id"].unique().to_list()
-
-    # Create mapping dictionaries: user -> index, product -> index
-    user2idx = {user: i for i, user in enumerate(unique_users)}
-    prod2idx = {prod: i for i, prod in enumerate(unique_products)}
-
-    # Convert columns of the aggregated DataFrame to lists
-    user_ids = df_counts["user_id"].to_list()
-    product_ids = df_counts["product_id"].to_list()
-    purchase_counts = df_counts["purchase_count"].to_list()
-
-    # Build lists of row indices, column indices, and data values for the sparse matrix
-    rows = [user2idx[user] for user in user_ids]
-    cols = [prod2idx[prod] for prod in product_ids]
-    data = [1 for _ in purchase_counts]
-
-    # Determine the shape of the matrix
-    num_users = len(unique_users)
-    num_products = len(unique_products)
-
-    interaction_matrix = csr_matrix((data, (rows, cols)), shape=(num_users, num_products))
-    return interaction_matrix, user2idx, prod2idx
 
 def get_jaccard_similarity(interaction_matrix: csr_matrix) -> np.ndarray:
     """
@@ -244,7 +210,10 @@ def register_cf_fgens():
         df_interact = history_df.filter(
             pl.col("action_type").is_in(["AT_Purchase", "AT_CartUpdate"])
         )
-        interaction_matrix, user2idx, product2idx = get_interaction_matrix(df_interact)
+        interaction_matrix, user2idx, _, product2idx, _ = \
+            build_interaction_matrix(df_interact,
+                                    user_col="user_id",
+                                    item_col="product_id")
         jaccard_similarity = get_jaccard_similarity(interaction_matrix)
         scores = interaction_matrix.T.dot(jaccard_similarity).T
 
@@ -290,7 +259,10 @@ def register_cf_fgens():
         )
         
         # Get interaction matrix and mappings
-        interaction_matrix, user2idx, product2idx = get_interaction_matrix(df_interact)
+        interaction_matrix, user2idx, _, product2idx, _ = \
+            build_interaction_matrix(df_interact,
+                                    user_col="user_id",
+                                    item_col="product_id")
         
         # Compute NPMI matrix
         npmi_matrix = get_npmi_matrix(interaction_matrix)
@@ -353,7 +325,10 @@ def register_cf_fgens():
         )
         
         # Get interaction matrix and mappings
-        interaction_matrix, user2idx, product2idx = get_interaction_matrix(df_interact)
+        interaction_matrix, user2idx, _, product2idx, _ = \
+            build_interaction_matrix(df_interact,
+                                    user_col="user_id",
+                                    item_col="product_id")
         interaction_matrix = interaction_matrix.astype(np.float64)
 
         # Compute SVD factors
@@ -420,7 +395,12 @@ def register_cf_fgens():
         )
         
         # Get interaction matrix and mappings
-        interaction_matrix, user2idx, product2idx = get_interaction_matrix(df_interact)
+        # if you want PureSVD on *binary* interactions:
+        interaction_matrix, user2idx, idx2user, product2idx, idx2item = \
+            build_interaction_matrix(df_interact,
+                                    user_col="user_id",
+                                    item_col="product_id",
+                                    binary=True)
         interaction_matrix = interaction_matrix.astype(np.float64)
         
         # For PureSVD with implicit feedback, ensure binary matrix

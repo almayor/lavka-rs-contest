@@ -2,59 +2,88 @@ import polars as pl
 import scipy as sp
 
 
-def build_matrix_with_mappings(ratings: pl.DataFrame, additive: bool = False):
+import polars as pl
+from scipy.sparse import csr_matrix
+from typing import Tuple, Dict, Optional, Any
+
+
+import polars as pl
+from scipy.sparse import csr_matrix
+from typing import Tuple, Dict, Optional, Any
+
+
+def build_interaction_matrix(
+    df: pl.DataFrame,
+    user_col: str = "user_id",
+    item_col: str = "item_id",
+    count_col: Optional[str] = None,
+    binary: bool = False
+) -> Tuple[csr_matrix, Dict[Any, int], Dict[int, Any], Dict[Any, int], Dict[int, Any]]:
     """
-    Constructs a sparse user-item rating matrix from a Polars DataFrame and returns it 
-    along with index mappings for users and items.
-    Based on https://github.com/yandexdataschool/recsys_course.
+    Builds a user-item interaction matrix in CSR format, along with mappings.
 
-    Parameters:
-        ratings (pl.DataFrame): A DataFrame containing at least 'user_id', 'item_id', and 'rating' columns.
-        additive (bool, optional): If True, ratings for the same (user, item) pair are summed. 
-                                   If False (default), the last rating is used.
+    Parameters
+    ----------
+    df : pl.DataFrame
+        Input dataframe containing at least user and item columns.
+    user_col : str
+        Column name for user IDs.
+    item_col : str
+        Column name for item IDs.
+    count_col : Optional[str]
+        Column name for counts/weights. If None, each interaction is counted once.
+    binary : bool
+        If True, binarize interactions (entry = 1 if count > 0, else 0).
 
-    Returns:
-        tuple: A tuple containing:
-            - R (scipy.sparse.lil_array): Sparse user-item rating matrix.
-            - mappings (tuple): A tuple of four dictionaries:
-                * user_id2idx: Maps user IDs to matrix row indices.
-                * item_id2idx: Maps item IDs to matrix column indices.
-                * user_idx2id: Reverse mapping from indices to user IDs.
-                * item_idx2id: Reverse mapping from indices to item IDs.
+    Returns
+    -------
+    mat : csr_matrix
+        Sparse interaction matrix of shape (n_users, n_items).
+    user2idx : Dict[Any, int]
+        Mapping from user ID to row index.
+    idx2user : Dict[int, Any]
+        Mapping from row index back to user ID.
+    item2idx : Dict[Any, int]
+        Mapping from item ID to column index.
+    idx2item : Dict[int, Any]
+        Mapping from column index back to item ID.
     """
-    mappings = build_mappings(ratings)
-    user_id2idx, item_id2idx, _, _ = mappings
-    num_users = len(user_id2idx)
-    num_items = len(item_id2idx)
-    R = sp.sparse.lil_array((num_users, num_items))
-    for row in ratings.iter_rows(named=True):
-        user_idx = user_id2idx[row["user_id"]]
-        item_idx = item_id2idx[row["item_id"]]
-        if additive:
-            R[user_idx, item_idx] += row["rating"]
-        else:
-            R[user_idx, item_idx] = row["rating"]
-    return R, mappings
+    # 1) Aggregate counts or occurrences
+    if count_col:
+        df_counts = (
+            df.lazy()
+            .groupby([user_col, item_col])
+            .agg(pl.col(count_col).alias("count"))
+            .collect()
+        )
+    else:
+        df_counts = (
+            df.lazy()
+            .groupby([user_col, item_col])
+            .agg(pl.count().alias("count"))
+            .collect()
+        )
 
-def build_mappings(ratings: pl.DataFrame):
-    """
-    Generates mapping dictionaries to convert between user/item IDs and matrix indices.
-    Based on https://github.com/yandexdataschool/recsys_course.
+    # 2) Extract unique users and items
+    users = df_counts[user_col].unique().to_list()
+    items = df_counts[item_col].unique().to_list()
 
-    Parameters:
-        ratings (pl.DataFrame): A DataFrame containing 'user_id' and 'item_id' columns.
+    # 3) Create mappings
+    user2idx = {uid: idx for idx, uid in enumerate(users)}
+    idx2user = {idx: uid for uid, idx in user2idx.items()}
+    item2idx = {iid: idx for idx, iid in enumerate(items)}
+    idx2item = {idx: iid for iid, idx in item2idx.items()}
 
-    Returns:
-        tuple: A tuple of four dictionaries:
-            - user_id2idx: Maps user IDs to matrix row indices.
-            - item_id2idx: Maps item IDs to matrix column indices.
-            - user_idx2id: Reverse mapping from row indices to user IDs.
-            - item_idx2id: Reverse mapping from column indices to item IDs.
-    """
-    users = ratings.select(pl.col("user_id").unique())
-    items = ratings.select(pl.col("item_id").unique())
-    user_id2idx = {row["user_id"]: i for i, row in enumerate(users.iter_rows(named=True))}
-    item_id2idx = {row["item_id"]: i for i, row in enumerate(items.iter_rows(named=True))}
-    user_idx2id = {v: k for k, v in user_id2idx.items()}
-    item_idx2id = {v: k for k, v in item_id2idx.items()}
-    return user_id2idx, item_id2idx, user_idx2id, item_idx2id
+    # 4) Build matrix components
+    rows = [user2idx[uid] for uid in df_counts[user_col].to_list()]
+    cols = [item2idx[iid] for iid in df_counts[item_col].to_list()]
+    data = df_counts["count"].to_list()
+
+    # 5) Optionally binarize: 1 if any interaction, else 0
+    if binary:
+        data = [1] * len(data)
+
+    # 6) Construct CSR matrix
+    mat = csr_matrix((data, (rows, cols)), shape=(len(users), len(items)))
+
+    return mat, user2idx, idx2user, item2idx, idx2item
