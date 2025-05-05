@@ -396,7 +396,7 @@ def register_cf_fgens():
         
         # Get interaction matrix and mappings
         # if you want PureSVD on *binary* interactions:
-        interaction_matrix, user2idx, idx2user, product2idx, idx2item = \
+        interaction_matrix, user2idx, _, product2idx, _ = \
             build_interaction_matrix(df_interact,
                                     user_col="user_id",
                                     item_col="product_id",

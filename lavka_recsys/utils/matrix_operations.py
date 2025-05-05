@@ -52,14 +52,14 @@ def build_interaction_matrix(
     if count_col:
         df_counts = (
             df.lazy()
-            .groupby([user_col, item_col])
+            .group_by([user_col, item_col])
             .agg(pl.col(count_col).alias("count"))
             .collect()
         )
     else:
         df_counts = (
             df.lazy()
-            .groupby([user_col, item_col])
+            .group_by([user_col, item_col])
             .agg(pl.count().alias("count"))
             .collect()
         )
