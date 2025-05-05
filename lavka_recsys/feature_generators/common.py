@@ -290,17 +290,18 @@ def register_common_fgens():
     # ========== TIME FEATURES = ==========
 
     @FeatureFactory.register(
-        'time_features',
-        num_cols=['hour_of_day', 'day_of_week', 'month', 'is_weekend']
+        'time_features_cycl',
+        num_cols=['hour_of_day_sin', 'day_of_week_sin', 'month_sin', 'is_weekend'],
+        cat_cols=['is_weekend']
     )
     def generate_time_features(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
         """Generate time-related features (hour of day, day of week, etc.)"""
         return target_df.with_columns([
-            pl.col('timestamp').dt.hour().alias('hour_of_day'),
-            pl.col('timestamp').dt.weekday().alias('day_of_week'),
-            pl.col('timestamp').dt.month().alias('month'),
+            pl.col('timestamp').dt.hour().mul(2*np.pi/24).sin().alias('hour_of_day_sin'),
+            pl.col('timestamp').dt.weekday().mul(2*np.pi/7).sin().alias('day_of_week_sin'),
+            pl.col('timestamp').dt.month().mul(2*np.pi/12).sin().alias('month_sin'),
             pl.col('timestamp')
                 .dt.weekday()
                         .cast(pl.Int32)

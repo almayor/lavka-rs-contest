@@ -31,22 +31,29 @@ logging:
 
 # Model configuration
 model:
-  type: "catboost_classifier"
+  type: "catboost_ranker"
   use_gpu: true                  # Enable/disable GPU usage
   gpu_devices: "4,5"            # GPU device IDs (comma-separated string for multi-GPU)
   thread_count: -1                # Number of CPU threads (-1 means auto)
   config:
     catboost_classifier:
       loss_function: "Logloss"
-      eval_metric: "AUC" #"NDCG:top=10"
+      eval_metric: "NDCG:top=10"
       early_stopping_rounds: 50
-      custom_metric: ["AUC", "NDCG:top=10"]
+      custom_metric: ["AUC"]
+      iterations: 500
+      learning_rate: 0.1
+      depth: 6
+      l2_leaf_reg: 3.0
     catboost_ranker:
-      iterations: 500            # Increased iterations for better convergence
+      iterations: 500                    # Increased iterations for better convergence
       loss_function: "YetiRankPairwise"  # Changed to pairwise loss for better ranking
       eval_metric: "NDCG:top=10"
       early_stopping_rounds: 50
       custom_metric: ["NDCG:top=10", "PrecisionAt:top=10", "RecallAt:top=10"]
+      # learning_rate: 0.05         # Lower learning rate for better generalization
+      # depth: 8                    # Deeper trees for more complex relationships
+      # l2_leaf_reg: 3.0
     single_feature:
       feature_name: "product_total_purchases"
       desc: True
@@ -69,7 +76,7 @@ features:
   - "city_stats"
   - "product_temporal_patterns"
   - "recency_user_store"
-  - "time_features"
+  - "time_features_cycl"
   - "time_window_user_product"
   - "session_features"
   - "frequency_features"
