@@ -111,11 +111,21 @@ from lavka_recsys.experiment import Experiment
 config = Config()
 config.load("my_config.yaml")
 
+# Update an existing configuration (immutable)
+config = (config
+  .set('output.results_dir', "new_results")
+  .set('model.type', 'catboost_ranker')
+)
+
 # Or create configuration programmatically
 config = Config({
     "data": {"train_path": "data/train.parquet", "test_path": "data/test.parquet"},
     "features": ["count_purchase_user_product", "user_stats"],
-    "target": "CartUpdate_Purchase_vs_View"
+    "target": "CartUpdate_Purchase_vs_View",
+    ...
+    # model training parameters
+    # time split parameters
+    # data cleaning parameters
 })
 
 # Create experiment
@@ -135,22 +145,42 @@ print(f"Metrics: {results['metrics']}")
 
 ## Feature Generation
 
-To add custom features, register them in the feature factory:
+To add custom features, register a feature generator in the feature factory:
 
 ```python
-from lavka_recsys.feature_factory import FeatureFactory
+from lavka_recsys import FeatureFactory
 
 @FeatureFactory.register('my_custom_feature', 
                          num_cols=['feature1', 'feature2'], 
                          cat_cols=['cat_feature'], 
                          depends_on=["another_feature"])
-def generate_my_feature(history_df, feature_df):
-    # Add new columns to feature_df
-    # You can add multiple new columns, and the feature factory
-    # will recognize them automatically
-    feature_df = ...
-    return feature_df
+def generate_my_feature(
+    history_df: pl.DataFrame,
+    feature_df: pl.DataFrame
+) -> pl.DataFrame:
+      # Add new columns to feature_df using history_df
+      feature_df = ...
+      return feature_df
 ```
+
+Then you can switch on this feature generator by adding its name to `config.get('features')`.
+Similarly, to add a new target alternative, register them as:
+
+```python
+from lavka_recsys import FeatureFactory
+
+@FeatureFactory.register_target('Custom_Target')
+def target_cart_update_purchase(
+  history_df: pl.DataFrame,
+  target_df: pl.DataFrame
+) -> pl.Series:
+    # The new target must contain a float for each row in `target_df`
+    my_target = ...
+    return my_target  
+```
+
+And then use it by setting `config.set('target', "Custom_Target")`.
+
 
 ## Installation
 
@@ -192,16 +222,14 @@ pip install sentence-transformers
    - Provides time-based splitting functionality
    - Supports holdout datasets for validation
 
-5. **ModelFactory** (`model_factory.py`)
+5. **ModelFactory** (`models/model_factory.py`)
    - Creates model instances based on configuration
-   - Supports multiple model types:
-     - CatBoostClassifierModel: Standard classification model
-     - CatBoostRankerModel: Learning-to-rank model for ordered recommendations
+   - Supports multiple model types
    - Handles all model-specific configurations and parameters
 
 ## Available Features and Generated Columns
 
-The system includes a rich set of feature generators. Here's a description of the available features and the columns they generate:
+The system includes a rich set of feature generators. Here's a description of a few available features and the columns they generate:
 
 ### Basic Features
 
