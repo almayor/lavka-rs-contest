@@ -32,8 +32,8 @@ logging:
 # Model configuration
 model:
   type: "catboost_classifier"
-  use_gpu: false                  # Enable/disable GPU usage
-  gpu_devices: "0"                # GPU device IDs (comma-separated string for multi-GPU)
+  use_gpu: true                  # Enable/disable GPU usage
+  gpu_devices: "4,5"            # GPU device IDs (comma-separated string for multi-GPU)
   thread_count: -1                # Number of CPU threads (-1 means auto)
   config:
     catboost_classifier:
@@ -65,21 +65,21 @@ features:
   - "recency_user_product"
   - "user_stats"
   - "product_stats"
-  # - "store_stats"
-  # - "city_stats"
-  # - "product_temporal_patterns"
-  # - "recency_user_store"
-  # - "time_features"
-  # - "time_window_user_product"
-  # - "session_features"
-  # - "frequency_features"
-  # - "product_popularity_trend"
-  # - "cross_features"
-  # - "user_segments"
-  # - "memory-based-cf"       # Collaborative filtering
-  # - "npmi-cf"               # Collaborative filtering
-  # - "puresvd-cf"            # Collaborative filtering
-  # - "svd-cf"                # Collaborative filtering
+  - "store_stats"
+  - "city_stats"
+  - "product_temporal_patterns"
+  - "recency_user_store"
+  - "time_features"
+  - "time_window_user_product"
+  - "session_features"
+  - "frequency_features"
+  - "product_popularity_trend"
+  - "cross_features"
+  - "user_segments"
+  - "memory-based-cf"       # Collaborative filtering
+  - "npmi-cf"               # Collaborative filtering
+  - "puresvd-cf"            # Collaborative filtering
+  - "svd-cf"                # Collaborative filtering
   # - "product_embeddings"    # NLP feature
   # - "category_embeddings"   # NLP feature
   # - "user_product_distance" # Weighted similarity between user history and product

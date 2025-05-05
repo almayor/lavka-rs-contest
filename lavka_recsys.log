@@ -2377,3 +2377,529 @@
 2025-05-05 17:26:35,934 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
 2025-05-05 17:26:37,313 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
 2025-05-05 17:26:38,377 - lavka_recsys.CatBoostRankerModel - INFO - Training CatBoostRanker model with columns: ['source_type', 'count_purchase_u_p', 'user_total_purchases', 'user_unique_products', 'ctr_product', 'user_total_interactions', 'purchase_view_ratio', 'cart_to_purchase_rate', 'product_total_interactions', 'product_total_views', 'product_unique_users', 'user_total_views', 'days_since_interaction_u_p', 'product_total_purchases', 'count_purchase_u_s'] (cat_columns: ['source_type'])
+2025-05-05 17:42:08,207 - lavka_recsys.Experiment(catboost_classifier_f431a3) - INFO - Initialized experiment: catboost_classifier_f431a3
+2025-05-05 17:42:08,227 - lavka_recsys.Experiment(catboost_classifier_f431a3) - INFO - Config saved: results/catboost_classifier_f431a3_config.json
+2025-05-05 17:42:08,972 - lavka_recsys.Experiment(catboost_classifier_f431a3) - INFO - Setting up experiment environment...
+2025-05-05 17:42:08,974 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 17:42:09,267 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 17:42:09,328 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:42:09,351 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:42:09,582 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 17:42:09,609 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 17:42:09,613 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 17:42:09,614 - lavka_recsys.Experiment(catboost_classifier_f431a3) - INFO - Setup complete.
+2025-05-05 17:42:09,615 - lavka_recsys.Experiment(catboost_classifier_f431a3) - INFO - Starting experiment run...
+2025-05-05 17:42:09,993 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 17:42:10,016 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 17:42:10,020 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 17:42:10,044 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 17:42:10,048 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 17:42:10,073 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_eea2663e747c09fad5b02e705a394f1a.pkl
+2025-05-05 17:42:11,409 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:42:11,435 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_0a8474df115bf334998e6bcb7079362b.pkl
+2025-05-05 17:42:12,655 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:42:12,657 - lavka_recsys.ModelFactory - INFO - Creating catboost_classifier model with params: {'loss_function': 'Logloss', 'eval_metric': 'AUC', 'early_stopping_rounds': 50, 'custom_metric': ['AUC', 'NDCG:top=10'], 'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 17:42:12,938 - lavka_recsys.CatBoostClassifierModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 17:42:16,932 - lavka_recsys.CatBoostClassifierModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 17:42:20,949 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 17:42:20,972 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 17:42:21,004 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:42:22,921 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 17:42:22,943 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 17:42:22,963 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:42:25,172 - lavka_recsys.CatBoostClassifierModel - INFO - Training CatBoostClassifier model with columns: Index(['user_total_views', 'source_type', 'month', 'std_purchase_hour',
+       'session_unique_products', 'user_total_purchases', 'purchases_day_u_p',
+       'day_of_week_relevance', 'hour_of_day', 'user_unique_products',
+       'count_purchase_u_p', 'puresvd_cf_score', 'cart_to_purchase_rate',
+       'cf_score', 'session_duration_seconds', 'store_total_interactions',
+       'user_product_purchase_cross', 'session_purchases',
+       'product_unique_users', 'days_since_interaction_u_s',
+       'store_total_purchases', 'is_weekend', 'views_day_u_p',
+       'most_common_purchase_day', 'count_purchase_u_s', 'purchases_week_u_p',
+       'interactions_month_u_p', 'avg_purchase_hour',
+       'user_total_interactions', 'city_name', 'mean_interval_days',
+       'interactions_week_u_p', 'purchase_view_ratio',
+       'days_since_interaction_u_p', 'user_store_purchase_cross',
+       'city_total_purchases', 'city_total_interactions', 'ctr_product',
+       'hour_relevance', 'user_segment', 'session_unique_stores',
+       'product_total_views', 'day_of_week', 'purchases_month_u_p',
+       'interaction_trend', 'npmi_cf_score', 'product_total_purchases',
+       'user_product_store_cross', 'svd_cf_score', 'store_total_views',
+       'interactions_day_u_p', 'views_week_u_p', 'city_unique_stores',
+       'store_unique_products', 'purchase_trend', 'session_length',
+       'views_month_u_p', 'city_total_views', 'product_total_interactions'],
+      dtype='object') (cat_columns: ['user_segment', 'city_name', 'source_type'])
+2025-05-05 17:43:46,545 - lavka_recsys.Experiment(catboost_classifier_f431a3) - INFO - Training completed in 93.89s
+2025-05-05 17:43:46,548 - lavka_recsys.Experiment(catboost_classifier_f431a3) - INFO - Evaluating on holdout.
+2025-05-05 17:43:46,610 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_1879e9aab22f20d41fd15e001434badd.pkl
+2025-05-05 17:43:47,660 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:43:47,866 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:43:47,896 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 17:43:47,920 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 17:44:02,498 - lavka_recsys.Experiment(catboost_classifier_f431a3) - INFO - Run results saved: results/catboost_classifier_f431a3_results.json
+2025-05-05 17:44:02,503 - lavka_recsys.Experiment(catboost_classifier_f431a3) - INFO - Run finished and results saved.
+2025-05-05 17:45:27,958 - lavka_recsys.Experiment(catboost_ranker_e0522c) - INFO - Initialized experiment: catboost_ranker_e0522c
+2025-05-05 17:45:27,967 - lavka_recsys.Experiment(catboost_ranker_e0522c) - INFO - Config saved: results/catboost_ranker_e0522c_config.json
+2025-05-05 17:45:27,968 - lavka_recsys.Experiment(catboost_ranker_e0522c) - INFO - Setting up experiment environment...
+2025-05-05 17:45:27,970 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 17:45:28,274 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 17:45:28,335 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:45:28,364 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 17:45:28,572 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 17:45:28,599 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 17:45:28,604 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 17:45:28,605 - lavka_recsys.Experiment(catboost_ranker_e0522c) - INFO - Setup complete.
+2025-05-05 17:45:28,607 - lavka_recsys.Experiment(catboost_ranker_e0522c) - INFO - Starting experiment run...
+2025-05-05 17:45:29,077 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 17:45:29,099 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 17:45:29,103 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 17:45:29,130 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 17:45:29,134 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 17:45:29,160 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_eea2663e747c09fad5b02e705a394f1a.pkl
+2025-05-05 17:45:30,415 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:45:30,446 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_0a8474df115bf334998e6bcb7079362b.pkl
+2025-05-05 17:45:31,553 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 17:45:31,555 - lavka_recsys.ModelFactory - INFO - Creating catboost_ranker model with params: {'iterations': 500, 'loss_function': 'YetiRankPairwise', 'eval_metric': 'NDCG:top=10', 'early_stopping_rounds': 50, 'custom_metric': ['NDCG:top=10', 'PrecisionAt:top=10', 'RecallAt:top=10'], 'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 17:45:31,848 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 17:45:35,881 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 17:45:39,606 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 17:45:39,629 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 17:45:39,649 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:45:41,434 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 17:45:41,456 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 17:45:41,477 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 17:45:43,196 - lavka_recsys.CatBoostRankerModel - INFO - Training CatBoostRanker model with columns: ['user_total_views', 'source_type', 'month', 'std_purchase_hour', 'session_unique_products', 'user_total_purchases', 'purchases_day_u_p', 'day_of_week_relevance', 'hour_of_day', 'user_unique_products', 'count_purchase_u_p', 'puresvd_cf_score', 'cart_to_purchase_rate', 'cf_score', 'session_duration_seconds', 'store_total_interactions', 'user_product_purchase_cross', 'session_purchases', 'product_unique_users', 'days_since_interaction_u_s', 'store_total_purchases', 'is_weekend', 'views_day_u_p', 'most_common_purchase_day', 'count_purchase_u_s', 'purchases_week_u_p', 'interactions_month_u_p', 'avg_purchase_hour', 'user_total_interactions', 'city_name', 'mean_interval_days', 'interactions_week_u_p', 'purchase_view_ratio', 'days_since_interaction_u_p', 'user_store_purchase_cross', 'city_total_purchases', 'city_total_interactions', 'ctr_product', 'hour_relevance', 'user_segment', 'session_unique_stores', 'product_total_views', 'day_of_week', 'purchases_month_u_p', 'interaction_trend', 'npmi_cf_score', 'product_total_purchases', 'user_product_store_cross', 'svd_cf_score', 'store_total_views', 'interactions_day_u_p', 'views_week_u_p', 'city_unique_stores', 'store_unique_products', 'purchase_trend', 'session_length', 'views_month_u_p', 'city_total_views', 'product_total_interactions'] (cat_columns: ['user_segment', 'city_name', 'source_type'])
+2025-05-05 18:24:01,272 - lavka_recsys.Experiment(catboost_ranker_e0522c) - INFO - Training completed in 2309.72s
+2025-05-05 18:24:01,277 - lavka_recsys.Experiment(catboost_ranker_e0522c) - INFO - Evaluating on holdout.
+2025-05-05 18:24:01,348 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_1879e9aab22f20d41fd15e001434badd.pkl
+2025-05-05 18:24:02,507 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:26:14,237 - lavka_recsys.Experiment(catboost_classifier_f431a3) - INFO - Computing predictions...
+2025-05-05 18:26:14,246 - lavka_recsys.DataLoader - INFO - Holdout data merged back into training data.
+2025-05-05 18:26:14,293 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 18:26:14,322 - lavka_recsys.DataLoader - INFO -   history: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 18:26:14,328 - lavka_recsys.DataLoader - INFO -   target: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 18:26:14,377 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_1879e9aab22f20d41fd15e001434badd.pkl
+2025-05-05 18:26:15,446 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:26:15,448 - lavka_recsys.ModelFactory - INFO - Creating catboost_classifier model with params: {'loss_function': 'Logloss', 'eval_metric': 'AUC', 'early_stopping_rounds': 50, 'custom_metric': ['AUC', 'NDCG:top=10'], 'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 18:26:15,746 - lavka_recsys.CatBoostClassifierModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:26:19,090 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:26:19,131 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:26:19,154 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:26:20,653 - lavka_recsys.CatBoostClassifierModel - INFO - Training CatBoostClassifier model with columns: Index(['user_total_views', 'source_type', 'month', 'std_purchase_hour',
+       'session_unique_products', 'user_total_purchases', 'purchases_day_u_p',
+       'day_of_week_relevance', 'hour_of_day', 'user_unique_products',
+       'count_purchase_u_p', 'puresvd_cf_score', 'cart_to_purchase_rate',
+       'cf_score', 'session_duration_seconds', 'store_total_interactions',
+       'user_product_purchase_cross', 'session_purchases',
+       'product_unique_users', 'days_since_interaction_u_s',
+       'store_total_purchases', 'is_weekend', 'views_day_u_p',
+       'most_common_purchase_day', 'count_purchase_u_s', 'purchases_week_u_p',
+       'interactions_month_u_p', 'avg_purchase_hour',
+       'user_total_interactions', 'city_name', 'mean_interval_days',
+       'interactions_week_u_p', 'purchase_view_ratio',
+       'days_since_interaction_u_p', 'user_store_purchase_cross',
+       'city_total_purchases', 'city_total_interactions', 'ctr_product',
+       'hour_relevance', 'user_segment', 'session_unique_stores',
+       'product_total_views', 'day_of_week', 'purchases_month_u_p',
+       'interaction_trend', 'npmi_cf_score', 'product_total_purchases',
+       'user_product_store_cross', 'svd_cf_score', 'store_total_views',
+       'interactions_day_u_p', 'views_week_u_p', 'city_unique_stores',
+       'store_unique_products', 'purchase_trend', 'session_length',
+       'views_month_u_p', 'city_total_views', 'product_total_interactions'],
+      dtype='object') (cat_columns: ['user_segment', 'city_name', 'source_type'])
+2025-05-05 18:27:11,104 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Initialized experiment: catboost_classifier_3f6423
+2025-05-05 18:27:11,112 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Config saved: results/catboost_classifier_3f6423_config.json
+2025-05-05 18:27:11,113 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Setting up experiment environment...
+2025-05-05 18:27:11,115 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 18:27:11,442 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 18:27:11,497 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 18:27:11,538 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 18:27:11,869 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 18:27:11,899 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 18:27:11,903 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 18:27:11,904 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Setup complete.
+2025-05-05 18:27:11,905 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Starting experiment run...
+2025-05-05 18:27:12,430 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 18:27:12,451 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 18:27:12,454 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 18:27:12,479 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 18:27:12,484 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 18:27:12,521 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_eea2663e747c09fad5b02e705a394f1a.pkl
+2025-05-05 18:27:13,982 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:27:14,014 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_0a8474df115bf334998e6bcb7079362b.pkl
+2025-05-05 18:27:15,156 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:27:15,159 - lavka_recsys.ModelFactory - INFO - Creating catboost_classifier model with params: {'loss_function': 'Logloss', 'eval_metric': 'AUC', 'early_stopping_rounds': 50, 'custom_metric': ['AUC', 'NDCG:top=10'], 'task_type': 'GPU', 'devices': '3,4,5', 'thread_count': -1}
+2025-05-05 18:27:42,925 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Initialized experiment: catboost_classifier_3f6423
+2025-05-05 18:27:42,933 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Config saved: results/catboost_classifier_3f6423_config.json
+2025-05-05 18:27:42,935 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Setting up experiment environment...
+2025-05-05 18:27:42,936 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 18:27:43,269 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 18:27:43,345 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 18:27:43,377 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 18:27:43,654 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 18:27:43,682 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 18:27:43,686 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 18:27:43,687 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Setup complete.
+2025-05-05 18:27:43,687 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Starting experiment run...
+2025-05-05 18:27:44,231 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 18:27:44,253 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 18:27:44,257 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 18:27:44,283 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 18:27:44,287 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 18:27:44,319 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_eea2663e747c09fad5b02e705a394f1a.pkl
+2025-05-05 18:27:45,606 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:27:45,638 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_0a8474df115bf334998e6bcb7079362b.pkl
+2025-05-05 18:27:46,778 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:27:46,781 - lavka_recsys.ModelFactory - INFO - Creating catboost_classifier model with params: {'loss_function': 'Logloss', 'eval_metric': 'AUC', 'early_stopping_rounds': 50, 'custom_metric': ['AUC', 'NDCG:top=10'], 'task_type': 'GPU', 'devices': '3,4,5', 'thread_count': -1}
+2025-05-05 18:27:47,113 - lavka_recsys.CatBoostClassifierModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:27:50,617 - lavka_recsys.CatBoostClassifierModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:27:53,875 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:27:53,901 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:27:53,925 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:27:55,671 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:27:55,695 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:27:55,717 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:27:57,188 - lavka_recsys.CatBoostClassifierModel - INFO - Training CatBoostClassifier model with columns: Index(['user_total_views', 'source_type', 'month', 'std_purchase_hour',
+       'session_unique_products', 'user_total_purchases', 'purchases_day_u_p',
+       'day_of_week_relevance', 'hour_of_day', 'user_unique_products',
+       'count_purchase_u_p', 'puresvd_cf_score', 'cart_to_purchase_rate',
+       'cf_score', 'session_duration_seconds', 'store_total_interactions',
+       'user_product_purchase_cross', 'session_purchases',
+       'product_unique_users', 'days_since_interaction_u_s',
+       'store_total_purchases', 'is_weekend', 'views_day_u_p',
+       'most_common_purchase_day', 'count_purchase_u_s', 'purchases_week_u_p',
+       'interactions_month_u_p', 'avg_purchase_hour',
+       'user_total_interactions', 'city_name', 'mean_interval_days',
+       'interactions_week_u_p', 'purchase_view_ratio',
+       'days_since_interaction_u_p', 'user_store_purchase_cross',
+       'city_total_purchases', 'city_total_interactions', 'ctr_product',
+       'hour_relevance', 'user_segment', 'session_unique_stores',
+       'product_total_views', 'day_of_week', 'purchases_month_u_p',
+       'interaction_trend', 'npmi_cf_score', 'product_total_purchases',
+       'user_product_store_cross', 'svd_cf_score', 'store_total_views',
+       'interactions_day_u_p', 'views_week_u_p', 'city_unique_stores',
+       'store_unique_products', 'purchase_trend', 'session_length',
+       'views_month_u_p', 'city_total_views', 'product_total_interactions'],
+      dtype='object') (cat_columns: ['user_segment', 'city_name', 'source_type'])
+2025-05-05 18:29:07,851 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Training completed in 81.05s
+2025-05-05 18:29:07,860 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Evaluating on holdout.
+2025-05-05 18:29:07,954 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_1879e9aab22f20d41fd15e001434badd.pkl
+2025-05-05 18:29:09,381 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:29:09,644 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:29:09,691 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:29:09,714 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:29:24,728 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Run results saved: results/catboost_classifier_3f6423_results.json
+2025-05-05 18:29:24,732 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Run finished and results saved.
+2025-05-05 18:30:06,493 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Computing predictions...
+2025-05-05 18:30:06,500 - lavka_recsys.DataLoader - INFO - Holdout data merged back into training data.
+2025-05-05 18:30:06,555 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 18:30:06,584 - lavka_recsys.DataLoader - INFO -   history: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 18:30:06,588 - lavka_recsys.DataLoader - INFO -   target: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 18:30:06,616 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_1879e9aab22f20d41fd15e001434badd.pkl
+2025-05-05 18:30:07,838 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:30:07,842 - lavka_recsys.ModelFactory - INFO - Creating catboost_classifier model with params: {'loss_function': 'Logloss', 'eval_metric': 'AUC', 'early_stopping_rounds': 50, 'custom_metric': ['AUC', 'NDCG:top=10'], 'task_type': 'GPU', 'devices': '3,4,5', 'thread_count': -1}
+2025-05-05 18:30:08,102 - lavka_recsys.CatBoostClassifierModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:30:11,586 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:30:11,626 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:30:11,662 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:30:13,396 - lavka_recsys.CatBoostClassifierModel - INFO - Training CatBoostClassifier model with columns: Index(['user_total_views', 'source_type', 'month', 'std_purchase_hour',
+       'session_unique_products', 'user_total_purchases', 'purchases_day_u_p',
+       'day_of_week_relevance', 'hour_of_day', 'user_unique_products',
+       'count_purchase_u_p', 'puresvd_cf_score', 'cart_to_purchase_rate',
+       'cf_score', 'session_duration_seconds', 'store_total_interactions',
+       'user_product_purchase_cross', 'session_purchases',
+       'product_unique_users', 'days_since_interaction_u_s',
+       'store_total_purchases', 'is_weekend', 'views_day_u_p',
+       'most_common_purchase_day', 'count_purchase_u_s', 'purchases_week_u_p',
+       'interactions_month_u_p', 'avg_purchase_hour',
+       'user_total_interactions', 'city_name', 'mean_interval_days',
+       'interactions_week_u_p', 'purchase_view_ratio',
+       'days_since_interaction_u_p', 'user_store_purchase_cross',
+       'city_total_purchases', 'city_total_interactions', 'ctr_product',
+       'hour_relevance', 'user_segment', 'session_unique_stores',
+       'product_total_views', 'day_of_week', 'purchases_month_u_p',
+       'interaction_trend', 'npmi_cf_score', 'product_total_purchases',
+       'user_product_store_cross', 'svd_cf_score', 'store_total_views',
+       'interactions_day_u_p', 'views_week_u_p', 'city_unique_stores',
+       'store_unique_products', 'purchase_trend', 'session_length',
+       'views_month_u_p', 'city_total_views', 'product_total_interactions'],
+      dtype='object') (cat_columns: ['user_segment', 'city_name', 'source_type'])
+2025-05-05 18:31:30,942 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Training completed in 83.10s
+2025-05-05 18:31:30,949 - lavka_recsys.DataLoader - INFO - Holdout data merged back into training data.
+2025-05-05 18:31:31,020 - lavka_recsys.CachedFeatureFactory - INFO - Generating feature batch
+2025-05-05 18:31:31,021 - lavka_recsys.FeatureFactory - INFO - Invoking feature generators: source_type, count_purchase_user_product, count_purchase_user_store, ctr_product, cart_to_purchase_rate, purchase_view_ratio, recency_user_product, user_stats, product_stats, store_stats, city_stats, product_temporal_patterns, recency_user_store, time_features, time_window_user_product, session_features, frequency_features, product_popularity_trend, cross_features, user_segments, memory-based-cf, npmi-cf, puresvd-cf, svd-cf
+2025-05-05 18:31:31,022 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: source_type
+2025-05-05 18:31:31,022 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: count_purchase_user_product
+2025-05-05 18:31:31,313 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: count_purchase_user_store
+2025-05-05 18:31:31,396 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: ctr_product
+2025-05-05 18:31:32,040 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: cart_to_purchase_rate
+2025-05-05 18:31:32,474 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: purchase_view_ratio
+2025-05-05 18:31:32,993 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: recency_user_product
+2025-05-05 18:31:34,251 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: user_stats
+2025-05-05 18:31:34,688 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: product_stats
+2025-05-05 18:31:35,172 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: store_stats
+2025-05-05 18:31:35,516 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: city_stats
+2025-05-05 18:31:36,290 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: product_temporal_patterns
+2025-05-05 18:31:36,436 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: recency_user_store
+2025-05-05 18:31:36,902 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: time_features
+2025-05-05 18:31:36,912 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: time_window_user_product
+2025-05-05 18:31:37,287 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: session_features
+2025-05-05 18:31:39,945 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: frequency_features
+2025-05-05 18:31:46,353 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: product_popularity_trend
+2025-05-05 18:31:47,139 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: user_stats
+2025-05-05 18:31:47,513 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: product_stats
+2025-05-05 18:31:47,936 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: store_stats
+2025-05-05 18:31:48,305 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: city_stats
+2025-05-05 18:31:48,855 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: cross_features
+2025-05-05 18:31:48,858 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: user_segments
+2025-05-05 18:31:49,233 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: memory-based-cf
+2025-05-05 18:31:50,438 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: npmi-cf
+2025-05-05 18:32:24,631 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: puresvd-cf
+2025-05-05 18:32:53,366 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: svd-cf
+2025-05-05 18:32:54,839 - lavka_recsys.FeatureFactory - INFO - Joined features
+2025-05-05 18:32:54,843 - lavka_recsys.FeatureFactory - INFO - All column names: {'user_total_views', 'product_unique_users', 'city_name', 'ctr_product', 'city_total_purchases', 'session_unique_products', 'user_total_interactions', 'city_unique_stores', 'user_product_purchase_cross', 'month', 'interactions_day_u_p', 'mean_interval_days', 'most_common_purchase_day', 'interactions_month_u_p', 'count_purchase_u_p', 'cart_to_purchase_rate', 'city_total_views', 'npmi_cf_score', 'store_total_interactions', 'is_weekend', 'views_week_u_p', 'session_purchases', 'puresvd_cf_score', 'purchase_view_ratio', 'day_of_week', 'session_duration_seconds', 'interaction_trend', 'store_total_purchases', 'avg_purchase_hour', 'session_length', 'city_total_interactions', 'user_total_purchases', 'source_type', 'user_unique_products', 'days_since_interaction_u_s', 'user_segment', 'hour_of_day', 'std_purchase_hour', 'interactions_week_u_p', 'purchases_day_u_p', 'purchases_month_u_p', 'purchases_week_u_p', 'svd_cf_score', 'session_unique_stores', 'cf_score', 'product_total_interactions', 'hour_relevance', 'views_month_u_p', 'user_store_purchase_cross', 'user_product_store_cross', 'count_purchase_u_s', 'product_total_purchases', 'product_total_views', 'purchase_trend', 'store_total_views', 'day_of_week_relevance', 'days_since_interaction_u_p', 'store_unique_products', 'views_day_u_p'}
+2025-05-05 18:32:54,845 - lavka_recsys.FeatureFactory - INFO - All categorical column names: ['source_type', 'city_name', 'user_segment']
+2025-05-05 18:32:54,941 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:32:54,956 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:32:54,965 - lavka_recsys.CatBoostClassifierModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:32:55,464 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Submission saved: results/submissions/catboost_classifier_3f6423_submission.csv
+2025-05-05 18:32:55,496 - lavka_recsys.Experiment(catboost_classifier_3f6423) - INFO - Submission model saved: results/submissions/catboost_classifier_3f6423_model.pkl
+2025-05-05 18:36:00,780 - lavka_recsys.Experiment(catboost_ranker_e065d0) - INFO - Initialized experiment: catboost_ranker_e065d0
+2025-05-05 18:36:00,803 - lavka_recsys.Experiment(catboost_ranker_e065d0) - INFO - Config saved: results/catboost_ranker_e065d0_config.json
+2025-05-05 18:36:00,806 - lavka_recsys.Experiment(catboost_ranker_e065d0) - INFO - Setting up experiment environment...
+2025-05-05 18:36:00,808 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 18:36:01,102 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 18:36:01,148 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 18:36:01,176 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 18:36:01,395 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 18:36:01,423 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 18:36:01,426 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 18:36:01,427 - lavka_recsys.Experiment(catboost_ranker_e065d0) - INFO - Setup complete.
+2025-05-05 18:36:01,428 - lavka_recsys.Experiment(catboost_ranker_e065d0) - INFO - Starting experiment run...
+2025-05-05 18:36:01,793 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 18:36:01,817 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 18:36:01,821 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 18:36:01,850 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 18:36:01,855 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 18:36:01,883 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_eea2663e747c09fad5b02e705a394f1a.pkl
+2025-05-05 18:36:03,087 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:36:03,116 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_0a8474df115bf334998e6bcb7079362b.pkl
+2025-05-05 18:36:04,210 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:36:04,213 - lavka_recsys.ModelFactory - INFO - Creating catboost_ranker model with params: {'iterations': 300, 'loss_function': 'YetiRankPairwise', 'eval_metric': 'NDCG:top=10', 'early_stopping_rounds': 50, 'custom_metric': ['NDCG:top=10', 'PrecisionAt:top=10', 'RecallAt:top=10'], 'task_type': 'GPU', 'devices': '3,4,5', 'thread_count': -1}
+2025-05-05 18:36:04,502 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:36:07,862 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:36:11,039 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:36:11,065 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:36:11,086 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:36:12,622 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:36:12,656 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:36:12,678 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:36:14,121 - lavka_recsys.CatBoostRankerModel - INFO - Training CatBoostRanker model with columns: ['user_total_views', 'source_type', 'month', 'std_purchase_hour', 'session_unique_products', 'user_total_purchases', 'purchases_day_u_p', 'day_of_week_relevance', 'hour_of_day', 'user_unique_products', 'count_purchase_u_p', 'puresvd_cf_score', 'cart_to_purchase_rate', 'cf_score', 'session_duration_seconds', 'store_total_interactions', 'user_product_purchase_cross', 'session_purchases', 'product_unique_users', 'days_since_interaction_u_s', 'store_total_purchases', 'is_weekend', 'views_day_u_p', 'most_common_purchase_day', 'count_purchase_u_s', 'purchases_week_u_p', 'interactions_month_u_p', 'avg_purchase_hour', 'user_total_interactions', 'city_name', 'mean_interval_days', 'interactions_week_u_p', 'purchase_view_ratio', 'days_since_interaction_u_p', 'user_store_purchase_cross', 'city_total_purchases', 'city_total_interactions', 'ctr_product', 'hour_relevance', 'user_segment', 'session_unique_stores', 'product_total_views', 'day_of_week', 'purchases_month_u_p', 'interaction_trend', 'npmi_cf_score', 'product_total_purchases', 'user_product_store_cross', 'svd_cf_score', 'store_total_views', 'interactions_day_u_p', 'views_week_u_p', 'city_unique_stores', 'store_unique_products', 'purchase_trend', 'session_length', 'views_month_u_p', 'city_total_views', 'product_total_interactions'] (cat_columns: ['user_segment', 'city_name', 'source_type'])
+2025-05-05 18:36:59,839 - lavka_recsys.Experiment(catboost_ranker_e065d0) - INFO - Training completed in 55.62s
+2025-05-05 18:36:59,844 - lavka_recsys.Experiment(catboost_ranker_e065d0) - INFO - Evaluating on holdout.
+2025-05-05 18:36:59,905 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_1879e9aab22f20d41fd15e001434badd.pkl
+2025-05-05 18:37:01,079 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:37:01,326 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:37:03,947 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:37:03,973 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:37:04,005 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:37:18,331 - lavka_recsys.Experiment(catboost_ranker_e065d0) - INFO - Run results saved: results/catboost_ranker_e065d0_results.json
+2025-05-05 18:37:18,333 - lavka_recsys.Experiment(catboost_ranker_e065d0) - INFO - Run finished and results saved.
+2025-05-05 18:38:03,451 - lavka_recsys.Experiment(catboost_ranker_e065d0) - INFO - Computing predictions...
+2025-05-05 18:38:03,455 - lavka_recsys.DataLoader - INFO - Holdout data merged back into training data.
+2025-05-05 18:38:03,485 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 18:38:03,514 - lavka_recsys.DataLoader - INFO -   history: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 18:38:03,519 - lavka_recsys.DataLoader - INFO -   target: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 18:38:03,549 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_1879e9aab22f20d41fd15e001434badd.pkl
+2025-05-05 18:38:04,623 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:38:04,626 - lavka_recsys.ModelFactory - INFO - Creating catboost_ranker model with params: {'iterations': 300, 'loss_function': 'YetiRankPairwise', 'eval_metric': 'NDCG:top=10', 'early_stopping_rounds': 50, 'custom_metric': ['NDCG:top=10', 'PrecisionAt:top=10', 'RecallAt:top=10'], 'task_type': 'GPU', 'devices': '3,4,5', 'thread_count': -1}
+2025-05-05 18:52:02,326 - lavka_recsys.Experiment(catboost_ranker_c49b38) - INFO - Initialized experiment: catboost_ranker_c49b38
+2025-05-05 18:52:02,351 - lavka_recsys.Experiment(catboost_ranker_c49b38) - INFO - Config saved: results/catboost_ranker_c49b38_config.json
+2025-05-05 18:52:02,354 - lavka_recsys.Experiment(catboost_ranker_c49b38) - INFO - Setting up experiment environment...
+2025-05-05 18:52:02,358 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 18:52:02,728 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 18:52:02,794 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 18:52:02,821 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 18:52:03,167 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 18:52:03,197 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 18:52:03,201 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 18:52:03,202 - lavka_recsys.Experiment(catboost_ranker_c49b38) - INFO - Setup complete.
+2025-05-05 18:52:03,203 - lavka_recsys.Experiment(catboost_ranker_c49b38) - INFO - Starting experiment run...
+2025-05-05 18:52:03,682 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 18:52:03,703 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 18:52:03,707 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 18:52:03,736 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 18:52:03,742 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 18:52:03,771 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_eea2663e747c09fad5b02e705a394f1a.pkl
+2025-05-05 18:52:05,054 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:52:05,083 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_0a8474df115bf334998e6bcb7079362b.pkl
+2025-05-05 18:52:06,273 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:52:06,277 - lavka_recsys.ModelFactory - INFO - Creating catboost_ranker model with params: {'iterations': 50, 'loss_function': 'YetiRankPairwise', 'eval_metric': 'NDCG:top=10', 'early_stopping_rounds': 50, 'custom_metric': ['NDCG:top=10', 'PrecisionAt:top=10', 'RecallAt:top=10'], 'task_type': 'GPU', 'devices': '3,4,5', 'thread_count': -1}
+2025-05-05 18:52:06,660 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:52:10,291 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:52:14,264 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:52:14,286 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:52:14,309 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:52:15,905 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:52:15,928 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:52:15,950 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:52:17,419 - lavka_recsys.CatBoostRankerModel - INFO - Training CatBoostRanker model with columns: ['user_total_views', 'source_type', 'month', 'std_purchase_hour', 'session_unique_products', 'user_total_purchases', 'purchases_day_u_p', 'day_of_week_relevance', 'hour_of_day', 'user_unique_products', 'count_purchase_u_p', 'puresvd_cf_score', 'cart_to_purchase_rate', 'cf_score', 'session_duration_seconds', 'store_total_interactions', 'user_product_purchase_cross', 'session_purchases', 'product_unique_users', 'days_since_interaction_u_s', 'store_total_purchases', 'is_weekend', 'views_day_u_p', 'most_common_purchase_day', 'count_purchase_u_s', 'purchases_week_u_p', 'interactions_month_u_p', 'avg_purchase_hour', 'user_total_interactions', 'city_name', 'mean_interval_days', 'interactions_week_u_p', 'purchase_view_ratio', 'days_since_interaction_u_p', 'user_store_purchase_cross', 'city_total_purchases', 'city_total_interactions', 'ctr_product', 'hour_relevance', 'user_segment', 'session_unique_stores', 'product_total_views', 'day_of_week', 'purchases_month_u_p', 'interaction_trend', 'npmi_cf_score', 'product_total_purchases', 'user_product_store_cross', 'svd_cf_score', 'store_total_views', 'interactions_day_u_p', 'views_week_u_p', 'city_unique_stores', 'store_unique_products', 'purchase_trend', 'session_length', 'views_month_u_p', 'city_total_views', 'product_total_interactions'] (cat_columns: ['user_segment', 'city_name', 'source_type'])
+2025-05-05 18:52:29,141 - lavka_recsys.Experiment(catboost_ranker_c49b38) - INFO - Training completed in 22.84s
+2025-05-05 18:52:29,147 - lavka_recsys.Experiment(catboost_ranker_c49b38) - INFO - Evaluating on holdout.
+2025-05-05 18:52:29,260 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_1879e9aab22f20d41fd15e001434badd.pkl
+2025-05-05 18:52:30,398 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:52:30,603 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:52:33,418 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:52:33,441 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:52:33,467 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:52:48,418 - lavka_recsys.Experiment(catboost_ranker_c49b38) - INFO - Run results saved: results/catboost_ranker_c49b38_results.json
+2025-05-05 18:52:48,421 - lavka_recsys.Experiment(catboost_ranker_c49b38) - INFO - Run finished and results saved.
+2025-05-05 18:52:57,203 - lavka_recsys.Experiment(catboost_ranker_c49b38) - INFO - Computing predictions...
+2025-05-05 18:52:57,209 - lavka_recsys.DataLoader - INFO - Holdout data merged back into training data.
+2025-05-05 18:52:57,269 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 18:52:57,299 - lavka_recsys.DataLoader - INFO -   history: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 18:52:57,303 - lavka_recsys.DataLoader - INFO -   target: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 18:52:57,329 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_1879e9aab22f20d41fd15e001434badd.pkl
+2025-05-05 18:52:58,611 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:52:58,618 - lavka_recsys.ModelFactory - INFO - Creating catboost_ranker model with params: {'iterations': 50, 'loss_function': 'YetiRankPairwise', 'eval_metric': 'NDCG:top=10', 'early_stopping_rounds': 50, 'custom_metric': ['NDCG:top=10', 'PrecisionAt:top=10', 'RecallAt:top=10'], 'task_type': 'GPU', 'devices': '3,4,5', 'thread_count': -1}
+2025-05-05 18:52:58,904 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:53:02,082 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:53:02,111 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:53:02,132 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:53:03,519 - lavka_recsys.CatBoostRankerModel - INFO - Training CatBoostRanker model with columns: ['user_total_views', 'source_type', 'month', 'std_purchase_hour', 'session_unique_products', 'user_total_purchases', 'purchases_day_u_p', 'day_of_week_relevance', 'hour_of_day', 'user_unique_products', 'count_purchase_u_p', 'puresvd_cf_score', 'cart_to_purchase_rate', 'cf_score', 'session_duration_seconds', 'store_total_interactions', 'user_product_purchase_cross', 'session_purchases', 'product_unique_users', 'days_since_interaction_u_s', 'store_total_purchases', 'is_weekend', 'views_day_u_p', 'most_common_purchase_day', 'count_purchase_u_s', 'purchases_week_u_p', 'interactions_month_u_p', 'avg_purchase_hour', 'user_total_interactions', 'city_name', 'mean_interval_days', 'interactions_week_u_p', 'purchase_view_ratio', 'days_since_interaction_u_p', 'user_store_purchase_cross', 'city_total_purchases', 'city_total_interactions', 'ctr_product', 'hour_relevance', 'user_segment', 'session_unique_stores', 'product_total_views', 'day_of_week', 'purchases_month_u_p', 'interaction_trend', 'npmi_cf_score', 'product_total_purchases', 'user_product_store_cross', 'svd_cf_score', 'store_total_views', 'interactions_day_u_p', 'views_week_u_p', 'city_unique_stores', 'store_unique_products', 'purchase_trend', 'session_length', 'views_month_u_p', 'city_total_views', 'product_total_interactions'] (cat_columns: ['user_segment', 'city_name', 'source_type'])
+2025-05-05 18:53:17,217 - lavka_recsys.Experiment(catboost_ranker_c49b38) - INFO - Training completed in 18.60s
+2025-05-05 18:53:17,228 - lavka_recsys.DataLoader - INFO - Holdout data merged back into training data.
+2025-05-05 18:53:17,307 - lavka_recsys.CachedFeatureFactory - INFO - Generating feature batch
+2025-05-05 18:53:17,309 - lavka_recsys.FeatureFactory - INFO - Invoking feature generators: source_type, count_purchase_user_product, count_purchase_user_store, ctr_product, cart_to_purchase_rate, purchase_view_ratio, recency_user_product, user_stats, product_stats, store_stats, city_stats, product_temporal_patterns, recency_user_store, time_features, time_window_user_product, session_features, frequency_features, product_popularity_trend, cross_features, user_segments, memory-based-cf, npmi-cf, puresvd-cf, svd-cf
+2025-05-05 18:53:17,311 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: source_type
+2025-05-05 18:53:17,311 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: count_purchase_user_product
+2025-05-05 18:53:17,609 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: count_purchase_user_store
+2025-05-05 18:53:17,694 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: ctr_product
+2025-05-05 18:53:18,337 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: cart_to_purchase_rate
+2025-05-05 18:53:18,748 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: purchase_view_ratio
+2025-05-05 18:53:19,212 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: recency_user_product
+2025-05-05 18:53:20,474 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: user_stats
+2025-05-05 18:53:20,888 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: product_stats
+2025-05-05 18:53:21,387 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: store_stats
+2025-05-05 18:53:21,778 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: city_stats
+2025-05-05 18:53:22,488 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: product_temporal_patterns
+2025-05-05 18:53:22,618 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: recency_user_store
+2025-05-05 18:53:23,057 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: time_features
+2025-05-05 18:53:23,067 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: time_window_user_product
+2025-05-05 18:53:23,428 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: session_features
+2025-05-05 18:53:25,593 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: frequency_features
+2025-05-05 18:53:30,666 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: product_popularity_trend
+2025-05-05 18:53:31,270 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: user_stats
+2025-05-05 18:53:31,655 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: product_stats
+2025-05-05 18:53:32,118 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: store_stats
+2025-05-05 18:53:32,502 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: city_stats
+2025-05-05 18:53:33,151 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: cross_features
+2025-05-05 18:53:33,154 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: user_segments
+2025-05-05 18:53:33,533 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: memory-based-cf
+2025-05-05 18:53:34,695 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: npmi-cf
+2025-05-05 18:54:10,842 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: puresvd-cf
+2025-05-05 18:54:42,375 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: svd-cf
+2025-05-05 18:54:44,113 - lavka_recsys.FeatureFactory - INFO - Joined features
+2025-05-05 18:54:44,117 - lavka_recsys.FeatureFactory - INFO - All column names: {'store_total_views', 'std_purchase_hour', 'store_unique_products', 'avg_purchase_hour', 'session_length', 'month', 'user_store_purchase_cross', 'purchases_month_u_p', 'is_weekend', 'purchases_week_u_p', 'hour_relevance', 'store_total_interactions', 'session_unique_products', 'user_product_purchase_cross', 'user_product_store_cross', 'city_total_interactions', 'product_unique_users', 'session_purchases', 'purchase_view_ratio', 'product_total_views', 'store_total_purchases', 'user_segment', 'npmi_cf_score', 'puresvd_cf_score', 'days_since_interaction_u_p', 'ctr_product', 'user_total_interactions', 'day_of_week', 'session_unique_stores', 'product_total_purchases', 'product_total_interactions', 'hour_of_day', 'views_day_u_p', 'interaction_trend', 'user_total_purchases', 'user_unique_products', 'user_total_views', 'count_purchase_u_s', 'city_total_views', 'city_unique_stores', 'count_purchase_u_p', 'day_of_week_relevance', 'purchases_day_u_p', 'mean_interval_days', 'cart_to_purchase_rate', 'city_total_purchases', 'most_common_purchase_day', 'city_name', 'interactions_day_u_p', 'views_week_u_p', 'views_month_u_p', 'days_since_interaction_u_s', 'session_duration_seconds', 'purchase_trend', 'cf_score', 'interactions_month_u_p', 'svd_cf_score', 'source_type', 'interactions_week_u_p'}
+2025-05-05 18:54:44,118 - lavka_recsys.FeatureFactory - INFO - All categorical column names: ['city_name', 'user_segment', 'source_type']
+2025-05-05 18:54:44,195 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:54:44,492 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:54:44,497 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:54:44,513 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:54:44,947 - lavka_recsys.Experiment(catboost_ranker_c49b38) - INFO - Submission saved: results/submissions/catboost_ranker_c49b38_submission.csv
+2025-05-05 18:54:44,992 - lavka_recsys.Experiment(catboost_ranker_c49b38) - INFO - Submission model saved: results/submissions/catboost_ranker_c49b38_model.pkl
+2025-05-05 18:54:53,413 - lavka_recsys.Experiment(catboost_ranker_611ad3) - INFO - Initialized experiment: catboost_ranker_611ad3
+2025-05-05 18:54:53,423 - lavka_recsys.Experiment(catboost_ranker_611ad3) - INFO - Config saved: results/catboost_ranker_611ad3_config.json
+2025-05-05 18:54:53,436 - lavka_recsys.Experiment(catboost_ranker_611ad3) - INFO - Setting up experiment environment...
+2025-05-05 18:54:53,437 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 18:54:53,798 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 18:54:53,861 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 18:54:53,880 - lavka_recsys.DataPreprocessor - DEBUG - Converting 'timestamp' from epoch[s] to datetime
+2025-05-05 18:54:54,012 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 18:54:54,039 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 18:54:54,044 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 18:54:54,045 - lavka_recsys.Experiment(catboost_ranker_611ad3) - INFO - Setup complete.
+2025-05-05 18:54:54,047 - lavka_recsys.Experiment(catboost_ranker_611ad3) - INFO - Starting experiment run...
+2025-05-05 18:54:54,399 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 18:54:54,421 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 18:54:54,425 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 18:54:54,451 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 18:54:54,456 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 18:54:54,487 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_eea2663e747c09fad5b02e705a394f1a.pkl
+2025-05-05 18:54:55,880 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:54:55,906 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_0a8474df115bf334998e6bcb7079362b.pkl
+2025-05-05 18:54:57,124 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:54:57,130 - lavka_recsys.ModelFactory - INFO - Creating catboost_ranker model with params: {'iterations': 300, 'loss_function': 'YetiRankPairwise', 'eval_metric': 'NDCG:top=10', 'early_stopping_rounds': 50, 'custom_metric': ['NDCG:top=10', 'PrecisionAt:top=10', 'RecallAt:top=10'], 'task_type': 'GPU', 'devices': '4,5', 'thread_count': -1}
+2025-05-05 18:54:57,407 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:55:01,468 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:55:04,927 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:55:04,948 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:55:04,972 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:55:06,605 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:55:06,626 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:55:06,645 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:55:08,152 - lavka_recsys.CatBoostRankerModel - INFO - Training CatBoostRanker model with columns: ['user_total_views', 'source_type', 'month', 'std_purchase_hour', 'session_unique_products', 'user_total_purchases', 'purchases_day_u_p', 'day_of_week_relevance', 'hour_of_day', 'user_unique_products', 'count_purchase_u_p', 'puresvd_cf_score', 'cart_to_purchase_rate', 'cf_score', 'session_duration_seconds', 'store_total_interactions', 'user_product_purchase_cross', 'session_purchases', 'product_unique_users', 'days_since_interaction_u_s', 'store_total_purchases', 'is_weekend', 'views_day_u_p', 'most_common_purchase_day', 'count_purchase_u_s', 'purchases_week_u_p', 'interactions_month_u_p', 'avg_purchase_hour', 'user_total_interactions', 'city_name', 'mean_interval_days', 'interactions_week_u_p', 'purchase_view_ratio', 'days_since_interaction_u_p', 'user_store_purchase_cross', 'city_total_purchases', 'city_total_interactions', 'ctr_product', 'hour_relevance', 'user_segment', 'session_unique_stores', 'product_total_views', 'day_of_week', 'purchases_month_u_p', 'interaction_trend', 'npmi_cf_score', 'product_total_purchases', 'user_product_store_cross', 'svd_cf_score', 'store_total_views', 'interactions_day_u_p', 'views_week_u_p', 'city_unique_stores', 'store_unique_products', 'purchase_trend', 'session_length', 'views_month_u_p', 'city_total_views', 'product_total_interactions'] (cat_columns: ['user_segment', 'city_name', 'source_type'])
+2025-05-05 18:55:48,449 - lavka_recsys.Experiment(catboost_ranker_611ad3) - INFO - Training completed in 51.32s
+2025-05-05 18:55:48,454 - lavka_recsys.Experiment(catboost_ranker_611ad3) - INFO - Evaluating on holdout.
+2025-05-05 18:55:48,518 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_1879e9aab22f20d41fd15e001434badd.pkl
+2025-05-05 18:55:49,698 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:55:49,979 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:55:52,842 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:55:52,866 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:55:52,886 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:56:08,590 - lavka_recsys.Experiment(catboost_ranker_611ad3) - INFO - Run results saved: results/catboost_ranker_611ad3_results.json
+2025-05-05 18:56:08,593 - lavka_recsys.Experiment(catboost_ranker_611ad3) - INFO - Run finished and results saved.
+2025-05-05 18:56:08,711 - lavka_recsys.Experiment(catboost_ranker_611ad3) - INFO - Computing predictions...
+2025-05-05 18:56:08,718 - lavka_recsys.DataLoader - INFO - Holdout data merged back into training data.
+2025-05-05 18:56:08,758 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 18:56:08,787 - lavka_recsys.DataLoader - INFO -   history: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 18:56:08,792 - lavka_recsys.DataLoader - INFO -   target: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 18:56:08,823 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_1879e9aab22f20d41fd15e001434badd.pkl
+2025-05-05 18:56:10,080 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 18:56:10,083 - lavka_recsys.ModelFactory - INFO - Creating catboost_ranker model with params: {'iterations': 300, 'loss_function': 'YetiRankPairwise', 'eval_metric': 'NDCG:top=10', 'early_stopping_rounds': 50, 'custom_metric': ['NDCG:top=10', 'PrecisionAt:top=10', 'RecallAt:top=10'], 'task_type': 'GPU', 'devices': '4,5', 'thread_count': -1}
+2025-05-05 18:56:10,356 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:56:14,079 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:56:14,116 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:56:14,139 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:56:15,656 - lavka_recsys.CatBoostRankerModel - INFO - Training CatBoostRanker model with columns: ['user_total_views', 'source_type', 'month', 'std_purchase_hour', 'session_unique_products', 'user_total_purchases', 'purchases_day_u_p', 'day_of_week_relevance', 'hour_of_day', 'user_unique_products', 'count_purchase_u_p', 'puresvd_cf_score', 'cart_to_purchase_rate', 'cf_score', 'session_duration_seconds', 'store_total_interactions', 'user_product_purchase_cross', 'session_purchases', 'product_unique_users', 'days_since_interaction_u_s', 'store_total_purchases', 'is_weekend', 'views_day_u_p', 'most_common_purchase_day', 'count_purchase_u_s', 'purchases_week_u_p', 'interactions_month_u_p', 'avg_purchase_hour', 'user_total_interactions', 'city_name', 'mean_interval_days', 'interactions_week_u_p', 'purchase_view_ratio', 'days_since_interaction_u_p', 'user_store_purchase_cross', 'city_total_purchases', 'city_total_interactions', 'ctr_product', 'hour_relevance', 'user_segment', 'session_unique_stores', 'product_total_views', 'day_of_week', 'purchases_month_u_p', 'interaction_trend', 'npmi_cf_score', 'product_total_purchases', 'user_product_store_cross', 'svd_cf_score', 'store_total_views', 'interactions_day_u_p', 'views_week_u_p', 'city_unique_stores', 'store_unique_products', 'purchase_trend', 'session_length', 'views_month_u_p', 'city_total_views', 'product_total_interactions'] (cat_columns: ['user_segment', 'city_name', 'source_type'])
+2025-05-05 18:56:54,691 - lavka_recsys.Experiment(catboost_ranker_611ad3) - INFO - Training completed in 44.61s
+2025-05-05 18:56:54,697 - lavka_recsys.DataLoader - INFO - Holdout data merged back into training data.
+2025-05-05 18:56:54,755 - lavka_recsys.CachedFeatureFactory - INFO - Generating feature batch
+2025-05-05 18:56:54,756 - lavka_recsys.FeatureFactory - INFO - Invoking feature generators: source_type, count_purchase_user_product, count_purchase_user_store, ctr_product, cart_to_purchase_rate, purchase_view_ratio, recency_user_product, user_stats, product_stats, store_stats, city_stats, product_temporal_patterns, recency_user_store, time_features, time_window_user_product, session_features, frequency_features, product_popularity_trend, cross_features, user_segments, memory-based-cf, npmi-cf, puresvd-cf, svd-cf
+2025-05-05 18:56:54,757 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: source_type
+2025-05-05 18:56:54,757 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: count_purchase_user_product
+2025-05-05 18:56:55,006 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: count_purchase_user_store
+2025-05-05 18:56:55,068 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: ctr_product
+2025-05-05 18:56:55,694 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: cart_to_purchase_rate
+2025-05-05 18:56:56,120 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: purchase_view_ratio
+2025-05-05 18:56:56,614 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: recency_user_product
+2025-05-05 18:56:57,722 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: user_stats
+2025-05-05 18:56:58,113 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: product_stats
+2025-05-05 18:56:58,613 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: store_stats
+2025-05-05 18:56:58,999 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: city_stats
+2025-05-05 18:56:59,614 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: product_temporal_patterns
+2025-05-05 18:56:59,762 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: recency_user_store
+2025-05-05 18:57:00,191 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: time_features
+2025-05-05 18:57:00,203 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: time_window_user_product
+2025-05-05 18:57:00,549 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: session_features
+2025-05-05 18:57:02,709 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: frequency_features
+2025-05-05 18:57:08,231 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: product_popularity_trend
+2025-05-05 18:57:08,809 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: user_stats
+2025-05-05 18:57:09,209 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: product_stats
+2025-05-05 18:57:09,635 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: store_stats
+2025-05-05 18:57:09,969 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: city_stats
+2025-05-05 18:57:10,672 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: cross_features
+2025-05-05 18:57:10,674 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: user_segments
+2025-05-05 18:57:11,043 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: memory-based-cf
+2025-05-05 18:57:12,346 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: npmi-cf
+2025-05-05 18:57:48,357 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: puresvd-cf
+2025-05-05 18:58:22,193 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: svd-cf
+2025-05-05 18:58:23,838 - lavka_recsys.FeatureFactory - INFO - Joined features
+2025-05-05 18:58:23,841 - lavka_recsys.FeatureFactory - INFO - All column names: {'store_total_views', 'std_purchase_hour', 'store_unique_products', 'avg_purchase_hour', 'session_length', 'month', 'user_store_purchase_cross', 'purchases_month_u_p', 'is_weekend', 'purchases_week_u_p', 'hour_relevance', 'store_total_interactions', 'session_unique_products', 'user_product_purchase_cross', 'user_product_store_cross', 'city_total_interactions', 'product_unique_users', 'session_purchases', 'purchase_view_ratio', 'product_total_views', 'store_total_purchases', 'user_segment', 'npmi_cf_score', 'puresvd_cf_score', 'days_since_interaction_u_p', 'ctr_product', 'user_total_interactions', 'day_of_week', 'session_unique_stores', 'product_total_purchases', 'product_total_interactions', 'hour_of_day', 'views_day_u_p', 'interaction_trend', 'user_total_purchases', 'user_unique_products', 'user_total_views', 'count_purchase_u_s', 'city_total_views', 'city_unique_stores', 'count_purchase_u_p', 'day_of_week_relevance', 'purchases_day_u_p', 'mean_interval_days', 'cart_to_purchase_rate', 'city_total_purchases', 'most_common_purchase_day', 'city_name', 'interactions_day_u_p', 'views_week_u_p', 'views_month_u_p', 'days_since_interaction_u_s', 'session_duration_seconds', 'purchase_trend', 'cf_score', 'interactions_month_u_p', 'svd_cf_score', 'source_type', 'interactions_week_u_p'}
+2025-05-05 18:58:23,842 - lavka_recsys.FeatureFactory - INFO - All categorical column names: ['city_name', 'user_segment', 'source_type']
+2025-05-05 18:58:23,924 - lavka_recsys.CatBoostRankerModel - INFO - Sorting data by group_id for grouped ranking
+2025-05-05 18:58:24,169 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'source_type' to string for CatBoost
+2025-05-05 18:58:24,177 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'city_name' to string for CatBoost
+2025-05-05 18:58:24,184 - lavka_recsys.CatBoostRankerModel - INFO - Converting 'user_segment' to string for CatBoost
+2025-05-05 18:58:24,693 - lavka_recsys.Experiment(catboost_ranker_611ad3) - INFO - Submission saved: results/submissions/catboost_ranker_611ad3_submission.csv
+2025-05-05 18:58:24,743 - lavka_recsys.Experiment(catboost_ranker_611ad3) - INFO - Submission model saved: results/submissions/catboost_ranker_611ad3_model.pkl
