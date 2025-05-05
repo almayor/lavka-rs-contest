@@ -1,87 +1,11 @@
-from tqdm.auto import tqdm
-from typing import Iterable
-
 import numpy as np
 import pandas as pd
-import pickle
 import polars as pl
+import pickle
 
-from .custom_logging import get_logger
-from .config import Config
+from typing import Iterable
 
-
-class Model:
-    """Base model class"""
-    
-    def __init__(self, name, params=None):
-        self.name = name
-        self.params = params or {}
-        self.model = None
-        self.logger = get_logger(self.__class__.__name__)
-    
-    def train(self, train_features, train_labels, *, cat_columns=None, train_group_ids=None, **kwargs):
-        """
-        Train model (to be implemented by subclasses).
-        Args:
-            train_features (pd.DataFrame or pl.DataFrame): Training features.
-            train_labels (pd.Series or pl.Series): Training labels.
-            train_group_ids (pd.Series or pl.Series): Request IDs for ranking models.
-            cat_columns (list): Categorical column names.
-            kwargs: Additional parameters for training.
-        """
-        raise NotImplementedError
-    
-    def predict(self, features, *, cat_columns=None, group_ids=None, **kwargs) -> Iterable[float]:
-        """
-        Make relevance predictions (to be implemented by subclasses).
-        Args:
-            features (pd.DataFrame or pl.DataFrame): Features for prediction.
-            kwargs: Additional parameters for prediction.
-        Returns:
-            an iterable of scores
-        """
-        raise NotImplementedError
-    
-    def get_feature_importance(self) -> dict[str, float]:
-        """
-        Get feature importance if available.
-        Returns:
-            dict: Feature importance scores.
-        """
-        return {}
-    
-    def save(self, filename):
-        """Save model to file"""
-        raise NotImplementedError
-    
-    @classmethod
-    def load(cls, filename):
-        """Load model from file"""
-        raise NotImplementedError
-    
-
-class RandomModel(Model):
-    """Model outputing random values (baseline)"""
-
-    def __init__(self, **params):
-        super().__init__('random_baseline')
-    
-    def train(self, *args, **kwargs):
-        pass
-
-    def predict(self, features, *args, **kwargs):
-        return np.random.rand(len(features),)
-    
-    def get_feature_importance(self):
-        return {}
-    
-    def save(self, *args, **kwargs):
-        pass
-
-    @classmethod
-    def load(cls, *args, **kwargs):
-        return cls()
-    
+from .base import Model
 
 class CatBoostModel(Model):
     """General CatBoost model implementation"""
@@ -395,38 +319,3 @@ class CatBoostRankerModel(CatBoostModel):
                 data = pickle.load(f)
                 obj._feature_importances = data.get('feature_importances', {})
         return obj
-
-
-class ModelFactory:
-    """Factory for creating and managing models"""
-    
-    def __init__(self, config: Config):
-        self.config = config
-        self.logger = get_logger(self.__class__.__name__)
-        self._registry = {
-            'catboost_classifier': CatBoostClassifierModel,
-            'catboost_ranker': CatBoostRankerModel,
-            'random_baseline': RandomModel,
-            # Add more models as needed
-        }
-    
-    def create_model(self, override_params=None) -> Model:
-        """Create a model instance based on type"""
-        mtype = self.config.get('model.type')
-        if mtype not in self._registry:
-            raise ValueError(f"Unknown model type: {mtype}")
-            
-        # Get model parameters from config
-        mparams = self.config.get(('model', 'config', mtype), {}).copy()
-        
-        use_gpu = self.config.get(('model', 'use_gpu'), False)
-        mparams['task_type'] = 'GPU' if use_gpu else 'CPU'
-        if use_gpu:
-            mparams['devices'] = self.config.get(('model', 'gpu_devices'), '0')
-        mparams['thread_count'] = self.config.get(('model', 'thread_count'), -1)
-        
-        if override_params:
-            mparams.update(override_params)
-        self.logger.info(f"Creating {mtype} model with params: {mparams}")
-        return self._registry[mtype](**mparams)
-

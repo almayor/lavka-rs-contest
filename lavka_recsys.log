@@ -1341,3 +1341,50 @@
 2025-05-05 12:01:05,478 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
 2025-05-05 12:01:17,357 - lavka_recsys.Experiment(random_baseline_f11639) - INFO - Run results saved: results/random_baseline_f11639_results.json
 2025-05-05 12:01:17,363 - lavka_recsys.Experiment(random_baseline_f11639) - INFO - Run finished and results saved.
+2025-05-05 12:04:26,816 - lavka_recsys.Experiment(random_baseline_f11639) - INFO - Computing predictions...
+2025-05-05 12:04:26,821 - lavka_recsys.DataLoader - INFO - Holdout data merged back into training data.
+2025-05-05 12:04:26,853 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 12:04:26,882 - lavka_recsys.DataLoader - INFO -   history: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 12:04:26,886 - lavka_recsys.DataLoader - INFO -   target: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 12:04:26,916 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_37d2a6f2ecddf1a9099e1e8523bb45bd.pkl
+2025-05-05 12:04:27,034 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 12:04:27,036 - lavka_recsys.ModelFactory - INFO - Creating random_baseline model with params: {'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 12:04:27,037 - lavka_recsys.Experiment(random_baseline_f11639) - INFO - Training completed in 0.00s
+2025-05-05 12:04:27,043 - lavka_recsys.DataLoader - INFO - Holdout data merged back into training data.
+2025-05-05 12:04:27,077 - lavka_recsys.CachedFeatureFactory - INFO - Generating feature batch
+2025-05-05 12:04:27,078 - lavka_recsys.FeatureFactory - INFO - Invoking feature generators: source_type, count_purchase_user_product
+2025-05-05 12:04:27,080 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: source_type
+2025-05-05 12:04:27,080 - lavka_recsys.FeatureFactory - DEBUG - Generating feature: count_purchase_user_product
+2025-05-05 12:04:27,236 - lavka_recsys.FeatureFactory - INFO - Joined features
+2025-05-05 12:04:27,238 - lavka_recsys.FeatureFactory - INFO - All column names: {'count_purchase_u_p', 'source_type'}
+2025-05-05 12:04:27,240 - lavka_recsys.FeatureFactory - INFO - All categorical column names: ['source_type']
+2025-05-05 12:04:27,324 - lavka_recsys.Experiment(random_baseline_f11639) - INFO - Submission saved: results/submissions/random_baseline_f11639_submission.csv
+2025-05-05 12:04:27,326 - lavka_recsys.Experiment(random_baseline_f11639) - INFO - Submission model saved: results/submissions/random_baseline_f11639_model.pkl
+2025-05-05 12:15:31,799 - lavka_recsys.Experiment(random_baseline_f11639) - INFO - Initialized experiment: random_baseline_f11639
+2025-05-05 12:15:31,809 - lavka_recsys.Experiment(random_baseline_f11639) - INFO - Config saved: results/random_baseline_f11639_config.json
+2025-05-05 12:15:31,810 - lavka_recsys.Experiment(random_baseline_f11639) - INFO - Setting up experiment environment...
+2025-05-05 12:15:31,812 - lavka_recsys.DataLoader - INFO - Loading training data from ../../data/lavka/train.parquet
+2025-05-05 12:15:32,107 - lavka_recsys.DataLoader - INFO - Loading test data from ../../data/lavka/test.parquet
+2025-05-05 12:15:32,162 - lavka_recsys.DataLoader - DEBUG - Converting train_df 'timestamp' from epoch[s] to datetime
+2025-05-05 12:15:32,192 - lavka_recsys.DataLoader - DEBUG - Converting test_df 'timestamp' from epoch[s] to datetime
+2025-05-05 12:15:32,507 - lavka_recsys.DataLoader - INFO - Holdout Split:
+2025-05-05 12:15:32,534 - lavka_recsys.DataLoader - INFO -   train: 2022-12-31 18:46:42 → 2024-01-03 17:31:52 (15_070_276 rows, 367 days)
+2025-05-05 12:15:32,538 - lavka_recsys.DataLoader - INFO -   holdout: 2024-01-03 17:56:48 → 2024-02-02 17:34:51 (1_438_338 rows, 29 days)
+2025-05-05 12:15:32,539 - lavka_recsys.Experiment(random_baseline_f11639) - INFO - Setup complete.
+2025-05-05 12:15:32,540 - lavka_recsys.Experiment(random_baseline_f11639) - INFO - Starting experiment run...
+2025-05-05 12:15:32,960 - lavka_recsys.DataLoader - INFO - Validation Split:
+2025-05-05 12:15:32,982 - lavka_recsys.DataLoader - INFO -   train_history: 2022-12-31 18:46:42 → 2023-11-04 17:16:23 (12_082_523 rows, 307 days)
+2025-05-05 12:15:32,986 - lavka_recsys.DataLoader - INFO -   train_target: 2023-11-04 18:19:12 → 2023-12-04 17:25:02 (1_498_126 rows, 29 days)
+2025-05-05 12:15:33,012 - lavka_recsys.DataLoader - INFO -   val_history: 2022-12-31 18:46:42 → 2023-12-04 17:25:02 (13_580_649 rows, 337 days)
+2025-05-05 12:15:33,016 - lavka_recsys.DataLoader - INFO -   val_target: 2023-12-04 18:02:13 → 2024-01-03 17:31:52 (1_489_627 rows, 29 days)
+2025-05-05 12:15:33,044 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_aa8cb783deb7d34845d9cb287f90ff11.pkl
+2025-05-05 12:15:33,234 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 12:15:33,268 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_7379eb788b28b2e3ba319b4f7a6d34f3.pkl
+2025-05-05 12:15:33,419 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 12:15:33,424 - lavka_recsys.ModelFactory - INFO - Creating random_baseline model with params: {'task_type': 'CPU', 'thread_count': -1}
+2025-05-05 12:15:33,425 - lavka_recsys.Experiment(random_baseline_f11639) - INFO - Training completed in 0.00s
+2025-05-05 12:15:33,427 - lavka_recsys.Experiment(random_baseline_f11639) - INFO - Evaluating on holdout.
+2025-05-05 12:15:33,458 - lavka_recsys.CachedFeatureFactory - DEBUG - Loading from cache results/feature_cache/cache_37d2a6f2ecddf1a9099e1e8523bb45bd.pkl
+2025-05-05 12:15:33,577 - lavka_recsys.CachedFeatureFactory - INFO - Using cached feature batch
+2025-05-05 12:15:45,232 - lavka_recsys.Experiment(random_baseline_f11639) - INFO - Run results saved: results/random_baseline_f11639_results.json
+2025-05-05 12:15:45,234 - lavka_recsys.Experiment(random_baseline_f11639) - INFO - Run finished and results saved.

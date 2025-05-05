@@ -12,7 +12,7 @@ from sklearn.metrics import roc_auc_score, log_loss
 from .config import Config
 from .custom_logging import get_logger
 from .data_loader import DataLoader
-from .model_factory import ModelFactory, Model
+from .models import ModelFactory, Model
 from .feature_factory import CachedFeatureFactory
 from .metrics import RankingMetrics
 
