@@ -1,12 +1,10 @@
-from datetime import datetime, timedelta
-from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
+import hashlib
+import pickle
 import polars as pl
-from tqdm.auto import tqdm
+
+from functools import wraps
+from pathlib import Path
+from typing import Any, List, Optional, Tuple
 
 from .config import Config
 from .custom_logging import get_logger
@@ -16,20 +14,23 @@ class FeatureFactory:
     """Feature generation with selective feature creation"""
     
     # Class-level registry of feature generators
-    _feature_registry = {}
+    _fgen_registry = {}
     _possible_targets = set()
     
     @classmethod
-    def register(cls, feature_name: str,
-                 depends_on: str | List[str] | None = None,
-                 categorical_cols: List[str] | None = None):
+    def register(cls,
+                 fgen_name: str,
+                 num_cols: list[str] | None = None,
+                 cat_cols: list[str] | None = None,
+                 depends_on: str | list[str] | None = None,):
         """
         Decorator to register a method as a feature generator and to specify its dependencies. The method
         must accept two arguments: history_df and target_df, and return a target_df with new columns.
         Args:
-            feature_name (str): Name of the feature to be generated.
-            categorical_cols (List[str] | None): List of categorical columns this feature produces.
-            depends_on (str | List[str] | None): List of features that this feature depends on.
+            fgen_name (str): Name of the feature generator
+            num_cols (list[str] | None): List of numerical columns this generator produces.
+            cat_cols (list[str] | None): List of categorical columns this generator produces.
+            depends_on (str | list[str] | None): List of feature generators that this feature generator depends on.
         """
         depends_on = depends_on or []
         if isinstance(depends_on, str):
@@ -40,25 +41,27 @@ class FeatureFactory:
             def wrapper(*args, **kwargs):
                 return func(*args, **kwargs)
             
-            cls._feature_registry[feature_name] = {
+            cls._fgen_registry[fgen_name] = {
                 'func': wrapper,
                 'depends_on': depends_on,
-                'categorical_cols': categorical_cols or [],
+                'num_cols': num_cols or [],
+                'cat_cols': cat_cols or [],
             }
             return wrapper
         
         return decorator
 
     @classmethod
-    def register_target(cls, feature_name: str,
-                 depends_on: str | List[str] | None = None):
+    def register_target(cls,
+                        target_name: str,
+                        depends_on: str | list[str] | None = None):
         """
         Decorator to register a method as a target generator and to specify its dependencies. The method
         must accept two arguments: history_df and target_df, and return a pl.Series of the target. Rows where
         the target is null will be filtered out.
         Args:
-            feature_name (str): Name of the target to be generated.
-            depends_on (str | List[str] | None): List of features that this target depends on.
+            target_name (str): Name of the target to be generated.
+            depends_on (str | list[str] | None): List of feature generators that this target depends on.
         """
         depends_on = depends_on or []
         if isinstance(depends_on, str):
@@ -70,41 +73,32 @@ class FeatureFactory:
                 result = func(*args, **kwargs)
                 return result, []
         
-            cls._feature_registry[feature_name] = {
+            cls._fgen_registry[target_name] = {
                 'func': wrapper,
                 'depends_on': depends_on,
-                'categorical_cols': [],
+                'num_cols': [],
+                'cat_cols': [],
             }
-            cls._possible_targets.add(feature_name)
+            cls._possible_targets.add(target_name)
 
             return wrapper
         
         return decorator
 
-    def __init__(self, config: Config, feature_selector: Optional[Callable] = None):
+    def __init__(self, config: Config):
         """Initialize feature factory"""
         self.config = config
         self.logger = get_logger(self.__class__.__name__)
-        self.feature_selector = feature_selector
-
-    def register_feature_selector(self, feature_selector: Callable):
-        """
-        Register a feature selector function to be applied after feature generation.
-        Args:
-            feature_selector (Callable): Function to select features.
-        """
-        self.logger.debug("Registering feature selector")
-        self.feature_selector = feature_selector
     
     def generate_batch(
-            self, history_df, target_df, requested_features=None, requested_target=None
-        ) -> Tuple[pl.DataFrame, pl.Series, List[str], pl.Series]:
+            self, history_df, target_df, requested_fgens=None, requested_target=None
+        ) -> tuple[pl.DataFrame, pl.Series, list[str], pl.Series]:
         """
         Generate features and target for a batch of requests.
         Args:
             history_df (pl.DataFrame): Historical data.
             target_df (pl.DataFrame): Target data.
-            requested_features (str | List[str] | None): Features to generate (if None, config is used).
+            requested_fgens (str | List[str] | None): Feature generators to invoke (if None, config is used).
             requested_target (str | None): Target to generate (if None, config is used).
         Returns:
             Tuple[pl.DataFrame, pl.Series, List[str], pl.Series]: Tuple containing:
@@ -114,11 +108,9 @@ class FeatureFactory:
                 - Request IDs per row (pl.Series)
         """
         request_ids = target_df['request_id']
-        features, cat_columns = self.generate_features(history_df, target_df, requested_features)
+        features, cat_columns = self.generate_features(history_df, target_df, requested_fgens)
         target, _ = self.generate_target(history_df, target_df, requested_target)
         mask = ~target.is_null()
-        if self.feature_selector:
-            features = self.feature_selector(features)
         return (
             features.filter(mask),
             target.filter(mask),
@@ -127,14 +119,14 @@ class FeatureFactory:
         )
         
     def generate_features_only(
-            self, history_df: pl.DataFrame, target_df: pl.DataFrame, requested_features: List[str] | None = None
-        ) -> Tuple[pl.DataFrame, List[str], pl.Series]:
+            self, history_df: pl.DataFrame, target_df: pl.DataFrame, requested_fgens: list[str] | None = None
+        ) -> tuple[pl.DataFrame, list[str], pl.Series]:
         """
         Generate only features without target (for prediction/inference).
         Args:
             history_df (pl.DataFrame): Historical data.
             target_df (pl.DataFrame): Target data.
-            requested_features (List[str] | None): Features to generate (if None, config is used).
+            requested_fgens (List[str] | None): Feature generators to generate (if None, config is used).
         Returns:
             Tuple[pl.DataFrame, List[str], pl.Series]: Tuple containing:
                 - Generated features (pl.DataFrame)
@@ -142,7 +134,7 @@ class FeatureFactory:
                 - Request IDs per row (pl.Series)
         """
         request_ids = target_df['request_id']
-        features, cat_columns = self.generate_features(history_df, target_df, requested_features)
+        features, cat_columns = self.generate_features(history_df, target_df, requested_fgens)
         
         if self.feature_selector:
             features = self.feature_selector(features)
@@ -150,36 +142,37 @@ class FeatureFactory:
         return features, cat_columns, request_ids
 
     def generate_features(
-            self, history_df: pl.DataFrame, target_df: pl.DataFrame, requested_features: List[str] | None = None
+            self, history_df: pl.DataFrame, target_df: pl.DataFrame, requested_fgens: list[str] | None = None
         ) -> pl.DataFrame:
         """
         Generate only the requested features and their dependencies
         Args:
             history_df (pl.DataFrame): Historical data.
             target_df (pl.DataFrame): Target data.
-            requested_features (List[str] | None): Features to generate (if None, config is used).
+            requested_fgens (List[str] | None): Feature generators to invoke (if None, config is used).
         Returns:
             Tuple[pl.DataFrame, List[str]]: Tuple containing:
                 - Generated features (pl.DataFrame)
                 - Categorical column names in the generated features (List[str])
         """
-        if requested_features is None:
-            requested_features = self.config.get("features")
-        if len(requested_features) != len(set(requested_features)):
-            self.logger.error("Duplicate feature names in requested_features")
-            raise ValueError("Duplicate feature names in requested_features")
-        self.logger.info(f"Generating features: {', '.join(requested_features)}")
+        if requested_fgens is None:
+            requested_fgens = self.config.get("features")
+        if len(requested_fgens) != len(set(requested_fgens)):
+            self.logger.error("Duplicate feature names in requested_fgens")
+            raise ValueError("Duplicate feature names in requested_fgens")
+        self.logger.info(f"Invoking feature generators: {', '.join(requested_fgens)}")
                 
         # Generate each requested feature (and dependencies)
         all_columns, all_cat_columns = set(), set()
-        for feature_name in requested_features:
-            target_df, columns = self._generate_feature(
-                feature_name, history_df, target_df
+        for fgen in requested_fgens:
+            target_df = self._generate_feature(
+                fgen, history_df, target_df
             )
-            all_columns.update(columns)
-            cat_columns = self.__class__._feature_registry[feature_name]['categorical_cols']
-            all_columns.update(cat_columns) # preserve categorical features even if they already existed
+            cat_columns = self.__class__._fgen_registry[fgen]['cat_cols']
+            num_columns = self.__class__._fgen_registry[fgen]['num_cols']
             all_cat_columns.update(cat_columns)
+            all_columns.update(cat_columns)
+            all_columns.update(num_columns)
         
         all_cat_columns = list(all_cat_columns) if len(all_cat_columns) else None
         self.logger.info("Joined features")
@@ -187,9 +180,6 @@ class FeatureFactory:
         self.logger.info(f"All categorical column names: {all_cat_columns}")
         
         target_df = target_df.select(all_columns)
-        if self.feature_selector:
-            target_df = self.feature_selector(target_df)
-        
         return target_df, all_cat_columns
     
     def generate_target(self, history_df, target_df, requested_target: str | None = None) -> pl.Series:
@@ -211,52 +201,149 @@ class FeatureFactory:
         return feature
     
     def _generate_feature(
-            self, feature_name: str, history_df: pl.DataFrame, target_df: pl.DataFrame,
-            generated_features=None
-        ) -> Tuple[pl.DataFrame, List[str]]:
+            self, fgen_name: str, history_df: pl.DataFrame, target_df: pl.DataFrame,
+            invoked_fgens=None
+        ) -> pl.DataFrame:
         """
         Generate a single feature, handling dependencies
         Args:
-            feature_name (str): Name of the feature to be generated.
+            fgen_name (str): Name of the feature generator to invoke.
             history_df (pl.DataFrame): Historical data.
             target_df (pl.DataFrame): Target data.
-            generated_features (set | None): Set of already generated features (for caching).
+            invoked_fgens (set | None): Set of already invoked feature generators (for caching).
         Returns:
             Tuple[pl.DataFrame, List[str], List[str]]: Tuple containing:
                 - Generated features (pl.DataFrame)
-                - Newly added column names
         """
         # Return from cache if already generated
-        if generated_features and feature_name in generated_features:
+        if invoked_fgens and fgen_name in invoked_fgens:
             return target_df
         
         # Check if feature exists
-        if feature_name not in self.__class__._feature_registry:
-            self.logger.error(f"Feature '{feature_name}' is not registered")
+        if fgen_name not in self.__class__._fgen_registry:
+            self.logger.error(f"Feature '{fgen_name}' is not registered")
             self.logger.error(f"Available features: {list(self.__class__._feature_registry.keys())}")
-            raise ValueError(f"Feature '{feature_name}' is not registered")
+            raise ValueError(f"Feature '{fgen_name}' is not registered")
         
         # Get feature info
-        feature_info = self.__class__._feature_registry[feature_name]
+        feature_info = self.__class__._fgen_registry[fgen_name]
         generator_func = feature_info['func']
         dependencies = feature_info['depends_on']
         
         # Generate dependencies first
-        generated_features = generated_features or set()
-        for dep in dependencies:
-            self._generate_feature(dep, history_df, target_df, generated_features)
+        invoked_fgens = invoked_fgens or set()
+        for dep_fgen in dependencies:
+            self._generate_feature(dep_fgen, history_df, target_df, invoked_fgens)
         
         # Generate this feature
-        self.logger.debug(f"Generating feature: {feature_name}")
-        old_columns = target_df.columns
+        self.logger.debug(f"Generating feature: {fgen_name}")
         features = generator_func(history_df, target_df)
     
-        if isinstance(features, pl.DataFrame):
-            new_columns = list(set(features.columns).difference(old_columns))
-        else:
-            new_columns = [feature_name]
-        self.logger.debug(f"New column names: {new_columns}")
-        generated_features.add(feature_name)
-        
-        # Cache and return
-        return features, new_columns
+        invoked_fgens.add(fgen_name)
+        return features
+
+
+
+class CachedFeatureFactory:
+    """
+    Wraps FeatureFactory.generate_batch and generate_features_only with disk caching.
+    """
+
+    def __init__(self, config: Config):
+        self.config = config
+        self.logger = get_logger(self.__class__.__name__)
+        self.factory = FeatureFactory(config)
+
+        # Setup cache directory
+        cache_dir = Path(config.get('output.feature_cache_dir', 'feature_cache'))
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        self.cache_dir = cache_dir
+        self.enabled = config.get('feature_caching.enabled', True)
+
+    def _cache_file(self, key: str) -> Path:
+        return self.cache_dir / f"cache_{key}.pkl"
+
+    def _load(self, key: str):
+        if not self.enabled:
+            return None
+        path = self._cache_file(key)
+        if path.exists():
+            try:
+                self.logger.debug(f"Loading from cache {path}")
+                with open(path, 'rb') as f:
+                    return pickle.load(f)
+            except Exception:
+                self.logger.warning(f"Corrupted cache, removing {path}")
+                path.unlink(missing_ok=True)
+        return None
+
+    def _save(self, key: str, data: Any) -> None:
+        if not self.enabled:
+            return
+        path = self._cache_file(key)
+        tmp = path.with_suffix('.tmp')
+        try:
+            with open(tmp, 'wb') as f:
+                pickle.dump(data, f)
+            tmp.replace(path)
+            self.logger.debug(f"Saved cache {path}")
+        except Exception as e:
+            self.logger.warning(f"Could not write cache {path}: {e}")
+            tmp.unlink(missing_ok=True)
+
+    def generate_batch(
+        self,
+        history: pl.DataFrame,
+        target: pl.DataFrame,
+        feature_names: Optional[List[str]] = None,
+        target_name: Optional[str] = None
+    ) -> Tuple[pl.DataFrame, Any, List[str], Any]:
+        """
+        Generate or load cached (features, target, cat_cols, request_ids).
+        """
+        feats = feature_names or self.config.get('features', [])  # type: ignore
+        key = self._default_key(history, target, feats, target_name)
+
+        cached = self._load(key)
+        if cached is not None:
+            self.logger.info("Using cached feature batch")
+            return cached
+
+        # No cache: generate
+        self.logger.info("Generating feature batch")
+        batch = self.factory.generate_batch(history, target, feats, target_name)  # type: ignore
+        self._save(key, batch)
+        return batch
+
+    def generate_features_only(
+        self,
+        history: pl.DataFrame,
+        target: pl.DataFrame,
+        feature_names: Optional[List[str]] = None
+    ) -> Tuple[pl.DataFrame, List[str], Any]:
+        """
+        Generate or load cached (features, cat_cols, request_ids).
+        """
+        batch = self.generate_batch(history, target, feature_names, None)
+        feat_df, _, cat_cols, req_ids = batch
+        return feat_df, cat_cols, req_ids
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.factory, name)
+    
+    @staticmethod
+    def _default_key(
+        history: pl.DataFrame,
+        target: pl.DataFrame,
+        features: List[str],
+        target_name: Optional[str]
+    ) -> str:
+        """
+        Create a simple cache key based on time ranges and feature list.
+        """
+        t0 = int(history['timestamp'].min().timestamp()) if not history.is_empty() else 0
+        t1 = int(target['timestamp'].max().timestamp()) if not target.is_empty() else 0
+        feats = ','.join(sorted(features))
+        name = target_name or ''
+        raw = f"{t0}-{t1}-{feats}-{name}"
+        return hashlib.md5(raw.encode()).hexdigest()

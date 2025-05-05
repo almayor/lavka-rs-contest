@@ -1,20 +1,29 @@
 # Default configuration for recommender system
 
+# Data paths
+data:
+  train_path: "data/train.parquet"
+  test_path: "data/test.parquet"
+  target_days: 30
+  holdout:
+    enabled: true
+    holdout_days: 30
+
 # Model configuration
 model:
-  type: "catboost"
+  type: "catboost_classifier"
   use_gpu: false                  # Enable/disable GPU usage
   gpu_devices: "0"                # GPU device IDs (comma-separated string for multi-GPU)
   thread_count: -1                # Number of CPU threads (-1 means auto)
   config:
-    catboost:
+    catboost_classifier:
       iterations: 500
       learning_rate: 0.1
       depth: 6
       l2_leaf_reg: 3.0
       verbose: 10
       loss_function: "Logloss"
-      eval_metric: "AUC"
+      eval_metric: "NDCG:top=10"
       early_stopping_rounds: 50
     catboost_ranker:
       iterations: 500            # Increased iterations for better convergence
@@ -26,11 +35,9 @@ model:
       eval_metric: "NDCG"
       early_stopping_rounds: 50
       custom_metric: ["NDCG:top=10", "PrecisionAt:top=10", "RecallAt:top=10"]
-      # leaf_estimation_iterations: 10
-      # random_strength: 1.0
-      # bagging_temperature: 1.0    
-      # bootstrap_type: "Bayesian"  # Added Bayesian bootstrap for better performance
-      # scale_pos_weight is not supported in CatBoostRanker
+
+# Target definition
+target: "CartUpdate_Purchase_vs_View"
 
 # Features
 features:
@@ -64,44 +71,18 @@ features:
   - "text_similarity_cluster" # Product clusters based on text similarity
   - "text_diversity_features" # How different a product is from user's history
 
-# Target definition
-target: "CartUpdate_Purchase_vs_View"
-
-# Data paths
-data:
-  train_path: "data/train.parquet"
-  test_path: "data/test.parquet"
-  sample_fraction: null # Changed back to use all data
-
-# Experiment configuration
-experiment:
-  type: "single_run"    # "single_run" or "tuning"
-  use_hyperparameter_tuning: false
-  evaluation:
-    perform_kaggle_simulation: true
-    create_submission: true
-    validation_ratio: 0.2
-
-# Training configuration
-training:
-  split_type: "expanding_window"  # "standard", "fixed_window", or "expanding_window"
-  history_days: 30     # Only used for fixed_window splits
-  target_days: 30       # Target window is 7 days (increased to better match test window size)
-  step_days: 7         # Move window 7 days at a time
-  max_splits: 10       # Use more sliding windows to capture more patterns
-  validation_days: 30   # Use 7 days after target window for validation
-
-# Kaggle test simulation configuration
-kaggle_simulation:
-  test_days: 30        # Last 30 days reserved for testing (simulating Kaggle test set)
-  train_days: 30       # Days before test period used for training
-  validation_ratio: 0.2  # Portion of training data to use for validation
-
-# Text processing configuration
-text_processing:
-  model_type: "sentence-transformers"
-  model_name: "paraphrase-multilingual-MiniLM-L12-v2"  # Small but effective model
-  embedding_dimensions: 20  # Reduce dimensionality for efficiency
+# Feature generation settings
+feature_generation:
+  session_window_minutes: 30  # Session window duration in minutes
+  user_segments:
+    new_user_threshold: 5      # Less than this many interactions is a new user
+    high_converter_threshold: 0.2  # Users with purchase rate above this are high converters
+    power_user_threshold: 20    # Users with more interactions than this are power users
+    loyal_user_days: 30        # Users active for more than this many days are loyal
+  text_processing:
+    model_type: "sentence-transformers"
+    model_name: "paraphrase-multilingual-MiniLM-L12-v2"  # Small but effective model
+    embedding_dimensions: 20  # Reduce dimensionality for efficiency
 
 # Output settings
 output:
@@ -115,163 +96,8 @@ output:
   save_predictions: true
   save_evaluation_results: true  # Save Kaggle simulation evaluation results
 
-# History cleaning
-history_cleaning:
-  remove_lurkers: true
-
 # Logging configuration
 logging:
   console_level: "INFO"
   file_level: "DEBUG"
   file: "lavka_recsys.log"
-
-# Optional preprocessing
-preprocessing:
-  normalize_timestamps: true
-
-# Feature generation settings
-feature_generation:
-  session_window_minutes: 30  # Session window duration in minutes
-  user_segments:
-    new_user_threshold: 5      # Less than this many interactions is a new user
-    high_converter_threshold: 0.2  # Users with purchase rate above this are high converters
-    power_user_threshold: 20    # Users with more interactions than this are power users
-    loyal_user_days: 30        # Users active for more than this many days are loyal
-
-# Feature selection
-feature_selection:
-  enabled: true
-  method: "importance"
-  # threshold: 0.05
-  n_features: 10
-
-# Hyperparameter tuning
-hyperparameter_tuning:
-  # Optuna hyperparameter tuning settings
-  n_trials: 10        # Number of trials to run
-  n_jobs: 1           # Number of parallel jobs
-  timeout: 1800       # Timeout in seconds (30 minutes)
-  # Note: Tuning uses the split_type from the training section above
-  param_grid:
-    catboost:
-      # Explicit parameter definition format
-      # Each parameter now has a type and properties
-      
-      # Float parameter with log scale (good for learning rates)
-      learning_rate:
-        type: "float"         # Parameter type: float, int, categorical
-        range: [0.01, 0.3]    # Min and max values
-        log_scale: true       # Use logarithmic scale for sampling
-      
-      # Integer parameter (linear scale)
-      depth:
-        type: "int"
-        range: [4, 10]
-      
-      # Integer parameter with explicit values
-      iterations:
-        type: "categorical"   # Choose from specific values
-        values: [300, 500, 800]
-      
-      # Float parameter with log scale
-      l2_leaf_reg:
-        type: "float"
-        range: [1.0, 10.0]
-        log_scale: true
-        
-      # Additional parameters (commented out as examples)
-      # bagging_temperature:
-      #   type: "float"
-      #   range: [0, 1]
-      #   log_scale: false    # Linear scale (default)
-        
-      # random_strength:
-      #   type: "float"
-      #   range: [1.0, 10.0]
-      #   log_scale: true
-        
-      # one_hot_max_size:
-      #   type: "categorical"
-      #   values: [10, 25, 50]
-    
-    lightgbm:
-      # Float parameter with log scale
-      learning_rate:
-        type: "float"
-        range: [0.01, 0.3]
-        log_scale: true
-      
-      # Integer parameter
-      num_leaves:
-        type: "int"
-        range: [20, 150]
-      
-      # Integer parameter 
-      max_depth:
-        type: "int"
-        range: [3, 12]
-      
-      # Integer parameter with explicit values
-      n_estimators:
-        type: "categorical"
-        values: [100, 200, 300]
-        
-      # Additional parameters (commented out as examples)
-      # min_data_in_leaf:
-      #   type: "categorical"
-      #   values: [10, 20, 50, 100]
-        
-      # feature_fraction:
-      #   type: "float"
-      #   range: [0.6, 1.0]
-        
-      # bagging_fraction:
-      #   type: "float"
-      #   range: [0.6, 1.0]
-        
-      # bagging_freq:
-      #   type: "int"
-      #   range: [0, 5]
-        
-    catboost_ranker:
-      # Float parameter with log scale
-      learning_rate:
-        type: "float"
-        range: [0.01, 0.3]
-        log_scale: true
-      
-      # Integer parameter
-      depth:
-        type: "int"
-        range: [4, 10]
-      
-      # Integer parameter with explicit values
-      iterations:
-        type: "categorical"
-        values: [300, 500, 800]
-      
-      # Float parameter with log scale
-      l2_leaf_reg:
-        type: "float"
-        range: [1.0, 10.0]
-        log_scale: true
-        
-      # Ranking-specific parameters
-      loss_function:
-        type: "categorical"
-        values: ["YetiRank", "YetiRankPairwise"]  # Simplified to focus on best ranking loss functions
-        
-      # Leaf estimation parameters
-      leaf_estimation_iterations:
-        type: "int"
-        range: [1, 15]
-        
-      # Randomization parameters
-      random_strength:
-        type: "float"
-        range: [0.1, 3.0]
-        
-      # Bagging temperature
-      bagging_temperature:
-        type: "float"
-        range: [0.0, 2.0]

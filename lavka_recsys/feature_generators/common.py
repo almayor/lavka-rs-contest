@@ -3,22 +3,25 @@ from ..config import Config
 
 import polars as pl
 
-def register_common_features():
+def register_common_fgens():
     # ========== BASIC FEATURES = ==========
-    @FeatureFactory.register('source_type', categorical_cols=['source_type'])
+    @FeatureFactory.register('source_type', cat_cols=['source_type'])
     def generate_source_type(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
         """Source type is already present, we just needed to register it as a categorical feature."""
         return target_df
 
-    @FeatureFactory.register('count_purchase_user_product')
+    @FeatureFactory.register(
+        'count_purchase_user_product',
+        num_cols=['count_purchase_u_p']
+    )
     def generate_count_purchase_user_product(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
         """Count purchases by user-product pairs"""
         return history_df.filter(
-            pl.col('action_type') == "AT_Purchase"
+            pl.col('action_type') == "AT_CartUpdate"
         ).group_by(
             'user_id', 'product_id'
         ).agg(
@@ -29,13 +32,16 @@ def register_common_features():
             how='right'
         ).fill_null(0)
 
-    @FeatureFactory.register('count_purchase_user_store')
+    @FeatureFactory.register(
+        'count_purchase_user_store',
+        num_cols=['count_purchase_u_s']
+    )
     def generate_count_purchase_user_store(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
         """Count purchases by user-store pairs"""
         return history_df.filter(
-            pl.col('action_type') == "AT_Purchase"
+            pl.col('action_type') == "AT_CartUpdate"
         ).group_by(
             'user_id', 'store_id'
         ).agg(
@@ -46,7 +52,7 @@ def register_common_features():
             how='right'
         ).fill_null(0)
 
-    @FeatureFactory.register('ctr_product')
+    @FeatureFactory.register('ctr_product', num_cols=['ctr_product'])
     def generate_ctr_product(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -73,7 +79,7 @@ def register_common_features():
             how='left'
         )
         
-    @FeatureFactory.register('cart_to_purchase_rate')
+    @FeatureFactory.register('cart_to_purchase_rate', num_cols=['cart_to_purchase_rate'])
     def generate_cart_to_purchase_rate(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -108,7 +114,7 @@ def register_common_features():
             cart_to_purchase_rate=pl.col('cart_to_purchase_rate').fill_null(0)
         )
         
-    @FeatureFactory.register('purchase_view_ratio')
+    @FeatureFactory.register('purchase_view_ratio', num_cols=['purchase_view_ratio'])
     def generate_purchase_view_ratio(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -143,7 +149,7 @@ def register_common_features():
             purchase_view_ratio=pl.col('purchase_view_ratio').fill_null(0)
         )
 
-    @FeatureFactory.register('recency_user_product')
+    @FeatureFactory.register('recency_user_product', num_cols=['last_interaction_u_p'])
     def generate_recency_user_product(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -161,7 +167,7 @@ def register_common_features():
             how='left'
         ).drop('last_interaction_u_p')
 
-    @FeatureFactory.register('recency_user_store')
+    @FeatureFactory.register('recency_user_store', num_cols=['last_interaction_u_s'])
     def generate_recency_user_store(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -179,14 +185,17 @@ def register_common_features():
             how='left'
         ).drop('last_interaction_u_s')
 
-    @FeatureFactory.register('user_stats')
+    @FeatureFactory.register(
+        'user_stats',
+        num_cols=['user_total_interactions', 'user_total_purchases', 'user_total_views', 'user_unique_products']
+    )
     def generate_user_stats(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
         """Generate user-level statistics"""
         feature = history_df.group_by('user_id').agg([
             pl.len().alias('user_total_interactions'),
-            pl.col('action_type').eq('AT_Purchase').sum().alias('user_total_purchases'),
+            pl.col('action_type').eq('AT_CartUpdate').sum().alias('user_total_purchases'),
             pl.col('action_type').eq('AT_View').sum().alias('user_total_views'),
             pl.n_unique('product_id').alias('user_unique_products')
         ])
@@ -196,14 +205,17 @@ def register_common_features():
             how='left'
         )
 
-    @FeatureFactory.register('product_stats')
+    @FeatureFactory.register(
+        'product_stats',
+        num_cols=['product_total_interactions', 'product_total_purchases', 'product_total_views', 'product_unique_users']
+    )
     def generate_product_stats(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
         """Generate product-level statistics"""
         features = history_df.group_by('product_id').agg([
             pl.len().alias('product_total_interactions'),
-            pl.col('action_type').eq('AT_Purchase').sum().alias('product_total_purchases'),
+            pl.col('action_type').eq('AT_CartUpdate').sum().alias('product_total_purchases'),
             pl.col('action_type').eq('AT_View').sum().alias('product_total_views'),
             pl.n_unique('user_id').alias('product_unique_users')
         ])
@@ -212,14 +224,17 @@ def register_common_features():
             on=['product_id'],
             how='left'
         )
-    @FeatureFactory.register('store_stats')
+    @FeatureFactory.register(
+        'store_stats',
+        num_cols=['store_total_interactions', 'store_total_purchases', 'store_total_views', 'store_unique_products']
+    )
     def generate_store_stats(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
         """Generate store-level statistics"""
         feature = history_df.group_by('store_id').agg([
             pl.len().alias('store_total_interactions'),
-            pl.col('action_type').eq('AT_Purchase').sum().alias('store_total_purchases'),
+            pl.col('action_type').eq('AT_CartUpdate').sum().alias('store_total_purchases'),
             pl.col('action_type').eq('AT_View').sum().alias('store_total_views'),
             pl.n_unique('product_id').alias('store_unique_products')
         ])
@@ -228,14 +243,19 @@ def register_common_features():
             on=['store_id'],
             how='left'
         )
-    @FeatureFactory.register('city_stats', categorical_cols=['city_name'])
+    
+    @FeatureFactory.register(
+        'city_stats',
+        num_cols=['city_total_interactions', 'city_total_purchases', 'city_total_views', 'city_unique_stores'],
+        cat_cols=['city_name']
+    )
     def generate_city_stats(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
         """Generate city-level statistics"""
         feature = history_df.group_by('city_name').agg([
             pl.len().alias('city_total_interactions'),
-            pl.col('action_type').eq('AT_Purchase').sum().alias('city_total_purchases'),
+            pl.col('action_type').eq('AT_CartUpdate').sum().alias('city_total_purchases'),
             pl.col('action_type').eq('AT_View').sum().alias('city_total_views'),
             pl.n_unique('store_id').alias('city_unique_stores')
         ])
@@ -256,7 +276,10 @@ def register_common_features():
 
     # ========== TIME FEATURES = ==========
 
-    @FeatureFactory.register('time_features')
+    @FeatureFactory.register(
+        'time_features',
+        num_cols=['hour_of_day', 'day_of_week', 'month', 'is_weekend']
+    )
     def generate_time_features(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -272,13 +295,18 @@ def register_common_features():
                         .alias('is_weekend')
         ])
 
-    @FeatureFactory.register('product_temporal_patterns')
+    @FeatureFactory.register(
+        'product_temporal_patterns',
+        num_cols=['avg_purchase_hour', 'std_purchase_hour', 
+                  'most_common_purchase_day', 'hour_relevance', 
+                  'day_of_week_relevance']
+    )
     def generate_product_temporal_patterns(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
         """Generate features related to typical purchase times and days for products"""
         # Filter to only purchase events
-        purchases = history_df.filter(pl.col('action_type') == "AT_Purchase")
+        purchases = history_df.filter(pl.col('action_type') == "AT_CartUpdate")
         
         # Extract temporal features
         purchases = purchases.with_columns(
@@ -344,7 +372,14 @@ def register_common_features():
 
     # ========== TIME WINDOW FEATURES ===========
 
-    @FeatureFactory.register('time_window_user_product')
+    @FeatureFactory.register(
+        'time_window_user_product',
+        num_cols=[
+            'interactions_day_u_p', 'interactions_week_u_p', 'interactions_month_u_p',
+            'purchases_day_u_p', 'purchases_week_u_p', 'purchases_month_u_p',
+            'views_day_u_p', 'views_week_u_p', 'views_month_u_p',
+        ]
+    )
     def generate_time_window_features(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -368,7 +403,7 @@ def register_common_features():
             # Count interactions in this window
             counts = window_df.group_by(['user_id', 'product_id']).agg([
                 pl.len().alias(f'interactions_{name}_u_p'),
-                pl.col('action_type').eq('AT_Purchase').sum().alias(f'purchases_{name}_u_p'),
+                pl.col('action_type').eq('AT_CartUpdate').sum().alias(f'purchases_{name}_u_p'),
                 pl.col('action_type').eq('AT_View').sum().alias(f'views_{name}_u_p')
             ])
             
@@ -378,7 +413,16 @@ def register_common_features():
 
     # ========== SESSION FEATURES = ==========
 
-    @FeatureFactory.register('session_features')
+    @FeatureFactory.register(
+        'session_features',
+        num_cols=[
+            'session_length',
+            'session_purchases',
+            'session_unique_products',
+            'session_unique_stores',
+            'session_duration_seconds'
+        ]
+    )
     def generate_session_features(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -450,7 +494,7 @@ def register_common_features():
 
     # ========== FREQUENCY FEATURES = ==========
 
-    @FeatureFactory.register('frequency_features')
+    @FeatureFactory.register('frequency_features', num_cols=['mean_interval_days'])
     def generate_frequency_features(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -517,7 +561,10 @@ def register_common_features():
 
     # ========== PRODUCT POPULARITY TRENDING = ==========
 
-    @FeatureFactory.register('product_popularity_trend')
+    @FeatureFactory.register(
+        'product_popularity_trend',
+        num_cols=['interaction_trend', 'purchase_trend']
+    )
     def generate_product_popularity_trend(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -570,7 +617,15 @@ def register_common_features():
 
     # ========== CROSS FEATURES = ==========
 
-    @FeatureFactory.register('cross_features', depends_on=['user_stats', 'product_stats', 'store_stats', 'city_stats'])
+    @FeatureFactory.register(
+        'cross_features',
+        num_cols=[
+            'user_product_purchase_cross',
+            'user_store_purchase_cross',
+            'user_product_store_cross'
+        ],
+        depends_on=['user_stats', 'product_stats', 'store_stats', 'city_stats']
+    )
     def generate_cross_features(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -610,7 +665,7 @@ def register_common_features():
 
     # ========== BEHAVIOURAL SEGMENTS ==========
 
-    @FeatureFactory.register('user_segments', categorical_cols=['user_segment'])
+    @FeatureFactory.register('user_segments', cat_cols=['user_segment'])
     def generate_user_segments(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:

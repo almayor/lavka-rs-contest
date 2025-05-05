@@ -177,11 +177,25 @@ class TextProcessor:
 
 
 # Add methods to FeatureFactory for text embeddings
-def register_text_embedding_features():
+def register_text_embedding_fgens():
     """Register text embedding methods with FeatureFactory"""
     from ..feature_factory import FeatureFactory
     
-    @FeatureFactory.register('product_embeddings')
+    @FeatureFactory.register(
+        'product_embeddings',
+        num_cols=[
+            'product_embed_0',
+            'product_embed_1',
+            'product_embed_2',
+            'product_embed_3',
+            'product_embed_4',
+            'product_embed_5',
+            'product_embed_6',
+            'product_embed_7',
+            'product_embed_8',
+            'product_embed_9',
+        ]
+    )
     def generate_product_embeddings(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -224,7 +238,21 @@ def register_text_embedding_features():
         
         return result
     
-    @FeatureFactory.register('category_embeddings')
+    @FeatureFactory.register(
+        'category_embeddings',
+        num_cols=[
+            'category_embed_0',
+            'category_embed_1',
+            'category_embed_2',
+            'category_embed_3',
+            'category_embed_4',
+            'category_embed_5',
+            'category_embed_6',
+            'category_embed_7',
+            'category_embed_8',
+            'category_embed_9',
+        ]
+    )
     def generate_category_embeddings(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -267,7 +295,15 @@ def register_text_embedding_features():
         
         return result
     
-    @FeatureFactory.register('user_product_distance')
+    @FeatureFactory.register(
+        'user_product_distance',
+        num_cols=[
+            'purchase_weighted_similarity',
+            'cart_weighted_similarity',
+            'min_purchase_similarity',
+            'min_cart_similarity',
+        ]
+    )
     def generate_user_product_distance(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -528,7 +564,11 @@ def register_text_embedding_features():
         
         return result
     
-    @FeatureFactory.register('text_similarity_cluster')
+    @FeatureFactory.register(
+        'text_similarity_cluster',
+        cat_cols=['cluster'],
+        num_cols=['cluster_purchase_ratio']
+    )
     def generate_text_similarity_cluster(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -648,7 +688,10 @@ def register_text_embedding_features():
             logger.warning("scikit-learn not available. Skipping text similarity clustering.")
             return target_df
     
-    @FeatureFactory.register('text_diversity_features')
+    @FeatureFactory.register(
+        'text_diversity_features',
+        num_cols=['distance_from_centroid', 'relative_diversity']
+    )
     def generate_text_diversity_features(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:

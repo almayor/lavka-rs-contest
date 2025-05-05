@@ -217,9 +217,9 @@ def compute_svd_factors(
     return u, s, vt
 
 # Add methods to FeatureFactory for collaborative filtering
-def register_cf_features():
+def register_cf_fgens():
 
-    @FeatureFactory.register('memory-based-cf')
+    @FeatureFactory.register('memory-based-cf', num_cols=['cf_score'])
     def compute_memory_based_cf_scores(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -261,7 +261,7 @@ def register_cf_features():
                 .alias("cf_score")
         )
 
-    @FeatureFactory.register('npmi-cf')
+    @FeatureFactory.register('npmi-cf', num_cols=['npmi_cf_score'])
     def compute_npmi_cf_scores(
         history_df: pl.DataFrame, target_df: pl.DataFrame
     ) -> pl.DataFrame:
@@ -319,7 +319,7 @@ def register_cf_features():
                 .alias("npmi_cf_score")
         )
 
-    @FeatureFactory.register('svd-cf')
+    @FeatureFactory.register('svd-cf', num_cols=['svd_cf_score'])
     def compute_svd_cf_scores(
         history_df: pl.DataFrame, 
         target_df: pl.DataFrame,
@@ -384,7 +384,7 @@ def register_cf_features():
                 .alias("svd_cf_score")
         )
 
-    @FeatureFactory.register('puresvd-cf')
+    @FeatureFactory.register('puresvd-cf', num_cols=['puresvd_cf_score'])
     def compute_puresvd_cf_scores(
         history_df: pl.DataFrame, 
         target_df: pl.DataFrame,
