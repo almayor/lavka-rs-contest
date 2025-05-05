@@ -108,8 +108,7 @@ from lavka_recsys.config import Config
 from lavka_recsys.experiment import Experiment
 
 # Load configuration from YAML file
-config = Config()
-config.load("my_config.yaml")
+config = Config.load("my_config.yaml")
 
 # Update an existing configuration (immutable)
 config = (config
