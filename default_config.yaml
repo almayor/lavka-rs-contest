@@ -80,6 +80,7 @@ features:
   - "npmi-cf"               # Collaborative filtering
   - "puresvd-cf"            # Collaborative filtering
   - "svd-cf"                # Collaborative filtering
+  - "bpr-popular"           # Implicit item2item
   # - "product_embeddings"    # NLP feature
   # - "category_embeddings"   # NLP feature
   # - "user_product_distance" # Weighted similarity between user history and product

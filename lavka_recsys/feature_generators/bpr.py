@@ -32,7 +32,7 @@ def register_bpr_fgens():
         grouped = target_df.to_pandas().groupby('user_id')
         # Dictionary to store scores for each user_id
         request_scores = {}
-        for user_id, group in tqdm(grouped):
+        for user_id, group in tqdm(grouped, desc="BPR processing"):
             # Skip cold users
             if user_id not in user2idx:
                 continue
@@ -41,6 +41,12 @@ def register_bpr_fgens():
             user_idx = user2idx[user_id]
             product_ids = group['product_id'].values
             product_idxs = [item2idx[pid] for pid in product_ids if pid in item2idx]
+            # Removing duplicate entries
+            product_idxs = list(set(product_idxs))
+
+            # Nothing to score for this user
+            if not product_idxs:
+                continue
 
             # Get scores for the specified products
             product_idxs, scores = bpr_model.recommend(

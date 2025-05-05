@@ -118,9 +118,11 @@ class Experiment:
         if val_splits:
             X_val, y_val, _, val_group_ids = \
                 self.feature_factory.generate_batch(*val_splits)
+            #Reorder columns for consistency
+            X_val = X_val.select(X_train.columns)
         else:
             X_val, y_val, _, val_group_ids = None, None, None, None
-
+        
         model = self.model_factory.create_model(model_params)
         start = time.time()
         model.train(
