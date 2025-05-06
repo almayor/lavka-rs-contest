@@ -36,23 +36,19 @@ def register_target_fgens():
     def target_weighted(history_df: pl.DataFrame, target_df: pl.DataFrame) -> pl.Series:
         """Assign different weights for 'AT_View', 'AT_CartUpdate', 'AT_Purchase', 'AT_Click'."""
         mapping = {
-            'AT_View': 0,
+            'AT_View': 0.0,
             'AT_CartUpdate': 0.85,
-            'AT_Purchase': 1,
+            'AT_Purchase': 1.0,
             'AT_Click': 0.3,
         }
-        return (
-            target_df
-            .with_columns(
-                pl.col('action_type').replace_strict(mapping, default=0).alias('target')
-            )
-            .group_by(['request_id', 'product_id'])
-            .agg(
-                #taking maximum score
-                pl.col('target').max().alias('target')
-            )
-            .get_column('target')
+        weighted = target_df.with_columns(
+            pl.col('action_type').replace_strict(mapping, default=0.0).alias('target')
         )
+        grouped = weighted.group_by(['request_id', 'product_id']).agg(
+            pl.col('target').max().alias('max_target')
+        )
+        result = target_df.join(grouped, on=['request_id', 'product_id'], how='left')
+        return result.get_column('max_target')
 
     @FeatureFactory.register_target('CartUpdate_conversion_aware')
     def target(history_df: pl.DataFrame, target_df: pl.DataFrame) -> pl.Series:

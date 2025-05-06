@@ -152,6 +152,12 @@ class Experiment:
         
         preds_arr = np.asarray(preds)
         true_arr = np.asarray(y_eval)
+
+        # Converting `true_arr` to a binary metric
+        if not np.isin(true_arr, [0, 1]).all():
+            self.logger.warning("Binarizing target for metric calculation")
+            true_arr = np.where(true_arr == true_arr.max(), 1, 0)
+    
         return self.calculate_metrics(true_arr, preds_arr, eval_group_ids)
 
     def _consolidate_metrics(

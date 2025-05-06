@@ -59,7 +59,7 @@ model:
       desc: True
 
 # Target definition
-target: "CartUpdate_Purchase_vs_View"
+target: "CartUpdate_vs_View"
 
 # Feature generators
 feature_generators:
