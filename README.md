@@ -5,16 +5,13 @@ A flexible and maintainable recommender system framework with configurable exper
 ## Overview
 
 - Streamlined experiment framework with a clean interface
-- Time-based data splitting for realistic evaluation
+- Efficient and extendable feature generation with dependency tracking
 - Feature caching with transparent integration
+- Time-based data splitting for realistic evaluation
 - Consistent directory structure for all outputs
-- Advanced text processing features:
-  - Weighted user-product similarity based on purchase history
-  - Semantic product clustering and user preferences tracking
-  - Text diversity and novelty metrics for recommendations
-- Rich set of behavioral and contextual features
 - Support for ranking models with CatBoostRanker
-- Efficient feature generation with dependency tracking
+- Rich set of behavioral, text and contextual features
+
 
 ## Usage Examples
 
