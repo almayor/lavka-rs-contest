@@ -2,7 +2,7 @@
 
 A flexible and maintainable recommender system framework with configurable experiments and feature generation capabilities.
 
-## Features
+## Overview
 
 - Streamlined experiment framework with a clean interface
 - Time-based data splitting for realistic evaluation
@@ -15,6 +15,88 @@ A flexible and maintainable recommender system framework with configurable exper
 - Rich set of behavioral and contextual features
 - Support for ranking models with CatBoostRanker
 - Efficient feature generation with dependency tracking
+
+## Usage Examples
+
+### Basic Usage
+
+```python
+from lavka_recsys.config import Config
+from lavka_recsys.experiment import Experiment
+
+# Load configuration from YAML file
+config = Config.load("my_config.yaml")
+
+# ALTERNATIVELY update an existing configuration (immutable)
+config = (config
+  .set('output.results_dir', "new_results")
+  .set('model.type', 'catboost_ranker')
+)
+
+# ALTERNATIVELY create configuration programmatically
+config = Config({
+    "data": {"train_path": "data/train.parquet", "test_path": "data/test.parquet"},
+    "features": ["count_purchase_user_product", "user_stats"],
+    "target": "CartUpdate_Purchase_vs_View",
+    ...
+    # model training parameters
+    # time split parameters
+    # data cleaning parameters
+})
+
+# Create experiment
+experiment = Experiment("basic_experiment", config)
+
+# Setup (load data, initialize components)
+experiment.setup()
+
+# Run experiment (trains model)
+results = experiment.run()
+
+# Create submission for evaluation
+submission = experiment.create_submission()
+
+print(f"Metrics: {results['metrics']}")
+```
+
+## Feature Generation
+
+To add custom features, register a feature generator in the feature factory:
+
+```python
+from lavka_recsys import FeatureFactory
+
+@FeatureFactory.register('my_custom_feature_generator', 
+                         num_cols=['feature1', 'feature2'], 
+                         cat_cols=['cat_feature'], 
+                         depends_on=["another_feature"])
+def generate_my_feature_generator(
+    history_df: pl.DataFrame,
+    feature_df: pl.DataFrame
+) -> pl.DataFrame:
+      # Add new columns to feature_df using history_df
+      feature_df = ...
+      return feature_df
+```
+
+Then you can turn on this feature generator simply by adding its name ("my_custom_feature_generator" in this case) to the list of `feature_generators` in the config.
+
+Similarly, to add a new target your can train on, register it as:
+
+```python
+from lavka_recsys import FeatureFactory
+
+@FeatureFactory.register_target('Custom_Target')
+def target_cart_update_purchase(
+  history_df: pl.DataFrame,
+  target_df: pl.DataFrame
+) -> pl.Series:
+    # The new target must contain a float for each row in `target_df`
+    my_target = ...
+    return my_target  
+```
+
+And then use it by setting `target: "Custom_Target"` in the config.
 
 ## Project Structure
 
@@ -107,88 +189,6 @@ output:
   feature_cache_dir: "results/feature_cache"
   submissions_dir: "results/submissions"
 ```
-
-## Usage Examples
-
-### Basic Usage
-
-```python
-from lavka_recsys.config import Config
-from lavka_recsys.experiment import Experiment
-
-# Load configuration from YAML file
-config = Config.load("my_config.yaml")
-
-# Update an existing configuration (immutable)
-config = (config
-  .set('output.results_dir', "new_results")
-  .set('model.type', 'catboost_ranker')
-)
-
-# Or create configuration programmatically
-config = Config({
-    "data": {"train_path": "data/train.parquet", "test_path": "data/test.parquet"},
-    "features": ["count_purchase_user_product", "user_stats"],
-    "target": "CartUpdate_Purchase_vs_View",
-    ...
-    # model training parameters
-    # time split parameters
-    # data cleaning parameters
-})
-
-# Create experiment
-experiment = Experiment("basic_experiment", config)
-
-# Setup (load data, initialize components)
-experiment.setup()
-
-# Run experiment (trains model)
-results = experiment.run()
-
-# Create submission for evaluation
-submission = experiment.create_submission()
-
-print(f"Metrics: {results['metrics']}")
-```
-
-## Feature Generation
-
-To add custom features, register a feature generator in the feature factory:
-
-```python
-from lavka_recsys import FeatureFactory
-
-@FeatureFactory.register('my_custom_feature_generator', 
-                         num_cols=['feature1', 'feature2'], 
-                         cat_cols=['cat_feature'], 
-                         depends_on=["another_feature"])
-def generate_my_feature_generator(
-    history_df: pl.DataFrame,
-    feature_df: pl.DataFrame
-) -> pl.DataFrame:
-      # Add new columns to feature_df using history_df
-      feature_df = ...
-      return feature_df
-```
-
-Then you can switch on this feature generator by adding its name to `config.get('feature_generators')`.
-Similarly, to add a new target alternative, register them as:
-
-```python
-from lavka_recsys import FeatureFactory
-
-@FeatureFactory.register_target('Custom_Target')
-def target_cart_update_purchase(
-  history_df: pl.DataFrame,
-  target_df: pl.DataFrame
-) -> pl.Series:
-    # The new target must contain a float for each row in `target_df`
-    my_target = ...
-    return my_target  
-```
-
-And then use it by setting `config.set('target', "Custom_Target")`.
-
 
 ## Installation
 
