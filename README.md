@@ -21,19 +21,28 @@ A flexible and maintainable recommender system framework with configurable exper
 ```
 lavka_recsys/
 ├── __init__.py
-├── config.py                  # Configuration management 
-├── custom_logging.py          # Logging utilities
 ├── data_loader.py             # Data loading and splitting
 ├── experiment.py              # Unified experiment framework
 ├── feature_factory.py         # Feature generation with caching
 ├── feature_generators/        # Feature generator implementations
 │   ├── __init__.py
+│   ├── bpr.py                 # Bayesian Personalized Ranking
 │   ├── collaborative_filtering.py  # Collaborative filtering features
-│   ├── text_processor.py      # Text embedding features 
-│   └── common.py              # Common feature generators
-├── metrics.py                 # Evaluation metrics
-├── model_factory.py           # Model creation and training
-└── visualizer.py              # Results visualization
+│   ├── common.py              # Common feature generators
+│   ├── targets.py             # Target definitions
+│   └── text_processor.py      # Text embedding features
+├── models/                    # Model implementations
+│   ├── __init__.py
+│   ├── base.py                # Base model interface
+│   ├── baseline.py            # Baseline models
+│   ├── catboost.py            # CatBoost models
+│   └── model_factory.py       # Model creation and training
+└── utils/                     # Utility modules
+    ├── config.py              # Configuration management
+    ├── custom_logging.py      # Logging utilities
+    ├── matrix_operations.py   # Matrix math operations
+    ├── metrics.py             # Evaluation metrics
+    └── visualizer.py          # Results visualization
 
 results/                       # Centralized output directory
 ├── feature_cache/             # Cached computed features
@@ -223,8 +232,15 @@ pip install sentence-transformers
 
 5. **ModelFactory** (`models/model_factory.py`)
    - Creates model instances based on configuration
-   - Supports multiple model types
+   - Supports multiple model types (baseline, CatBoost)
    - Handles all model-specific configurations and parameters
+
+6. **Utils** (`utils/`)
+   - Configuration management with immutable config objects
+   - Customized logging setup
+   - Matrix operations for collaborative filtering
+   - Evaluation metrics for recommendation tasks
+   - Results visualization
 
 ## Available Features and Generated Columns
 
