@@ -1,10 +1,11 @@
 from ..feature_factory import FeatureFactory
+from ..utils.config import Config
 
 import polars as pl
 
 def register_target_fgens():
     @FeatureFactory.register_target('CartUpdate_vs_View')
-    def target(history_df: pl.DataFrame, target_df: pl.DataFrame) -> pl.Series:
+    def target(history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config) -> pl.Series:
         """Assign 0 for 'AT_View' and 1 for 'AT_CartUpdate'."""
         mapping = {
             'AT_View': 0,
@@ -18,7 +19,7 @@ def register_target_fgens():
         )['target']
 
     @FeatureFactory.register_target('CartUpdate_Purchase_vs_View')
-    def target_cart_update_purchase(history_df: pl.DataFrame, target_df: pl.DataFrame) -> pl.Series:
+    def target_cart_update_purchase(history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config) -> pl.Series:
         """Assign 0 for 'AT_View' and 1 for 'AT_CartUpdate' and 'AT_Purchase'."""
         mapping = {
             'AT_View': 0,
@@ -33,7 +34,7 @@ def register_target_fgens():
         )['target']
     
     @FeatureFactory.register_target('Weighted')
-    def target_weighted(history_df: pl.DataFrame, target_df: pl.DataFrame) -> pl.Series:
+    def target_weighted(history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config) -> pl.Series:
         """Assign different weights for 'AT_View', 'AT_CartUpdate', 'AT_Purchase', 'AT_Click'."""
         mapping = {
             'AT_View': 0.0,
@@ -51,7 +52,7 @@ def register_target_fgens():
         return result.get_column('max_target')
 
     @FeatureFactory.register_target('CartUpdate_conversion_aware')
-    def target(history_df: pl.DataFrame, target_df: pl.DataFrame) -> pl.Series:
+    def target(history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config) -> pl.Series:
         """Assign 0 for 'AT_View' and 1 for 'AT_CartUpdate' and 'AT_Purchase'."""
         conversion_action_types = ["AT_CartUpdate", "AT_Purchase", "AT_Click"]
         target_df = target_df.with_columns(

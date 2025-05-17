@@ -5,13 +5,14 @@ from tqdm.auto import tqdm
 
 from ..feature_factory import FeatureFactory
 from ..utils.matrix_operations import build_interaction_matrix
+from ..utils.config import Config
 
 
 def register_bpr_fgens():
 
     @FeatureFactory.register('bpr-popular', num_cols=['bpr_popular_score'])
     def compute_bpr_popular_scores(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         
         df_interact = history_df.filter(

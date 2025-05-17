@@ -9,7 +9,7 @@ def register_common_fgens():
     # ========== BASIC FEATURES = ==========
     @FeatureFactory.register('random_noise', num_cols=['random_noise'])
     def generate_random_noise(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Just a meaningless feature that's need for testing and baselines"""
         noise = np.random.rand(target_df.height)  #Values between 0 and 1
@@ -20,7 +20,7 @@ def register_common_fgens():
 
     @FeatureFactory.register('source_type', cat_cols=['source_type'])
     def generate_source_type(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Source type is already present, we just needed to register it as a categorical feature."""
         return target_df
@@ -30,7 +30,7 @@ def register_common_fgens():
         num_cols=['count_purchase_u_p']
     )
     def generate_count_purchase_user_product(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Count purchases by user-product pairs"""
         return history_df.filter(
@@ -50,7 +50,7 @@ def register_common_fgens():
         num_cols=['count_purchase_u_s']
     )
     def generate_count_purchase_user_store(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Count purchases by user-store pairs"""
         return history_df.filter(
@@ -67,7 +67,7 @@ def register_common_fgens():
 
     @FeatureFactory.register('ctr_product', num_cols=['ctr_product'])
     def generate_ctr_product(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Calculate CTR (Click-Through Rate) for products"""
         actions = history_df.group_by(
@@ -94,7 +94,7 @@ def register_common_fgens():
         
     @FeatureFactory.register('cart_to_purchase_rate', num_cols=['cart_to_purchase_rate'])
     def generate_cart_to_purchase_rate(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Calculate Cart-to-Purchase conversion rate for products"""
         actions = history_df.group_by(
@@ -129,7 +129,7 @@ def register_common_fgens():
         
     @FeatureFactory.register('purchase_view_ratio', num_cols=['purchase_view_ratio'])
     def generate_purchase_view_ratio(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Calculate Purchase-to-View ratio for products"""
         actions = history_df.group_by(
@@ -164,7 +164,7 @@ def register_common_fgens():
 
     @FeatureFactory.register('recency_user_product', num_cols=['days_since_interaction_u_p'])
     def generate_recency_user_product(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Generate recency features for user-product pairs"""
         latest_time = history_df['timestamp'].max()
@@ -182,7 +182,7 @@ def register_common_fgens():
 
     @FeatureFactory.register('recency_user_store', num_cols=['days_since_interaction_u_s'])
     def generate_recency_user_store(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Generate recency features for user-store pairs"""
         latest_time = history_df['timestamp'].max()
@@ -203,7 +203,7 @@ def register_common_fgens():
         num_cols=['user_total_interactions', 'user_total_purchases', 'user_total_views', 'user_unique_products']
     )
     def generate_user_stats(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Generate user-level statistics"""
         feature = history_df.group_by('user_id').agg([
@@ -223,7 +223,7 @@ def register_common_fgens():
         num_cols=['product_total_interactions', 'product_total_purchases', 'product_total_views', 'product_unique_users']
     )
     def generate_product_stats(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Generate product-level statistics"""
         features = history_df.group_by('product_id').agg([
@@ -242,7 +242,7 @@ def register_common_fgens():
         num_cols=['store_total_interactions', 'store_total_purchases', 'store_total_views', 'store_unique_products']
     )
     def generate_store_stats(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Generate store-level statistics"""
         feature = history_df.group_by('store_id').agg([
@@ -263,7 +263,7 @@ def register_common_fgens():
         cat_cols=['city_name']
     )
     def generate_city_stats(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Generate city-level statistics"""
         feature = history_df.group_by('city_name').agg([
@@ -295,7 +295,7 @@ def register_common_fgens():
         cat_cols=['is_weekend']
     )
     def generate_time_features(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Generate time-related features (hour of day, day of week, etc.)"""
         return target_df.with_columns([
@@ -316,7 +316,7 @@ def register_common_fgens():
                   'day_of_week_relevance']
     )
     def generate_product_temporal_patterns(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Generate features related to typical purchase times and days for products"""
         # Filter to only purchase events
@@ -395,7 +395,7 @@ def register_common_fgens():
         ]
     )
     def generate_time_window_features(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Generate time-window based features for user-product pairs"""
         latest_time = history_df['timestamp'].max()
@@ -438,7 +438,7 @@ def register_common_fgens():
         ]
     )
     def generate_session_features(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """
         Generate session-based features.
@@ -510,7 +510,7 @@ def register_common_fgens():
 
     @FeatureFactory.register('frequency_features', num_cols=['mean_interval_days'])
     def generate_frequency_features(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Generate frequency-based features"""
         #TODO interactions may span both history and target data!
@@ -580,7 +580,7 @@ def register_common_fgens():
         num_cols=['interaction_trend', 'purchase_trend']
     )
     def generate_product_popularity_trend(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Generate product popularity trend features"""
         # Get the earliest and latest timestamp
@@ -641,7 +641,7 @@ def register_common_fgens():
         depends_on=['user_stats', 'product_stats', 'store_stats', 'city_stats']
     )
     def generate_cross_features(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Generate cross-features (interactions between existing features)"""
         # First ensure the base features exist
@@ -681,7 +681,7 @@ def register_common_fgens():
 
     @FeatureFactory.register('user_segments', cat_cols=['user_segment'])
     def generate_user_segments(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Segment users based on their behavior"""
         # Calculate user metrics

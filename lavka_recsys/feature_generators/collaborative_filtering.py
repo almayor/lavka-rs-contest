@@ -8,6 +8,7 @@ from scipy.sparse.linalg import svds
 
 from ..feature_factory import FeatureFactory
 from ..utils.matrix_operations import build_interaction_matrix
+from ..utils.config import Config
 
 def get_npmi_matrix(interaction_matrix: csr_matrix) -> np.ndarray:
     """
@@ -187,7 +188,7 @@ def register_cf_fgens():
 
     @FeatureFactory.register('memory-based-cf', num_cols=['cf_score'])
     def compute_memory_based_cf_scores(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """
         Computes memory-based collaborative filtering scores.
@@ -232,7 +233,7 @@ def register_cf_fgens():
 
     @FeatureFactory.register('npmi-cf', num_cols=['npmi_cf_score'])
     def compute_npmi_cf_scores(
-        history_df: pl.DataFrame, target_df: pl.DataFrame
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """
         Computes NPMI-based collaborative filtering scores.
@@ -295,6 +296,7 @@ def register_cf_fgens():
     def compute_svd_cf_scores(
         history_df: pl.DataFrame, 
         target_df: pl.DataFrame,
+        config: Config,
         n_factors: int = 50,
         normalize: bool = True
     ) -> pl.DataFrame:
