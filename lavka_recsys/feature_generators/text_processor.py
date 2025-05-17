@@ -31,7 +31,7 @@ class TextProcessor:
         self.embedding_size: int = 0
         self.model_type: str = ""
 
-        model_type_config = self.config.get('text_processing.model_type', 'sentence-transformers')
+        model_type_config = self.config.get('feature_config.text_processing.model_type', 'sentence-transformers')
 
         if model_type_config == 'sentence-transformers':
             self._load_sentence_transformers()
@@ -48,9 +48,9 @@ class TextProcessor:
 
     def _load_sentence_transformers(self):
         """Load SentenceTransformers model"""
-        try
+        try:
             model_name = self.config.get(
-                'text_processing.model_name',
+                'feature_config.text_processing.model_name',
                 'paraphrase-multilingual-MiniLM-L12-v2'
             )
             self.model = SentenceTransformer(model_name)
@@ -76,7 +76,7 @@ class TextProcessor:
         """Load Word2Vec model"""
         try:
             model_name = self.config.get(
-                'text_processing.model_name',
+                'feature_config.text_processing.model_name',
                 'word2vec-ruscorpora-300'
             )
             self.model = api.load(model_name)
@@ -97,7 +97,7 @@ class TextProcessor:
         """Load FastText model"""
         try:
             model_path = self.config.get(
-                'text_processing.model_path',
+                'feature_config.text_processing.model_path',
                 'cc.ru.300.bin'
             )
             self.model = fasttext.load_model(model_path)
@@ -201,13 +201,13 @@ def get_text_processor(config: Config) -> TextProcessor:
     """
     global _text_processor_instance, _text_processor_config_cache
 
-    current_model_type = config.get('text_processing.model_type')
-    current_model_name = config.get('text_processing.model_name', config.get('text_processing.model_path'))
+    current_model_type = config.get('feature_config.text_processing.model_type')
+    current_model_name = config.get('feature_config.text_processing.model_name', config.get('feature_config.text_processing.model_path'))
 
     if _text_processor_instance is None or \
        _text_processor_config_cache is None or \
-       _text_processor_config_cache.get('text_processing.model_type') != current_model_type or \
-       _text_processor_config_cache.get('text_processing.model_name', _text_processor_config_cache.get('text_processing.model_path')) != current_model_name:
+       _text_processor_config_cache.get('feature_config.text_processing.model_type') != current_model_type or \
+       _text_processor_config_cache.get('feature_config.text_processing.model_name', _text_processor_config_cache.get('feature_config.text_processing.model_path')) != current_model_name:
         
         _logger_instance.info(f"Initializing TextProcessor with model: {current_model_type} - {current_model_name}")
         _text_processor_instance = TextProcessor(config)
@@ -231,7 +231,7 @@ def _get_product_embeddings_df(
     Generates and caches embeddings for unique product IDs or categories.
     Returns a Polars DataFrame with [id_col, embed_0, embed_1, ...].
     """
-    cache_key = f"{id_col}_{text_processor.model_type}_{text_processor.config.get('text_processing.model_name', text_processor.config.get('text_processing.model_path'))}"
+    cache_key = f"{id_col}_{text_processor.model_type}_{text_processor.config.get('feature_config.text_processing.model_name', text_processor.config.get('feature_config.text_processing.model_path'))}"
     
     if cache_key in _product_embeddings_cache:
         _logger_instance.info(f"Using cached embeddings for {id_col}")
@@ -251,7 +251,7 @@ def _get_product_embeddings_df(
     if not item_texts:
         _logger_instance.warning(f"No unique texts found for {id_col}. Returning empty embeddings DataFrame.")
         # Create an empty DataFrame with the expected structure if possible
-        dim = config.get('text_processing.embedding_dimensions', 10) # Default to 10 if not reducible
+        dim = config.get('feature_config.text_processing.embedding_dimensions', 10) # Default to 10 if not reducible
         if text_processor.embedding_size > 0 and text_processor.embedding_size < dim:
             dim = text_processor.embedding_size
         elif text_processor.embedding_size == 0: # Model loading failed
@@ -268,7 +268,7 @@ def _get_product_embeddings_df(
 
     # Reduce dimensions if configured and embeddings are valid
     if embeddings.shape[1] > 1: # Only reduce if embeddings are not the dummy (N,1) zeros
-        dimensions = config.get('text_processing.embedding_dimensions', 20) # Default from original code
+        dimensions = config.get('feature_config.text_processing.embedding_dimensions', 20) # Default from original code
         if embeddings.shape[1] > dimensions:
             embeddings = text_processor.reduce_dimensions(embeddings, dimensions)
     
@@ -296,7 +296,7 @@ def register_text_embedding_fgens():
 
     @FeatureFactory.register(
         'product_embeddings',
-        # This list must match the number of dimensions configured in 'text_processing.embedding_dimensions'
+        # This list must match the number of dimensions configured in 'feature_config.text_processing.embedding_dimensions'
         # or the raw embedding size if reduction is skipped or fails.
         # Example for 20 dimensions:
         num_cols=[f'product_embed_{i}' for i in range(20)] 
@@ -546,7 +546,7 @@ def register_text_embedding_fgens():
 
 
         try:
-            n_clusters = config.get('text_processing.n_clusters', 15)
+            n_clusters = config.get('feature_config.text_processing.n_clusters', 15)
             if product_embeddings_np.shape[0] < n_clusters:
                 logger.warning(f"Number of products with embeddings ({product_embeddings_np.shape[0]}) is less than n_clusters ({n_clusters}). Adjusting n_clusters.")
                 n_clusters = max(1, product_embeddings_np.shape[0]) # Ensure at least 1 cluster

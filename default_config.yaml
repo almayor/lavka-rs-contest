@@ -69,30 +69,30 @@ feature_generators:
   - "ctr_product"
   - "cart_to_purchase_rate"         
   - "purchase_view_ratio"          
-  - "recency_user_product"
-  - "user_stats"
-  - "product_stats"
-  - "store_stats"
-  - "city_stats"
-  - "product_temporal_patterns"
-  - "recency_user_store"
-  - "time_features_cycl"
-  - "time_window_user_product"
-  - "session_features"
-  - "frequency_features"
-  - "product_popularity_trend"
-  - "cross_features"
-  - "user_segments"
-  - "memory-based-cf"       # Collaborative filtering
-  - "npmi-cf"               # Collaborative filtering
-  - "puresvd-cf"            # Collaborative filtering
-  - "svd-cf"                # Collaborative filtering
-  - "bpr-popular"           # Implicit item2item
-  # - "product_embeddings"    # NLP feature
-  # - "category_embeddings"   # NLP feature
-  # - "user_product_distance" # Weighted similarity between user history and product
-  # - "text_similarity_cluster" # Product clusters based on text similarity
-  # - "text_diversity_features" # How different a product is from user's history
+  # - "recency_user_product"
+  # - "user_stats"
+  # - "product_stats"
+  # - "store_stats"
+  # - "city_stats"
+  # - "product_temporal_patterns"
+  # - "recency_user_store"
+  # - "time_features_cycl"
+  # - "time_window_user_product"
+  # - "session_features"
+  # - "frequency_features"
+  # - "product_popularity_trend"
+  # - "cross_features"
+  # - "user_segments"
+  # - "memory-based-cf"       # Collaborative filtering
+  # - "npmi-cf"               # Collaborative filtering
+  # - "puresvd-cf"            # Collaborative filtering
+  # - "svd-cf"                # Collaborative filtering
+  # - "bpr-popular"           # Implicit item2item
+  - "product_embeddings"    # NLP feature
+  - "category_embeddings"   # NLP feature
+  - "user_product_similarity" # Weighted similarity between user history and product
+  - "text_similarity_cluster" # Product clusters based on text similarity
+  - "text_diversity_features" # How different a product is from user's history
 
 # Feature generation settings
 feature_config:
