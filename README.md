@@ -2,38 +2,126 @@
 
 A flexible and maintainable recommender system framework with configurable experiments and feature generation capabilities.
 
-## Features
+## Overview
 
 - Streamlined experiment framework with a clean interface
-- Time-based data splitting for realistic evaluation
+- Efficient and extendable feature generation with dependency tracking
 - Feature caching with transparent integration
+- Time-based data splitting for realistic evaluation
 - Consistent directory structure for all outputs
-- Advanced text processing features:
-  - Weighted user-product similarity based on purchase history
-  - Semantic product clustering and user preferences tracking
-  - Text diversity and novelty metrics for recommendations
-- Rich set of behavioral and contextual features
 - Support for ranking models with CatBoostRanker
-- Efficient feature generation with dependency tracking
+- Rich set of behavioral, text and contextual features
+
+
+## Usage Examples
+
+### Basic Usage
+
+```python
+from lavka_recsys.config import Config
+from lavka_recsys.experiment import Experiment
+
+# Load configuration from YAML file
+config = Config.load("my_config.yaml")
+
+# ALTERNATIVELY update an existing configuration (immutable)
+config = (config
+  .set('output.results_dir', "new_results")
+  .set('model.type', 'catboost_ranker')
+)
+
+# ALTERNATIVELY create configuration programmatically
+config = Config({
+    "data": {"train_path": "data/train.parquet", "test_path": "data/test.parquet"},
+    "features": ["count_purchase_user_product", "user_stats"],
+    "target": "CartUpdate_Purchase_vs_View",
+    ...
+    # model training parameters
+    # time split parameters
+    # data cleaning parameters
+})
+
+# Create experiment
+experiment = Experiment("basic_experiment", config)
+
+# Setup (load data, initialize components)
+experiment.setup()
+
+# Run experiment (trains model)
+results = experiment.run()
+
+# Create submission for evaluation
+submission = experiment.create_submission()
+
+print(f"Metrics: {results['metrics']}")
+```
+
+## Feature Generation
+
+To add custom features, register a feature generator in the feature factory:
+
+```python
+from lavka_recsys import FeatureFactory
+
+@FeatureFactory.register('my_custom_feature_generator', 
+                         num_cols=['feature1', 'feature2'], 
+                         cat_cols=['cat_feature'], 
+                         depends_on=["another_feature"])
+def generate_my_feature_generator(
+    history_df: pl.DataFrame,
+    feature_df: pl.DataFrame
+) -> pl.DataFrame:
+      # Add new columns to feature_df using history_df
+      feature_df = ...
+      return feature_df
+```
+
+Then you can turn on this feature generator simply by adding its name ("my_custom_feature_generator" in this case) to the list of `feature_generators` in the config.
+
+Similarly, to add a new target your can train on, register it as:
+
+```python
+from lavka_recsys import FeatureFactory
+
+@FeatureFactory.register_target('Custom_Target')
+def target_cart_update_purchase(
+  history_df: pl.DataFrame,
+  target_df: pl.DataFrame
+) -> pl.Series:
+    # The new target must contain a float for each row in `target_df`
+    my_target = ...
+    return my_target  
+```
+
+And then use it by setting `target: "Custom_Target"` in the config.
 
 ## Project Structure
 
 ```
 lavka_recsys/
 ├── __init__.py
-├── config.py                  # Configuration management 
-├── custom_logging.py          # Logging utilities
 ├── data_loader.py             # Data loading and splitting
 ├── experiment.py              # Unified experiment framework
 ├── feature_factory.py         # Feature generation with caching
 ├── feature_generators/        # Feature generator implementations
 │   ├── __init__.py
+│   ├── bpr.py                 # Bayesian Personalized Ranking
 │   ├── collaborative_filtering.py  # Collaborative filtering features
-│   ├── text_processor.py      # Text embedding features 
-│   └── common.py              # Common feature generators
-├── metrics.py                 # Evaluation metrics
-├── model_factory.py           # Model creation and training
-└── visualizer.py              # Results visualization
+│   ├── common.py              # Common feature generators
+│   ├── targets.py             # Target definitions
+│   └── text_processor.py      # Text embedding features
+├── models/                    # Model implementations
+│   ├── __init__.py
+│   ├── base.py                # Base model interface
+│   ├── baseline.py            # Baseline models
+│   ├── catboost.py            # CatBoost models
+│   └── model_factory.py       # Model creation and training
+└── utils/                     # Utility modules
+    ├── config.py              # Configuration management
+    ├── custom_logging.py      # Logging utilities
+    ├── matrix_operations.py   # Matrix math operations
+    ├── metrics.py             # Evaluation metrics
+    └── visualizer.py          # Results visualization
 
 results/                       # Centralized output directory
 ├── feature_cache/             # Cached computed features
@@ -99,88 +187,6 @@ output:
   submissions_dir: "results/submissions"
 ```
 
-## Usage Examples
-
-### Basic Usage
-
-```python
-from lavka_recsys.config import Config
-from lavka_recsys.experiment import Experiment
-
-# Load configuration from YAML file
-config = Config.load("my_config.yaml")
-
-# Update an existing configuration (immutable)
-config = (config
-  .set('output.results_dir', "new_results")
-  .set('model.type', 'catboost_ranker')
-)
-
-# Or create configuration programmatically
-config = Config({
-    "data": {"train_path": "data/train.parquet", "test_path": "data/test.parquet"},
-    "features": ["count_purchase_user_product", "user_stats"],
-    "target": "CartUpdate_Purchase_vs_View",
-    ...
-    # model training parameters
-    # time split parameters
-    # data cleaning parameters
-})
-
-# Create experiment
-experiment = Experiment("basic_experiment", config)
-
-# Setup (load data, initialize components)
-experiment.setup()
-
-# Run experiment (trains model)
-results = experiment.run()
-
-# Create submission for evaluation
-submission = experiment.create_submission()
-
-print(f"Metrics: {results['metrics']}")
-```
-
-## Feature Generation
-
-To add custom features, register a feature generator in the feature factory:
-
-```python
-from lavka_recsys import FeatureFactory
-
-@FeatureFactory.register('my_custom_feature_generator', 
-                         num_cols=['feature1', 'feature2'], 
-                         cat_cols=['cat_feature'], 
-                         depends_on=["another_feature"])
-def generate_my_feature_generator(
-    history_df: pl.DataFrame,
-    feature_df: pl.DataFrame
-) -> pl.DataFrame:
-      # Add new columns to feature_df using history_df
-      feature_df = ...
-      return feature_df
-```
-
-Then you can switch on this feature generator by adding its name to `config.get('feature_generators')`.
-Similarly, to add a new target alternative, register them as:
-
-```python
-from lavka_recsys import FeatureFactory
-
-@FeatureFactory.register_target('Custom_Target')
-def target_cart_update_purchase(
-  history_df: pl.DataFrame,
-  target_df: pl.DataFrame
-) -> pl.Series:
-    # The new target must contain a float for each row in `target_df`
-    my_target = ...
-    return my_target  
-```
-
-And then use it by setting `config.set('target', "Custom_Target")`.
-
-
 ## Installation
 
 1. Install dependencies:
@@ -223,8 +229,15 @@ pip install sentence-transformers
 
 5. **ModelFactory** (`models/model_factory.py`)
    - Creates model instances based on configuration
-   - Supports multiple model types
+   - Supports multiple model types (baseline, CatBoost)
    - Handles all model-specific configurations and parameters
+
+6. **Utils** (`utils/`)
+   - Configuration management with immutable config objects
+   - Customized logging setup
+   - Matrix operations for collaborative filtering
+   - Evaluation metrics for recommendation tasks
+   - Results visualization
 
 ## Available Features and Generated Columns
 
