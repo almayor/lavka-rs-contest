@@ -147,7 +147,7 @@ class DataLoader:
                 # Compute full-day span
                 days = (t1 - t0).days
                 self.logger.info(
-                    f"  {part_name}: {t0} → {t1} "
+                    f"  {part_name}:\t{t0} → {t1} "
                     f"({cnt:_} rows, {days} days)"
                 )
         
