@@ -365,6 +365,7 @@ def register_cf_fgens():
     def compute_puresvd_cf_scores(
         history_df: pl.DataFrame, 
         target_df: pl.DataFrame,
+        config: Config,
         n_factors: int = 50,
         implicit: bool = True,
         normalize_users: bool = False

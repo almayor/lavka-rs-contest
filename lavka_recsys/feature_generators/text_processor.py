@@ -288,7 +288,7 @@ def register_text_embedding_fgens():
     # It's better to fetch this from config inside the generator or make FeatureFactory smarter.
     # For now, assuming a default or that FeatureFactory handles mismatched num_cols gracefully.
     PRODUCT_EMBED_DIMS = 20 
-    CATEGORY_EMBED_DIMS = 10 
+    CATEGORY_EMBED_DIMS = 20 
 
     @FeatureFactory.register(
         'product_embeddings',
@@ -442,7 +442,7 @@ def register_text_embedding_fgens():
             
             current_features = default_feature_cols.copy()
             # Use original user_id from row_dict which comes from target_df before Utf8 casting for join
-            current_features['user_id'] = row_dict['user_id_ fysis'] if 'user_id_ fysis' in row_dict else row_dict['user_id'] # Fallback to user_id if original not present
+            current_features['user_id'] = row_dict['user_id']
             current_features['product_id'] = row_dict['product_id']
 
 
@@ -725,6 +725,10 @@ def register_text_embedding_fgens():
         div_features_schema.update({k: pl.Float64 for k in default_diversity_cols})
         
         features_df = pl.DataFrame(diversity_features_list, schema=div_features_schema) if diversity_features_list else pl.DataFrame([], schema=div_features_schema)
+        features_df = features_df.unique(
+            subset=['user_id', 'product_id'],
+            keep='last'
+        )
         
         final_df = target_df.join(features_df, on=['user_id', 'product_id'], how='left')
         for col_name in default_diversity_cols:
