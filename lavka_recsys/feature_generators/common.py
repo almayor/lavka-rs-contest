@@ -200,6 +200,24 @@ def register_common_fgens():
             on=['user_id', 'product_id'],
             how='left'
         ).drop('last_interaction_u_p')
+    
+    @FeatureFactory.register('recency_user_category', num_cols=['days_since_interaction_u_c'])
+    def generate_recency_user_category(
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
+    ) -> pl.DataFrame:
+        """Generate recency features for user-product pairs"""
+        latest_time = history_df['timestamp'].max()
+        
+        feature = history_df.group_by(['user_id', 'product_category']).agg(
+            pl.max('timestamp').alias('last_interaction_u_c')
+        ).with_columns(
+            days_since_interaction_u_c=(latest_time - pl.col('last_interaction_u_c')).dt.total_days()
+        )
+        return target_df.join(
+            feature,
+            on=['user_id', 'product_category'],
+            how='left'
+        ).drop('last_interaction_u_c')
 
     @FeatureFactory.register('recency_user_store', num_cols=['days_since_interaction_u_s'])
     def generate_recency_user_store(

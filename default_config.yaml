@@ -71,6 +71,7 @@ feature_generators:
   - "cart_to_purchase_rate"         
   - "purchase_view_ratio"          
   - "recency_user_product"
+  - "recency_user_category"
   - "user_stats"
   - "product_stats"
   - "store_stats"
