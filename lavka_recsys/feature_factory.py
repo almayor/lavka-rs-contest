@@ -316,7 +316,7 @@ class CachedFeatureFactory:
 
         cached = self._load(key)
         if cached is not None:
-            self.logger.info("Using cached feature batch")
+            self.logger.info(f"Using cached feature batch (key={key})")
             return cached
 
         # No cache: generate
