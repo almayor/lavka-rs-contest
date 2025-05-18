@@ -1,8 +1,8 @@
 import numpy as np
 import polars as pl
 from typing import List, Dict, Any, Tuple, Optional, Union
-import re # Not used directly in this snippet, but often present
 from sentence_transformers import SentenceTransformer
+from tqdm.auto import tqdm, trange
 import gensim
 import gensim.downloader as api # type: ignore
 import fasttext # type: ignore
@@ -222,7 +222,8 @@ def _get_product_embeddings_df(
     text_processor: TextProcessor,
     config: Config,
     id_col: str, 
-    text_col: str 
+    text_col: str,
+    embed_col_prefix: Optional[str] = None
 ) -> pl.DataFrame:
     cache_key = f"{id_col}_{text_processor.model_type}_{text_processor.config.get('feature_config.text_processing.model_name', text_processor.config.get('feature_config.text_processing.model_path'))}_{config.get('feature_config.text_processing.embedding_dimensions')}"
     
@@ -250,7 +251,7 @@ def _get_product_embeddings_df(
         elif text_processor.embedding_size == 0: 
             dim = 1 
         
-        embed_col_prefix = id_col.replace('_id','').replace('_category','cat')
+        embed_col_prefix = embed_col_prefix or id_col.replace('_id','').replace('_category','cat')
         feature_names = [f"{embed_col_prefix}_embed_{i}" for i in range(dim)]
         
         schema_dict: Dict[str, Any] = {id_col: item_ids.dtype} 
@@ -267,7 +268,7 @@ def _get_product_embeddings_df(
             embeddings = text_processor.reduce_dimensions(embeddings, dimensions)
     
     num_embedding_dims = embeddings.shape[1]
-    embed_col_prefix = id_col.replace('_id','').replace('_category','cat')
+    embed_col_prefix = embed_col_prefix or id_col.replace('_id','').replace('_category','cat')
     feature_names = [f"{embed_col_prefix}_embed_{i}" for i in range(num_embedding_dims)]
     
     data_dict: Dict[str, Any] = {id_col: item_ids} 
@@ -298,7 +299,7 @@ def register_text_embedding_fgens():
     ) -> pl.DataFrame:
         text_processor = get_text_processor(config)
         product_embed_df = _get_product_embeddings_df(
-            history_df, target_df, text_processor, config, 'product_id', 'product_name'
+            history_df, target_df, text_processor, config, 'product_id', 'product_name', 'product'
         )
         # Note: The actual number of columns in product_embed_df depends on config's embedding_dimensions.
         # The num_cols in decorator must align.
@@ -315,7 +316,7 @@ def register_text_embedding_fgens():
         h_df = history_df.with_columns(pl.col("product_category").fill_null("UNKNOWN_CATEGORY"))
         t_df = target_df.with_columns(pl.col("product_category").fill_null("UNKNOWN_CATEGORY"))
         category_embed_df = _get_product_embeddings_df(
-            h_df, t_df, text_processor, config, 'product_category', 'product_category'
+            h_df, t_df, text_processor, config, 'product_category', 'product_category', 'cat'
         )
         return target_df.join(category_embed_df, on='product_category', how='left').fill_null(0)
 
@@ -436,7 +437,7 @@ def register_text_embedding_fgens():
         original_user_id_dtype = target_df['user_id'].dtype
         original_product_id_dtype = target_df['product_id'].dtype
 
-        for row_dict in target_with_embeddings.iter_rows(named=True):
+        for row_dict in tqdm(target_with_embeddings.iter_rows(named=True), total=len(target_with_embeddings)):
             target_emb_list = [row_dict.get(col) for col in embedding_cols] 
             
             current_features = default_feature_cols.copy()
@@ -674,7 +675,7 @@ def register_text_embedding_fgens():
         logger.info(f"Calculated embedding statistics for {user_stats_df.height} users.")
 
         # Prepare target_df for join: select necessary columns and cast user_id for join
-        target_for_join = target_df.select(['user_id', 'product_id'] + target_df.columns) # Ensure all original cols are kept
+        target_for_join = target_df.select(*set(['user_id', 'product_id'] + target_df.columns)) # Ensure all original cols are kept
         target_for_join = target_for_join.with_columns(pl.col('user_id').cast(pl.Utf8).alias('user_id_str_for_join'))
         
         target_with_user_stats = target_for_join.join(all_product_embeddings_df.select(['product_id'] + embedding_cols), on='product_id', how='left')
