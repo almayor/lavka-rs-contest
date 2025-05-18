@@ -3,6 +3,7 @@ from ..utils.config import Config
 
 import polars as pl
 import numpy as np
+import holidays
 
 
 def register_common_fgens():
@@ -42,6 +43,26 @@ def register_common_fgens():
         ).join(
             target_df,
             on=['user_id', 'product_id'],
+            how='right'
+        ).fill_null(0)
+
+    @FeatureFactory.register(
+        'count_purchase_user_category',
+        num_cols=['count_purchase_u_c']
+    )
+    def generate_count_purchase_user_product(
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
+    ) -> pl.DataFrame:
+        """Count purchases by user-product pairs"""
+        return history_df.filter(
+            pl.col('action_type') == "AT_CartUpdate"
+        ).group_by(
+            'user_id', 'product_category'
+        ).agg(
+            pl.len().alias('count_purchase_u_c')
+        ).join(
+            target_df,
+            on=['user_id', 'product_category'],
             how='right'
         ).fill_null(0)
 
@@ -291,7 +312,9 @@ def register_common_fgens():
 
     @FeatureFactory.register(
         'time_features_cycl',
-        num_cols=['hour_of_day_sin', 'day_of_week_sin', 'month_sin', 'is_weekend'],
+        num_cols=['hour_of_day_sin', 'hour_of_day_cos', 
+                'day_of_week_sin', 'day_of_week_cos', 
+                'month_sin', 'month_cos'], # Added cos columns
         cat_cols=['is_weekend']
     )
     def generate_time_features(
@@ -300,14 +323,51 @@ def register_common_fgens():
         """Generate time-related features (hour of day, day of week, etc.)"""
         return target_df.with_columns([
             pl.col('timestamp').dt.hour().mul(2*np.pi/24).sin().alias('hour_of_day_sin'),
+            pl.col('timestamp').dt.hour().mul(2*np.pi/24).cos().alias('hour_of_day_cos'), # New
             pl.col('timestamp').dt.weekday().mul(2*np.pi/7).sin().alias('day_of_week_sin'),
+            pl.col('timestamp').dt.weekday().mul(2*np.pi/7).cos().alias('day_of_week_cos'), # New
             pl.col('timestamp').dt.month().mul(2*np.pi/12).sin().alias('month_sin'),
+            pl.col('timestamp').dt.month().mul(2*np.pi/12).cos().alias('month_cos'), # New
             pl.col('timestamp')
                 .dt.weekday()
-                        .cast(pl.Int32)
-                        .is_in([6, 7])
-                        .alias('is_weekend')
+                .cast(pl.Int32)
+                .is_in([6, 7]) # Assuming 1-Monday, 7-Sunday; adjust if 0-Monday, 6-Sunday
+                .alias('is_weekend')
         ])
+
+    @FeatureFactory.register(
+        'russian_holiday',
+        cat_cols=['is_russian_holiday']
+    )
+    def generate_russian_holidays(
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
+    ) -> pl.DataFrame:
+        """
+        Adds a categorical feature indicating if the date is a Russian public holiday
+        using the 'holidays' library and Polars' efficient 'is_in'.
+        """
+        # Extract date column once
+        target_with_date = target_df.with_columns(
+            pl.col("timestamp").dt.date().alias("date_only")
+        )
+
+        min_year = target_with_date.select(pl.min("date_only").dt.year()).item()
+        max_year = target_with_date.select(pl.max("date_only").dt.year()).item()
+        
+        if min_year is None or max_year is None: # Handle empty target_df case
+            return target_df.with_columns(
+                pl.lit(0).cast(pl.Int8).alias('is_russian_holiday')
+            )
+
+        years_to_check = list(range(min_year, max_year + 1))
+        # The holidays object itself can be used for 'in' checks with date objects.
+        # Polars' is_in will check if the date_only values are present as keys in ru_holidays.
+        ru_holidays = holidays.RU(years=years_to_check) 
+
+        return target_with_date.with_columns(
+            pl.col('date_only').is_in(list(ru_holidays.keys())).cast(pl.Int8).alias('is_russian_holiday')
+        ).drop('date_only') # Drop the temporary date_only column
+
 
     @FeatureFactory.register(
         'product_temporal_patterns',
