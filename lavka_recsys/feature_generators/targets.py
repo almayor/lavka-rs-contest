@@ -71,3 +71,56 @@ def register_target_fgens():
                         )
         )["target"]
         return target_series
+    
+    @FeatureFactory.register_target('Weighted_InteractionAware')
+    def target_weighted_interaction_aware(history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config) -> pl.Series:
+        """
+        Assigns weights to actions, differentiating views based on whether other
+        items in the same request_id had a positive interaction.
+        - AT_Purchase: 1.0
+        - AT_CartUpdate: 0.85
+        - AT_Click: 0.3
+        - AT_View (in request with NO other positive interactions): 0.15
+        - AT_View (in request WITH another positive interaction): 0.05
+        """
+        positive_interaction_types = ['AT_CartUpdate', 'AT_Purchase', 'AT_Click']
+        
+        base_mapping = {
+            'AT_View': 0.0, # placeholder, will be overridden by nuanced logic
+            'AT_CartUpdate': 0.85,
+            'AT_Purchase': 1.0,
+            'AT_Click': 0.3,
+        }
+
+        view_no_other_interaction_value = 0.15
+        view_with_other_interaction_value = 0.05
+
+        requests_with_pos_interaction = (
+            target_df
+            .filter(pl.col("action_type").is_in(positive_interaction_types))
+            .select("request_id")
+            .unique()
+        )
+
+        weighted_df = target_df.with_columns([
+            pl.col('action_type').replace_strict(base_mapping, default=0.0).alias('base_target'),
+            pl.col('request_id').is_in(requests_with_pos_interaction['request_id']).alias('request_had_pos_interaction')
+        ])
+
+        final_target_df = weighted_df.with_columns(
+            target=pl.when(pl.col('action_type').is_in(positive_interaction_types))
+                     .then(pl.col('base_target')) # base weight for positive interactions
+                     .when((pl.col('action_type') == 'AT_View') & (pl.col('request_had_pos_interaction')))
+                     .then(pl.lit(view_with_other_interaction_value, dtype=pl.Float64)) # viewed-but-ignored
+                     .when((pl.col('action_type') == 'AT_View') & (~pl.col('request_had_pos_interaction')))
+                     .then(pl.lit(view_no_other_interaction_value, dtype=pl.Float64)) # standard view
+                     .otherwise(0.0) # default for any other unhandled cases (should ideally not happen with strict mapping)
+        )
+        
+        # aggregate per (request_id, product_id) taking the max target
+        grouped = final_target_df.group_by(['request_id', 'product_id']).agg(
+            pl.col('target').max().alias('max_target_interaction_aware')
+        )
+        
+        result_df = target_df.join(grouped, on=['request_id', 'product_id'], how='left')
+        return result_df.get_column('max_target_interaction_aware')
