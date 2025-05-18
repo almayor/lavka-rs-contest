@@ -35,6 +35,19 @@ class FeatureFactory:
         depends_on = depends_on or []
         if isinstance(depends_on, str):
             depends_on = [depends_on]
+            
+        if fgen_name in cls._fgen_registry:
+            raise ValueError(f'Feature generator {fgen_name} already exists')
+        if num_cols:
+            for known_fgen_name, known_fgen_data in cls._fgen_registry.items():
+                intersect_cols = set(num_cols) & set(known_fgen_data['num_cols'])
+                if intersect_cols:
+                    raise ValueError(f'Both {known_fgen_name} and {fgen_name} have num columns {intersect_cols}')
+        if cat_cols:
+            for known_fgen_name, known_fgen_data in cls._fgen_registry.items():
+                intersect_cols = set(cat_cols) & set(known_fgen_data['num_cols'])
+                if intersect_cols:
+                    raise ValueError(f'Both {known_fgen_name} and {fgen_name} have cat columns {intersect_cols}')
         
         def decorator(func):
             @wraps(func)
