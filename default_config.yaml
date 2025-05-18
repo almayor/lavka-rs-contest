@@ -88,8 +88,8 @@ feature_generators:
   - "puresvd-cf"            # Collaborative filtering
   - "svd-cf"                # Collaborative filtering
   - "bpr-popular"           # Implicit item2item
-  - "product_embeddings"    # NLP feature
-  - "category_embeddings"   # NLP feature
+  # - "product_embeddings"    # NLP feature
+  # - "category_embeddings"   # NLP feature
   # - "user_product_similarity" # Weighted similarity between user history and product
   # - "text_similarity_cluster" # Product clusters based on text similarity
   # - "text_diversity_features" # How different a product is from user's history
@@ -103,8 +103,13 @@ feature_config:
     power_user_threshold: 20    # Users with more interactions than this are power users
     loyal_user_days: 30        # Users active for more than this many days are loyal
   text_processing:
-    model_type: "sentence-transformers"
-    # model_name: "paraphrase-multilingual-MiniLM-L12-v2"  # Small but effective model
-    model_name: "ai-forever/sbert_large_nlu_ru"  # Small but effective model
-    embedding_dimensions: 20  # Reduce dimensionality for efficiency
-    n_clusters: 15
+    model_type: 'sentence-transformers' # Or 'word2vec', 'fasttext'
+    model_name: 'ai-forever/sbert_large_nlu_ru' # Example, use your preferred model
+    # model_path: 'path/to/your/fasttext/cc.ru.300.bin' # If using fasttext and local model
+    embedding_dimensions: 768 # Base dimension of the model, if not using PCA or if PCA target is this
+    enable_pca: true # Whether to apply PCA
+    embedding_dimensions_pca: 64 # Target dimensions after PCA
+    batch_size: 64 # Batch size for SentenceTransformer model.encode()
+    show_encode_progress: false # Set to true to see SentenceTransformer's internal progress bar
+    disk_cache_path: '.cache/embeddings_cache' # Relative to where script is run, or absolute path
+    n_clusters: 15 # For text_similarity_cluster

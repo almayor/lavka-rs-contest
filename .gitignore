@@ -10,3 +10,5 @@ week02_seminar.ipynb
 *.pyc
 *.log
 .vscode/
+wandb/
+.cache/
