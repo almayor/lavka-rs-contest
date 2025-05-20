@@ -50,7 +50,7 @@ def register_common_fgens():
         'count_purchase_user_category',
         num_cols=['count_purchase_u_c']
     )
-    def generate_count_purchase_user_product(
+    def generate_count_purchase_user_category(
         history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Count purchases by user-product pairs"""

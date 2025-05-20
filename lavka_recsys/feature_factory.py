@@ -5,6 +5,7 @@ import polars as pl
 from functools import wraps
 from pathlib import Path
 from typing import Any, Optional
+from collections import Counter
 
 from .utils.config import Config
 from .utils.custom_logging import get_logger
@@ -121,6 +122,7 @@ class FeatureFactory:
                 - Request IDs per row (pl.Series)
         """
         request_ids = target_df['request_id']
+        requested_fgens = requested_fgens or self.config.get('feature_generators')
         features, cat_columns = self.generate_features(history_df, target_df, requested_fgens)
         target = self.generate_target(history_df, target_df, requested_target)
         mask = ~target.is_null()
@@ -154,7 +156,7 @@ class FeatureFactory:
             self, history_df: pl.DataFrame, target_df: pl.DataFrame, requested_fgens: list[str] | None = None
         ) -> tuple[pl.DataFrame, list[str]]:
         """
-        Generate only the requested features and their dependencies
+        Invoke only the request feature generators and their dependencies
         Args:
             history_df (pl.DataFrame): Historical data.
             target_df (pl.DataFrame): Target data.
@@ -165,16 +167,17 @@ class FeatureFactory:
                 - Categorical column names in the generated features (List[str])
         """
         if requested_fgens is None:
-            requested_fgens = self.config.get("features")
+            requested_fgens = self.config.get("feature_generators")
         if len(requested_fgens) != len(set(requested_fgens)):
-            self.logger.error("Duplicate feature names in requested_fgens")
+            duplicates = [item for item, count in Counter(requested_fgens).items() if count > 1]
+            self.logger.error("Duplicate feature names in requested_fgens: " + ', '.join(duplicates))
             raise ValueError("Duplicate feature names in requested_fgens")
         self.logger.info(f"Invoking feature generators: {', '.join(requested_fgens)}")
                 
         # Generate each requested feature (and dependencies)
         all_columns, all_cat_columns = set(), set()
         for fgen in requested_fgens:
-            target_df = self._generate_feature(
+            target_df = self._invoke_fgen(
                 fgen, history_df, target_df
             )
             cat_columns = self.__class__._fgen_registry[fgen]['cat_cols']
@@ -187,8 +190,269 @@ class FeatureFactory:
         self.logger.info("Joined features")
         self.logger.info(f"All column names: {all_columns}")
         self.logger.info(f"All categorical column names: {all_cat_columns}")
-        
-        target_df = target_df.select(all_columns)
+
+        sorted_cols_by_importance = [
+            "source_type",
+            "session_duration_seconds_v2",
+            "session_unique_products_v2",
+            "session_length_v2",
+            "product_total_purchases",
+            "bpr_popular_score",
+            "ctr_u_s_1w",
+            "purchases_view_ratio_u_p_1y",
+            "purchases_view_ratio_u_c_1y",
+            "cf_score",
+            "product_unique_users",
+            "views_u_p_source_1y",
+            "clicks_u_s_3mo",
+            "product_embed_1",
+            "hour_of_day_cos_v2",
+            "cat_embed_2",
+            "clicks_u_s_1w",
+            "mean_interval_days",
+            "puresvd_cf_score",
+            "product_embed_5",
+            "product_embed_16",
+            "purchases_view_ratio_u_c_source_1y",
+            "purchases_view_ratio_u_s_1y",
+            "clicks_u_s_1y",
+            "purchases_view_ratio_u_p_source_1y",
+            "cat_embed_3",
+            "product_embed_13",
+            "cat_embed_5",
+            "views_u_c_source_1y",
+            "cat_embed_1",
+            "user_product_purchase_cross",
+            "product_text_cluster",
+            "product_total_views",
+            "purchases_view_ratio_u_s_6mo",
+            "clicks_u_s_1mo",
+            "cat_avg_purchase_hour",
+            "ctr_u_c_1y",
+            "product_embed_7",
+            "cat_embed_4",
+            "day_of_week_sin_v2",
+            "cat_std_purchase_hour",
+            "product_total_interactions",
+            "session_unique_stores_v2",
+            "cat_embed_8",
+            "product_embed_17",
+            "purchases_view_ratio_u_p_6mo",
+            "cat_hour_relevance",
+            "cat_embed_0",
+            "product_embed_14",
+            "ctr_u_s_1y",
+            "cat_embed_19",
+            "cat_purchase_trend",
+            "ctr_u_s_1mo",
+            "product_embed_8",
+            "interactions_u_s_1mo",
+            "user_store_purchase_cross",
+            "product_embed_12",
+            "purchases_view_ratio_u_p_1mo",
+            "days_since_interaction_u_s",
+            "cat_embed_18",
+            "views_u_s_1w",
+            "product_embed_2",
+            "user_unique_products",
+            "purchases_u_p_6mo",
+            "user_total_views",
+            "product_embed_0",
+            "product_embed_15",
+            "cat_embed_13",
+            "cluster_view_ratio",
+            "purchases_view_ratio_u_s_3mo",
+            "cat_embed_14",
+            "user_product_store_cross",
+            "cat_most_common_purchase_day",
+            "avg_purchase_hour",
+            "cat_embed_15",
+            "product_embed_4",
+            "product_embed_9",
+            "product_embed_10",
+            "cat_embed_12",
+            "views_u_p_source_1mo",
+            "cat_interaction_trend",
+            "cat_embed_7",
+            "product_embed_18",
+            "hour_relevance",
+            "store_total_purchases",
+            "purchases_u_p_source_1mo",
+            "product_embed_3",
+            "ctr_u_s_3mo",
+            "cluster_purchase_ratio",
+            "cat_embed_10",
+            "hour_of_day_sin_v2",
+            "views_u_p_source_3mo",
+            "product_embed_6",
+            "purchase_trend",
+            "count_purchase_u_s",
+            "views_u_s_1mo",
+            "cat_embed_9",
+            "product_embed_19",
+            "city_total_views",
+            "svd_cf_score",
+            "store_unique_products",
+            "npmi_cf_score",
+            "store_total_views",
+            "cat_embed_11",
+            "std_purchase_hour",
+            "interactions_u_p_1y",
+            "purchases_view_ratio_u_c_6mo",
+            "purchases_view_ratio_u_s_1w",
+            "purchases_u_s_6mo",
+            "ctr_u_c_1mo",
+            "cat_embed_6",
+            "distance_from_centroid",
+            "views_u_s_3mo",
+            "ctr_u_s_6mo",
+            "cluster_cart_ratio",
+            "views_u_c_6mo",
+            "interaction_trend",
+            "views_u_p_source_6mo",
+            "views_u_c_1y",
+            "ctr_u_p_1y",
+            "views_u_p_1y",
+            "ctr_u_c_6mo",
+            "interactions_u_c_source_1y",
+            "purchases_u_c_6mo",
+            "cat_embed_17",
+            "purchases_view_ratio_u_p_1w",
+            "views_u_s_1y",
+            "purchases_u_p_3mo",
+            "product_embed_11",
+            "interactions_u_p_source_1y",
+            "purchases_u_c_1mo",
+            "cat_embed_16",
+            "purchases_view_ratio_u_c_3mo",
+            "interactions_u_c_1y",
+            "views_u_c_1mo",
+            "city_total_purchases",
+            "user_total_purchases",
+            "views_u_c_source_6mo",
+            "count_purchase_u_p",
+            "purchases_view_ratio_u_p_3mo",
+            "interactions_u_p_source_1mo",
+            "interactions_u_p_6mo",
+            "interactions_u_c_6mo",
+            "days_since_interaction_u_p",
+            "views_u_c_source_3mo",
+            "views_u_c_1w",
+            "purchases_view_ratio_u_s_1mo",
+            "purchases_u_s_1mo",
+            "purchases_u_p_1y",
+            "purchases_u_s_1w",
+            "purchases_u_s_3mo",
+            "clicks_u_p_source_6mo",
+            "ctr_u_c_3mo",
+            "purchases_view_ratio_u_c_1mo",
+            "purchases_view_ratio_u_c_source_6mo",
+            "interactions_u_s_3mo",
+            "purchases_u_p_1mo",
+            "purchases_u_s_1y",
+            "purchases_view_ratio_u_p_source_6mo",
+            "interactions_u_s_1y",
+            "relative_diversity",
+            "city_name",
+            "purchases_u_c_1y",
+            "clicks_u_p_source_1y",
+            "clicks_u_c_1y",
+            "interactions_u_c_1mo",
+            "purchases_u_p_source_1y",
+            "ctr_u_p_source_1mo",
+            "interactions_u_s_1w",
+            "views_u_s_6mo",
+            "interactions_u_p_source_3mo",
+            "views_u_c_source_1mo",
+            "clicks_u_s_6mo",
+            "purchases_u_c_source_1y",
+            "views_u_p_source_1w",
+            "ctr_u_c_1w",
+            "ctr_u_p_source_1y",
+            "purchases_view_ratio_u_p_source_1w",
+            "interactions_u_c_source_1mo",
+            "clicks_u_p_source_1mo",
+            "clicks_u_c_1mo",
+            "city_unique_stores",
+            "interactions_u_c_3mo",
+            "views_u_p_6mo",
+            "purchases_view_ratio_u_p_source_3mo",
+            "purchases_view_ratio_u_p_source_1mo",
+            "most_common_purchase_day",
+            "store_total_interactions",
+            "purchases_view_ratio_u_c_1w",
+            "interactions_u_c_source_6mo",
+            "day_of_week_cos_v2",
+            "purchases_view_ratio_u_c_source_1w",
+            "purchases_u_p_1w",
+            "ctr_u_c_source_1w",
+            "views_u_c_3mo",
+            "purchases_u_p_source_6mo",
+            "user_total_interactions",
+            "day_of_week_relevance",
+            "purchases_u_c_3mo",
+            "count_purchase_u_c",
+            "clicks_u_c_1w",
+            "ctr_u_c_source_1y",
+            "clicks_u_c_3mo",
+            "interactions_u_p_3mo",
+            "ctr_u_p_1mo",
+            "ctr_u_c_source_1mo",
+            "interactions_u_p_source_6mo",
+            "views_u_p_1mo",
+            "cat_day_of_week_relevance",
+            "clicks_u_p_source_3mo",
+            "interactions_u_c_source_3mo",
+            "clicks_u_p_1y",
+            "views_u_p_3mo",
+            "interactions_u_c_1w",
+            "clicks_u_p_1mo",
+            "clicks_u_c_source_1mo",
+            "ctr_u_c_source_6mo",
+            "clicks_u_c_source_1w",
+            "interactions_u_p_1w",
+            "views_u_c_source_1w",
+            "purchases_view_ratio_u_c_source_1mo",
+            "interactions_u_p_source_1w",
+            "purchases_u_c_source_3mo",
+            "clicks_u_c_6mo",
+            "views_u_p_1w",
+            "ctr_u_p_source_3mo",
+            "interactions_u_p_1mo",
+            "purchases_u_p_source_3mo",
+            "purchases_u_c_source_1mo",
+            "purchases_view_ratio_u_c_source_3mo",
+            "ctr_u_p_1w",
+            "ctr_u_p_6mo",
+            "clicks_u_c_source_6mo",
+            "purchases_u_c_source_6mo",
+            "ctr_u_c_source_3mo",
+            "clicks_u_c_source_3mo",
+            "ctr_u_p_source_6mo",
+            "clicks_u_p_source_1w",
+            "clicks_u_p_3mo",
+            "interactions_u_s_6mo",
+            "month_sin_v2",
+            "ctr_u_p_source_1w",
+            "interactions_u_c_source_1w",
+            "ctr_u_p_3mo",
+            "purchases_u_c_source_1w",
+            "purchases_u_c_1w",
+            "is_russian_holiday",
+            "user_segment",
+            "month_cos_v2",
+            "clicks_u_p_1w",
+            "random_noise",
+            "purchases_u_p_source_1w",
+            "clicks_u_c_source_1y",
+            "clicks_u_p_6mo",
+            "city_total_interactions",
+            "is_weekend_v2"
+        ]
+
+        target_df = target_df.select(sorted_cols_by_importance[:25])
+        all_cat_columns = [col for col in all_cat_columns if col in sorted_cols_by_importance[:25]]
+        # target_df = target_df.select(all_columns)
         return target_df, all_cat_columns
     
     def generate_target(self, history_df, target_df, requested_target: str | None = None) -> pl.Series:
@@ -206,10 +470,10 @@ class FeatureFactory:
         if requested_target not in self.__class__._possible_targets:
             raise ValueError(f"Unknown target {requested_target}")
 
-        feature, _ = self._generate_feature(requested_target, history_df, target_df)
-        return feature
+        features, _ = self._invoke_fgen(requested_target, history_df, target_df)
+        return features
     
-    def _generate_feature(
+    def _invoke_fgen(
             self, fgen_name: str, history_df: pl.DataFrame, target_df: pl.DataFrame,
             invoked_fgens=None
         ) -> pl.DataFrame:
@@ -242,132 +506,154 @@ class FeatureFactory:
         # Generate dependencies first
         invoked_fgens = invoked_fgens or set()
         for dep_fgen in dependencies:
-            self._generate_feature(dep_fgen, history_df, target_df, invoked_fgens)
+            self._invoke_fgen(dep_fgen, history_df, target_df, invoked_fgens)
         
         # Generate this feature
-        self.logger.debug(f"Invoking feature generator: {fgen_name}")
+        self.logger.info(f"Invoking feature generator: {fgen_name}")
         features = generator_func(history_df, target_df, self.config)
     
         invoked_fgens.add(fgen_name)
         return features
 
-
-
-class CachedFeatureFactory:
+class CachedFeatureFactory(FeatureFactory):
     """
-    Wraps FeatureFactory.generate_batch and generate_features_only with disk caching.
+    A FeatureFactory that caches – and re-uses – the *result of every single feature
+    generator* on disk.  The rest of FeatureFactory (dependency handling, typing, etc.)
+    stays intact.
     """
 
+    # --------------------------------------------------------------------- #
+    # construction & helpers                                                #
+    # --------------------------------------------------------------------- #
     def __init__(self, config: Config):
-        self.config = config
-        self.logger = get_logger(self.__class__.__name__)
-        self.factory = FeatureFactory(config)
+        # call the parent so we inherit its logger, config, etc.
+        super().__init__(config)
 
-        # Setup cache directory
-        cache_dir = Path(config.get('output.feature_cache_dir', 'feature_cache'))
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        self.cache_dir = cache_dir
-        self.enabled = config.get('feature_caching.enabled', True)
+        self.enabled: bool = config.get("feature_config.caching.enabled", True)
 
+        cache_root = config.get("feature_config.cache_dir", "feature_cache")
+        self.cache_dir = Path(cache_root).expanduser()
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+        # NB: we *do not* look at unrelated parts of the config – only the
+        # ``feature_config`` and (for convenience below) ``data`` section.
+        self.data_cfg = config.get("data", {})
+
+    # disk IO -------------------------------------------------------------- #
     def _cache_file(self, key: str) -> Path:
-        return self.cache_dir / f"cache_{key}.pkl"
+        """Return path <cache_dir>/<hash>.pkl"""
+        return self.cache_dir / f"{key}.pkl"
 
-    def _load(self, key: str):
+    def _load(self, key: str) -> Optional[pl.DataFrame]:
         if not self.enabled:
             return None
         path = self._cache_file(key)
         if path.exists():
             try:
-                self.logger.debug(f"Loading from cache {path}")
-                with open(path, 'rb') as f:
-                    return pickle.load(f)
+                with open(path, "rb") as fh:
+                    self.logger.debug(f"Loaded cached f-gen ⇒ {path}")
+                    return pickle.load(fh)
             except Exception:
-                self.logger.warning(f"Corrupted cache, removing {path}")
+                self.logger.warning(f"Corrupted cache file removed: {path}")
                 path.unlink(missing_ok=True)
         return None
 
-    def _save(self, key: str, data: Any) -> None:
+    def _save(self, key: str, data: pl.DataFrame) -> None:
         if not self.enabled:
             return
         path = self._cache_file(key)
-        tmp = path.with_suffix('.tmp')
+        tmp = path.with_suffix(".tmp")
         try:
-            with open(tmp, 'wb') as f:
-                pickle.dump(data, f)
+            with open(tmp, "wb") as fh:
+                pickle.dump(data, fh)
             tmp.replace(path)
-            self.logger.debug(f"Saved cache {path}")
-        except Exception as e:
-            self.logger.warning(f"Could not write cache {path}: {e}")
+            self.logger.debug(f"Saved f-gen cache ⇒ {path}")
+        except Exception as exc:
+            self.logger.warning(f"Could not write cache: {path} ({exc})")
             tmp.unlink(missing_ok=True)
 
-    def generate_batch(
+    # key builder ---------------------------------------------------------- #
+    def _feature_key(
         self,
+        fgen_name: str,
         history_df: pl.DataFrame,
         target_df: pl.DataFrame,
-        feature_names: Optional[list[str]] = None,
-        target_name: Optional[str] = None
-    ) -> tuple[pl.DataFrame, Any, list[str], Any]:
-        """
-        Generate or load cached (features, target, cat_cols, request_ids).
-        """
-        feature_names = feature_names or self.config.get('feature_generators', [])  # type: ignore
-        target_name = target_name or self.config['target']
-        key = self._default_key(history_df, target_df, feature_names, target_name)
-
-        cached = self._load(key)
-        if cached is not None:
-            self.logger.info(f"Using cached feature batch (key={key})")
-            return cached
-
-        # No cache: generate
-        self.logger.info("Generating feature batch")
-        batch = self.factory.generate_batch(history_df, target_df, feature_names, target_name)  # type: ignore
-        self._save(key, batch)
-        return batch
-
-    def generate_features_only(
-        self,
-        history_df: pl.DataFrame,
-        target_df: pl.DataFrame,
-        feature_names: Optional[list[str]] = None
-    ) -> tuple[pl.DataFrame, list[str], pl.Series]:
-        """
-        Generate or load cached (features, cat_cols, request_ids).
-        """
-        feature_names = feature_names or self.config.get('feature_generators', [])  # type: ignore
-        key = self._default_key(history_df, target_df, feature_names, None)
-
-        cached = self._load(key)
-        if cached is not None:
-            self.logger.info("Using cached feature batch")
-            return cached
-
-        # No cache: generate
-        self.logger.info("Generating feature batch")
-        batch = self.factory.generate_features_only(history_df, target_df, feature_names)
-        self._save(key, batch)
-        return batch
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self.factory, name)
-    
-    @staticmethod
-    def _default_key(
-        history_df: pl.DataFrame,
-        target_df: pl.DataFrame,
-        feature_names: list[str],
-        target_name: Optional[str]
     ) -> str:
         """
-        Create a simple cache key based on time ranges and feature list.
+        Build a *stable* hash for the ‹fgen_name› **and** the pieces of data that
+        influence its output.  You can tweak this easily – the important part is
+        that a *different* hash is produced as soon as the relevant data slice
+        changes.
         """
-        hist_t0 = int(history_df['timestamp'].min().timestamp()) if not history_df.is_empty() else 0
-        hist_t1 = int(history_df['timestamp'].max().timestamp()) if not history_df.is_empty() else 0
-        targ_t0 = int(target_df['timestamp'].min().timestamp()) if not target_df.is_empty() else 0
-        targ_t1 = int(target_df['timestamp'].max().timestamp()) if not target_df.is_empty() else 0
-        feats = ','.join(sorted(feature_names))
-        name = target_name or ''
-        hist_nrows = len(history_df)
-        targ_nrows = len(target_df)
-        raw = f"{hist_t0}-{hist_t1}-{targ_t0}-{targ_t1}-{feats}-{name}-{hist_nrows}-{targ_nrows}"
+        # coarsely summarise the time span + row count for both inputs
+        def _span(df: pl.DataFrame) -> tuple[int, int, int]:
+            if df.is_empty():
+                return (0, 0, 0)
+            return (
+                int(df["timestamp"].min().timestamp()),
+                int(df["timestamp"].max().timestamp()),
+                len(df),
+            )
+
+        h0, h1, hn = _span(history_df)
+        t0, t1, tn = _span(target_df)
+
+        raw = f"{fgen_name}|{h0}-{h1}-{hn}|{t0}-{t1}-{tn}"
         return hashlib.md5(raw.encode()).hexdigest()
+
+    # --------------------------------------------------------------------- #
+    # the ONLY override: _invoke_fgen                                       #
+    # --------------------------------------------------------------------- #
+    def _invoke_fgen(  # noqa: C901  (we deliberately keep the logic flat)
+        self,
+        fgen_name: str,
+        history_df: pl.DataFrame,
+        target_df: pl.DataFrame,
+        invoked_fgens: set[str] | None = None,
+    ) -> pl.DataFrame:
+        """
+        Intercepts FeatureFactory._invoke_fgen, adding:
+        • Load-from-cache *before* we compute the generator
+        • Save-to-cache *after* it runs
+        The rest of the behaviour (dependency recursion, cycle detection,
+        logging, etc.) is unchanged.
+        """
+        invoked_fgens = invoked_fgens or set()
+
+        # short-circuit: already done in this call-stack
+        if fgen_name in invoked_fgens:
+            return target_df
+
+        # 1) ––––– check cache FIRST
+        key = self._feature_key(fgen_name, history_df, target_df)
+        cached = self._load(key)
+        if cached is not None:
+            self.logger.info(f"Using cached '{fgen_name}' (key={key})")
+            # Only add columns that are not already present
+            for col in cached.columns:
+                if col not in target_df.columns:
+                    target_df = target_df.with_columns(cached[col])
+            invoked_fgens.add(fgen_name)
+            return target_df
+
+        # 2) ––––– existing dependency logic (unchanged)
+        if fgen_name not in self.__class__._fgen_registry:
+            avail = ", ".join(self.__class__._fgen_registry.keys())
+            raise ValueError(f"Feature '{fgen_name}' is not registered.  Available: {avail}")
+
+        info = self.__class__._fgen_registry[fgen_name]
+        dep_names = info["depends_on"]
+        for dep in dep_names:
+            target_df = self._invoke_fgen(dep, history_df, target_df, invoked_fgens)
+
+        # 3) ––––– run the generator
+        self.logger.info(f"Invoking feature generator: {fgen_name}")
+        target_df = info["func"](history_df, target_df, self.config)  # type: ignore[arg-type]
+
+        # 4) ––––– store result columns to cache
+        cols = info["num_cols"] + info["cat_cols"]
+        if cols:  # a target generator may return an empty list
+            self._save(key, target_df.select(cols))
+
+        invoked_fgens.add(fgen_name)
+        return target_df
