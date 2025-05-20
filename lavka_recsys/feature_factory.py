@@ -245,7 +245,7 @@ class FeatureFactory:
             self._generate_feature(dep_fgen, history_df, target_df, invoked_fgens)
         
         # Generate this feature
-        self.logger.debug(f"Invoking feature generator: {fgen_name}")
+        self.logger.info(f"Invoking feature generator: {fgen_name}")
         features = generator_func(history_df, target_df, self.config)
     
         invoked_fgens.add(fgen_name)

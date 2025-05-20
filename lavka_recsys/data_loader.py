@@ -45,6 +45,7 @@ class DataLoader:
         if self.config.get('data.sample.train_fraction', 1) < 1:
             fraction = self.config.get('data.sample.train_fraction', 1)
             self.train_df = self.train_df.sample(fraction=fraction)
+            self.logger.warning(f"Working with only {fraction} of train data")
         if self.config.get('data.holdout.enabled', False):
             self._create_holdout()
 
