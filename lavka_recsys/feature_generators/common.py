@@ -5,19 +5,24 @@ import polars as pl
 import numpy as np
 import holidays
 
+from tqdm.auto import tqdm, trange
+from datetime import timedelta
+
 IS_VIEW      = (pl.col("action_type") == "AT_View").cast(pl.Int8)
 IS_CLICK     = (pl.col("action_type") == "AT_Click").cast(pl.Int8)
 IS_PURCHASE  = pl.col("action_type").is_in(["AT_CartUpdate", "AT_Purchase"]).cast(pl.Int8)
-ONE          = pl.lit(1, dtype=pl.Int8)
-WINDOWS      = {"1w": "1w",
-                "1mo": "1mo",
-                "3mo": "3mo",
-                "1y": "1y"}
+WINDOWS      = {"1w":  timedelta(weeks=1),
+                "1mo": timedelta(days=30),
+                "3mo": timedelta(days=90),
+                "6mo": timedelta(days=180),
+                "1y":  timedelta(days=365),
+                }
 PAIRS        = {'u_p': ['user_id', 'product_id'],
                 'u_c': ['user_id', 'product_category'],
                 'u_c_source': ['user_id', 'product_category', 'source_type'],
                 'u_s': ['user_id', 'store_id'],
-                'u_p_source': ['user_id', 'product_id', 'source_type']}
+                'u_p_source': ['user_id', 'product_id', 'source_type']
+                }
 
 
 def register_common_fgens():
@@ -48,34 +53,55 @@ def register_common_fgens():
                     for dur_label in WINDOWS.keys()]
     )
     def generate_window_features(
-        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
-    ) -> pl.DataFrame:
-        """Generate time-window based features"""
+            history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config,
+        ) -> pl.DataFrame:
+        t0 = history_df["timestamp"].max()
+        out = target_df.clone()
 
-        combo = pl.concat([history_df, target_df], how="diagonal") \
-                  .sort(["user_id", "product_id", "source_type", "timestamp"])
-        
-
-        exprs = []
         for pair_label, pair_cols in PAIRS.items():
-            for win_label, win_len in WINDOWS.items():
-                views      = IS_VIEW    .rolling_sum_by("timestamp", window_size=win_len, closed="both").over(pair_cols)
-                clicks     = IS_CLICK   .rolling_sum_by("timestamp", window_size=win_len, closed="both").over(pair_cols)
-                purchases  = IS_PURCHASE.rolling_sum_by("timestamp", window_size=win_len, closed="both").over(pair_cols)
-                inters     = ONE        .rolling_sum_by("timestamp", window_size=win_len, closed="both").over(pair_cols)
+            for win_label, delta in WINDOWS.items():
+                recent = history_df.filter(
+                    (pl.col("timestamp") > t0 - delta) &
+                    (pl.col("timestamp") <= t0)
+                )
 
-                exprs.extend([
-                    views     .alias(f"views_{pair_label}_{win_label}"),
-                    clicks    .alias(f"clicks_{pair_label}_{win_label}"),
-                    purchases .alias(f"purchases_{pair_label}_{win_label}"),
-                    inters    .alias(f"interactions_{pair_label}_{win_label}"),
-                    (clicks   / (views.cast(pl.Float64) + 1)).alias(f"ctr_{pair_label}_{win_label}"),
-                    (purchases/ (views.cast(pl.Float64) + 1)).alias(f"purchase_view_ratio_{pair_label}_{win_label}"),
-                ])
+                feats = (
+                    recent
+                    .group_by(pair_cols)
+                    .agg([
+                        IS_VIEW.sum().alias(
+                            f"views_{pair_label}_{win_label}"
+                        ),
+                        IS_CLICK.sum().alias(
+                            f"clicks_{pair_label}_{win_label}"
+                        ),
+                        IS_PURCHASE.sum().alias(
+                            f"purchases_{pair_label}_{win_label}"
+                        ),
+                        pl.len().alias(
+                            f"interactions_{pair_label}_{win_label}"
+                        ),
+                    ])
+                    .with_columns([
+                        (pl.col(f"clicks_{pair_label}_{win_label}")
+                            .cast(pl.Float64) /
+                            (pl.col(f"views_{pair_label}_{win_label}")
+                            .cast(pl.Float64) + 1))
+                            .alias(f"ctr_{pair_label}_{win_label}"),
 
-        combo = combo.with_columns(exprs)
-        return combo.tail(target_df.height)
+                        (pl.col(f"purchases_{pair_label}_{win_label}")
+                            .cast(pl.Float64) /
+                            (pl.col(f"views_{pair_label}_{win_label}")
+                            .cast(pl.Float64) + 1))
+                            .alias(f"purchase_view_ratio_{pair_label}_{win_label}"),
+                    ])
+                )
 
+                out = out.join(feats, on=pair_cols, how="left")
+
+        print(out.describe().glimpse())
+        return out
+    
     @FeatureFactory.register(
         'recency',
         num_cols=[f'{name}_{pair_label}'
@@ -83,36 +109,38 @@ def register_common_fgens():
                   for name in ['days_since_interaction', 'mean_days_since_interaction']]
     )
     def generate_recency(
-        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config # config might be unused
     ) -> pl.DataFrame:
         """Generate recency features"""
-        combo = (
-            pl.concat([history_df, target_df], how="diagonal")
-            .sort(["timestamp"])
+
+        combo_lf = (
+            pl.concat([history_df.lazy(), target_df.lazy()], how="diagonal")
+            .sort(["timestamp"]) # Global sort by timestamp
         )
-        recency_exprs = []
-        for label, cols in PAIRS.items():
-            prev_ts = pl.col("timestamp").shift(1).over(cols)
-            recency = (pl.col("timestamp") - prev_ts).dt.total_days()
-            recency_exprs.append(recency.alias(f"days_since_interaction_{label}"))
-        
-        combo = combo.with_columns(recency_exprs)
 
         for label, cols in PAIRS.items():
-            mean_gap = (
-                history_df.sort(cols + ["timestamp"])
-                        .with_columns(
-                            (pl.col("timestamp") - pl.col("timestamp").shift(1).over(cols))
-                            .dt.total_days()
-                            .alias("gap")
-                        )
-                        .group_by(cols)
-                        .agg(pl.col("gap").drop_nulls().mean().alias(f"mean_days_since_interaction_{label}"))
+            # Calculate time since the immediately preceding interaction within the group
+            prev_ts_in_group = (
+                pl.col("timestamp")
+                    .sort().shift(1).over(cols)
             )
-
-            combo = combo.join(mean_gap, on=cols, how="left")
-
-        return combo.tail(target_df.height)
+            recency_days_expr = (pl.col("timestamp") - prev_ts_in_group).dt.total_days()
+            combo_lf = (
+                combo_lf
+                .with_columns(recency_days_expr.alias(f"days_since_interaction_{label}"))
+                .with_columns(
+                    pl.col(f"days_since_interaction_{label}")
+                        .drop_nulls()
+                        .mean()
+                        .over(cols)
+                        .alias(f"mean_days_since_interaction_{label}")
+                )
+            )
+        
+        final_df = combo_lf.collect().drop('action_type')
+        out = final_df.tail(target_df.height)
+        print(out.describe().glimpse())
+        return out
     
 
     @FeatureFactory.register(
@@ -125,48 +153,62 @@ def register_common_fgens():
         history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Generate recency-since-purchase features"""
-        combo = (
-            pl.concat([history_df, target_df], how="diagonal")
-            .sort(["timestamp"])             
+        combo_lf = (
+            pl.concat([history_df.lazy(), target_df.lazy()], how="diagonal")
+            .sort(["timestamp"]) # Global sort by timestamp
         )
 
-        recency_exprs = []
-        for lbl, cols in PAIRS.items():
-            last_purch_ts = (
-                pl.when(IS_PURCHASE).then(pl.col("timestamp")).otherwise(None)
-                .forward_fill()                    # keep “latest seen purchase”
-                .over(cols)
-                .shift(1)                          # … but exclude *this* row
-                .over(cols)
+        temp_col_names_to_drop = [] 
+        # distinct prefix for temporary columns
+        temp_col_prefix = "_grpa_temp_" 
+
+        for lbl, cols_group in PAIRS.items():
+            # Part 1: Calculate days_since_purchase_{lbl}
+            temp_last_purchase_ts_col_name = f"{temp_col_prefix}last_purchase_ts_{lbl}"
+            last_purchase_ts_expr = (
+                pl.when(IS_PURCHASE.eq(1)).then(pl.col("timestamp")).otherwise(None)
+                .shift(1).forward_fill().over(cols_group)  # Last purchase at or before current row (in group)
+            )
+            combo_lf = combo_lf.with_columns(
+                last_purchase_ts_expr.alias(temp_last_purchase_ts_col_name)
+            )
+            temp_col_names_to_drop.append(temp_last_purchase_ts_col_name)
+
+            days_since_purchase_final_name = f"days_since_purchase_{lbl}"
+            days_since_purchase_expr = (
+                (pl.col("timestamp") - pl.col(temp_last_purchase_ts_col_name))
+                .dt.total_days()
+            )
+            combo_lf = combo_lf.with_columns(
+                days_since_purchase_expr.alias(days_since_purchase_final_name)
             )
 
-            recency_exprs.append(
-                (pl.col("timestamp") - last_purch_ts)
-                    .dt.total_days()
-                    .alias(f"days_since_purchase_{lbl}")
-            )
-
-        combo = combo.with_columns(recency_exprs)
-
-        for lbl, cols in PAIRS.items():
-            mean_gap = (
-                history_df
-                .filter(IS_PURCHASE)
-                .sort(cols + ["timestamp"])
-                .with_columns(
-                    (pl.col("timestamp") - pl.col("timestamp").shift(1).over(cols))
-                        .dt.total_days()
-                        .alias("gap")
+            # Part 2: Calculate mean_days_since_purchase_{lbl}
+            mean_days_since_purchase_final_name = f"mean_days_since_purchase_{lbl}"
+        
+            mean_gap_lf = (
+                history_df.lazy()
+                .filter(IS_PURCHASE.eq(1)) # type: ignore
+                .sort(cols_group + ["timestamp"])
+                .group_by(cols_group)
+                .agg( 
+                    (pl.col("timestamp")
+                        .sort()
+                        .diff().dt.total_days())
+                        .drop_nulls()
+                        .mean()
+                        .alias(mean_days_since_purchase_final_name)
                 )
-                .group_by(cols)
-                .agg(
-                    pl.col("gap").drop_nulls().mean().alias(f"mean_days_since_purchase_{lbl}")
-                )
             )
+            combo_lf = combo_lf.join(mean_gap_lf, on=cols_group, how="left")
+        
+        if temp_col_names_to_drop:
+            combo_lf = combo_lf.drop(temp_col_names_to_drop)
 
-            combo = combo.join(mean_gap, on=cols, how="left")
-
-        return combo.tail(target_df.height)
+        final_df = combo_lf.collect().drop('action_type')
+        out = final_df.tail(target_df.height)
+        print(out.describe().glimpse())
+        return out
 
 
     @FeatureFactory.register(
@@ -208,6 +250,27 @@ def register_common_fgens():
             on=['product_id'],
             how='left'
         )
+    
+    @FeatureFactory.register(
+        'category_stats',
+        num_cols=['category_total_interactions', 'category_total_purchases', 'category_total_views', 'category_unique_users']
+    )
+    def generate_category_stats(
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
+    ) -> pl.DataFrame:
+        """Generate category-level statistics"""
+        features = history_df.group_by('product_category').agg([
+            pl.len().alias('category_total_interactions'),
+            IS_PURCHASE.sum().alias('category_total_purchases'),
+            IS_VIEW.sum().alias('category_total_views'),
+            pl.n_unique('user_id').alias('category_unique_users')
+        ])
+        return target_df.join(
+            features,
+            on=['product_category'],
+            how='left'
+        )
+
     @FeatureFactory.register(
         'store_stats',
         num_cols=['store_total_interactions', 'store_total_purchases', 'store_total_views', 'store_unique_products']
@@ -404,7 +467,7 @@ def register_common_fgens():
             .rolling(
                 "timestamp",
                 period=window_str,
-                closed="both",
+                closed="left",
                 group_by="user_id"
             )
             .agg([
