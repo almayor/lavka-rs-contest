@@ -84,7 +84,7 @@ class FeatureFactory:
             @wraps(func)
             def wrapper(*args, **kwargs):
                 result = func(*args, **kwargs)
-                return result, []
+                return result
         
             cls._fgen_registry[target_name] = {
                 'func': wrapper,
@@ -206,7 +206,7 @@ class FeatureFactory:
         if requested_target not in self.__class__._possible_targets:
             raise ValueError(f"Unknown target {requested_target}")
 
-        feature, _ = self._generate_feature(requested_target, history_df, target_df)
+        feature = self._generate_feature(requested_target, history_df, target_df)
         return feature
     
     def _generate_feature(
