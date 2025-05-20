@@ -99,7 +99,6 @@ def register_common_fgens():
 
                 out = out.join(feats, on=pair_cols, how="left")
 
-        print(out.describe().glimpse())
         return out
     
     @FeatureFactory.register(
@@ -139,7 +138,6 @@ def register_common_fgens():
         
         final_df = combo_lf.collect().drop('action_type')
         out = final_df.tail(target_df.height)
-        print(out.describe().glimpse())
         return out
     
 
@@ -207,7 +205,6 @@ def register_common_fgens():
 
         final_df = combo_lf.collect().drop('action_type')
         out = final_df.tail(target_df.height)
-        print(out.describe().glimpse())
         return out
 
 
@@ -413,8 +410,10 @@ def register_common_fgens():
             purchases.group_by("product_id")
                 .agg(
                     pl.col("day_of_week")
-                    .mode()
-                    .alias("most_common_purchase_day")
+                        .mode()
+                        .first()
+                        .cast(pl.Int32)
+                        .alias("most_common_purchase_day")
                 )
         )
         temporal_stats = hour_stats.join(common_day, on="product_id", how="inner")
@@ -564,6 +563,7 @@ def register_common_fgens():
     ) -> pl.DataFrame:
         """Generate cross-features (interactions between existing features)"""
         
+        print(target_df.columns)
         result = target_df.with_columns([
             (pl.col('user_total_purchases') * pl.col('product_total_purchases')).alias('user_product_purchase_cross'),
             (pl.col('user_total_purchases') * pl.col('store_total_purchases')).alias('user_store_purchase_cross'),
