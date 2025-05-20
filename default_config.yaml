@@ -9,7 +9,7 @@ data:
     enabled: true
     holdout_days: 30
   cleaning:
-    remove_view_only_requests: false
+    remove_hw2_style: true
 
 # Output settings
 output:
@@ -97,6 +97,10 @@ feature_generators:
   # - "text_similarity_cluster" # Product clusters based on text similarity
   # - "text_diversity_features" # How different a product is from user's history
 
+feature_selector:
+  enabled: true
+  importances_path: 'feature_importances.json'
+  
 # Feature generation settings
 feature_config:
   session_window_minutes: 30  # Session window duration in minutes

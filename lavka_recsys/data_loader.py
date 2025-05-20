@@ -172,8 +172,8 @@ class DataPreprocessor:
         df = self._convert_timestamps(df)
         if not clean:
             return df
-        if self.config.get('data.cleaning.remove_view_only_requests'):
-            df = self._remove_view_only_requests(df)
+        if self.config.get('data.cleaning.remove_hw2_style'):
+            df = self._remove_hw2_style(df)
         return df
 
     def _convert_timestamps(self, df: pl.DataFrame):
@@ -192,21 +192,26 @@ class DataPreprocessor:
             self.logger.warning(f"Skipping timestamp conversion as `timestamp` isn't available")
         return df
     
-    def _remove_view_only_requests(self, df):
+    def _remove_hw2_style(self, df):
         """
-        Remove sessions without a single non-view action.
+        Remove sessions without a single non-view action, with <10 products and ST_Catalog
         """
+        # df = df.filter(pl.col('source_type').ne('ST_Catalog'))
+        # self.logger.info(f"Removing ST_Catalog.")
         if 'action_type' in df.columns and 'request_id' in df.columns:
-            # 1. Find all request_ids with at least one action ≠ "AT_View"
-            good_ids = (
-                df
-                .filter(pl.col("action_type") != "AT_View")
-                .select("request_id")
-                .unique()
+            good_ids_df = (
+                df.group_by('request_id')
+                .agg([
+                    pl.col("action_type").ne('AT_View').any().alias("has_non_view"),
+                    pl.col("product_id").n_unique().alias("unique_products")  
+                ])
             )
-            # 2. Inner‐join back to keep _all_ rows for those requests
+            good_ids = good_ids_df.filter(
+                pl.col("has_non_view") &
+                pl.col("unique_products").ge(3)
+            ).select("request_id").unique()
             df = df.join(good_ids, on="request_id", how="inner")
-            self.logger.debug(f"Removing sessions without a single non-view action.")
+            self.logger.info(f"Removing sessions without a single non-view action and <10 products.")
         else:
             self.logger.warning(f"Skipping removing sessions without a single non-view action, as `action_type` and `request_id` aren't available.")
         return df
