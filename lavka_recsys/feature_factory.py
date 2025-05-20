@@ -242,7 +242,7 @@ class FeatureFactory:
         # Generate dependencies first
         invoked_fgens = invoked_fgens or set()
         for dep_fgen in dependencies:
-            self._generate_feature(dep_fgen, history_df, target_df, invoked_fgens)
+            target_df = self._generate_feature(dep_fgen, history_df, target_df, invoked_fgens)
         
         # Generate this feature
         self.logger.info(f"Invoking feature generator: {fgen_name}")
