@@ -303,16 +303,20 @@ def register_common_fgens():
         feature = history_df.group_by('city_name').agg([
             pl.len().alias('city_total_interactions'),
             IS_PURCHASE.sum().alias('city_total_purchases'),
-            IS_VIEW.eq('AT_View').sum().alias('city_total_views'),
+            IS_VIEW.sum().alias('city_total_views'),
             pl.n_unique('store_id').alias('city_unique_stores')
         ])
         # add ratio of purchases to views
         feature = feature.with_columns(
-            city_purchase_view_ratio=pl.col('city_total_purchases') / pl.col('city_total_views')
+            city_purchase_view_ratio=(
+                pl.col('city_total_purchases') / (pl.col('city_total_views') + 1)
+            )
         )
         # add ratio of purchases to interactions
         feature = feature.with_columns(
-            city_purchase_interaction_ratio=pl.col('city_total_purchases') / pl.col('city_total_interactions')
+            city_purchase_interaction_ratio=(
+                pl.col('city_total_purchases') / (pl.col('city_total_interactions') + 1)
+            )
         )
         return target_df.join(
             feature,
@@ -394,7 +398,7 @@ def register_common_fgens():
         # Filter to only purchase events
         purchases = (
             history_df
-            .filter(IS_PURCHASE)
+            .filter(IS_PURCHASE.eq(1))
             .with_columns(
                 pl.col("timestamp").dt.hour().alias("hour_of_day"),
                 pl.col("timestamp").dt.weekday().alias("day_of_week"),
