@@ -42,6 +42,9 @@ class DataLoader:
         self.train_df = preprocessor(self.train_df, clean=True)
         self.test_df  = preprocessor(self.test_df, clean=False)
         
+        if self.config.get('data.sample.train_fraction', 1) < 1:
+            fraction = self.config.get('data.sample.train_fraction', 1)
+            self.train_df = self.train_df.sample(fraction=fraction)
         if self.config.get('data.holdout.enabled', False):
             self._create_holdout()
 

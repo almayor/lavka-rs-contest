@@ -10,6 +10,8 @@ data:
     holdout_days: 30
   cleaning:
     remove_view_only_requests: false
+  sample:
+    train_fraction: 1 # set <1 for fast debugging
 
 # Output settings
 output:
@@ -64,24 +66,17 @@ target: "CartUpdate_vs_View"
 # Feature generators
 feature_generators:
   - "source_type"
-  - "count_purchase_user_product"
-  - "count_purchase_user_store"
-  - "count_purchase_user_category"
-  - "ctr_product"
-  - "cart_to_purchase_rate"         
-  - "purchase_view_ratio"          
-  - "recency_user_product"
-  - "recency_user_category"
+  - "time_windows"
+  - "recency"
+  - "recency_purchase"
   - "user_stats"
   - "product_stats"
   - "store_stats"
+  - "category_stats"
   - "city_stats"
-  - "product_temporal_patterns"
-  - "recency_user_store"
   - "time_features_cycl"
-  - "time_window_user_product"
+  - "product_temporal_patterns"
   - "session_features"
-  - "frequency_features"
   - "product_popularity_trend"
   - "cross_features"
   - "user_segments"
