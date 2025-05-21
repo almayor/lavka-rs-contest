@@ -8,15 +8,13 @@ data:
   holdout:
     enabled: true
     holdout_days: 30
-  cleaning:
-    remove_hw2_style: true
 
 # Output settings
 output:
   results_dir: "results"
   model_cache_dir: "results/model_cache"
   feature_cache_dir: "results/feature_cache"
-  feature_selection_cache_dir: "results/feature_selection_cache"
+  feature_selection_cache: "results/feature_selector_cache.json"
   metrics_dir: "results/metrics"
   visualizations_dir: "results/visualizations"
   save_model: true
@@ -59,9 +57,24 @@ model:
       desc: True
 
 # Target definition
-target: "CartUpdate_vs_View"
+target:
+  name: "Weighted"
+  cleaning:
+    enabled: True
+    source_types:
+      - "ST_SearchStartRec"
+      - "ST_PreviousBuyHub"
+      - "ST_Feed"
+      - "ST_Search"
+      - "ST_Upsale"
+      - "ST_OnClickDelivery"
+      - "ST_CheckoutUpsale"
+      - "ST_SearchComplementRec"
+      - "ST_ItemPageCarousel"
+    min_products_in_request: 3       #set -1 to disable
+    remove_view_only_requests: True
 
-# Feature generators
+# Enabled feature generators
 feature_generators:
   - "source_type"
   - "count_purchase_user_product"
@@ -100,6 +113,7 @@ feature_generators:
 feature_selector:
   enabled: true
   importances_path: 'feature_importances.json'
+  correlation_threshold: 0.9
   
 # Feature generation settings
 feature_config:
@@ -113,10 +127,5 @@ feature_config:
     model_type: 'sentence-transformers' # Or 'word2vec', 'fasttext'
     model_name: 'ai-forever/sbert_large_nlu_ru' # Example, use your preferred model
     # model_path: 'path/to/your/fasttext/cc.ru.300.bin' # If using fasttext and local model
-    embedding_dimensions: 768 # Base dimension of the model, if not using PCA or if PCA target is this
-    enable_pca: true # Whether to apply PCA
-    embedding_dimensions_pca: 64 # Target dimensions after PCA
-    batch_size: 64 # Batch size for SentenceTransformer model.encode()
-    show_encode_progress: false # Set to true to see SentenceTransformer's internal progress bar
-    disk_cache_path: '.cache/embeddings_cache' # Relative to where script is run, or absolute path
+    embedding_dimensions: 20 # Target dimensions after PCA
     n_clusters: 15 # For text_similarity_cluster

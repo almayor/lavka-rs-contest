@@ -3,7 +3,7 @@ import json
 import hashlib
 import time
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, Optional
 
 import numpy as np
 import polars as pl
@@ -115,6 +115,7 @@ class Experiment:
 
         X_train, y_train, cat_cols, train_group_ids = \
             self.feature_factory.generate_batch(*train_splits)
+        
         if val_splits:
             X_val, y_val, _, val_group_ids = \
                 self.feature_factory.generate_batch(*val_splits)
@@ -183,7 +184,7 @@ class Experiment:
             self,
             model: Model,
             splits: tuple[pl.DataFrame, pl.DataFrame],
-        ) -> pl.Series:
+        ) -> Iterable:
         """
         Predict
         """
@@ -236,9 +237,9 @@ class Experiment:
 
     @staticmethod
     def calculate_metrics(
-        true: np.ndarray,
-        preds: np.ndarray,
-        group_ids: Optional[np.ndarray] = None,
+        true: Iterable,
+        preds: Iterable,
+        group_ids: Optional[Iterable] = None,
         k: int = 10
     ) -> Dict[str, float]:
         """

@@ -38,8 +38,8 @@ class ModelFactory:
         
         use_gpu = self.config.get(('model', 'use_gpu'), False)
         mparams['task_type'] = 'GPU' if use_gpu else 'CPU'
-        if use_gpu:
-            mparams['devices'] = self.config.get(('model', 'gpu_devices'), '0')
+        # if use_gpu:
+        #     mparams['devices'] = self.config.get(('model', 'gpu_devices'), '0')
         mparams['thread_count'] = self.config.get(('model', 'thread_count'), -1)
         
         if override_params:

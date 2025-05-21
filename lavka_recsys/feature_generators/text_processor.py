@@ -62,15 +62,12 @@ class TextProcessor:
             self.embedding_size = embedding_dim
             self.model_type = 'sentence-transformers'
             self.logger.info(f"Loaded sentence-transformers model: {model_name}")
-        except ImportError:
+        except ImportError as e:
             self.logger.error(
                 "sentence-transformers not available. "
                 "Install with: pip install sentence-transformers"
             )
-            self.model = None
-        except Exception as e:
-            self.logger.error(f"Error loading SentenceTransformer model: {e}")
-            self.model = None
+            raise e
 
 
     def _load_word2vec(self):
@@ -85,15 +82,12 @@ class TextProcessor:
             self.embedding_size = self.model.vector_size
             self.model_type = 'word2vec'
             self.logger.info(f"Loaded word2vec model: {model_name}")
-        except ImportError:
+        except ImportError as e:
             self.logger.error(
                 "gensim not available. "
                 "Install with: pip install gensim"
             )
-            self.model = None
-        except Exception as e:
-            self.logger.error(f"Error loading Word2Vec model: {e}")
-            self.model = None
+            raise e
 
     def _load_fasttext(self):
         """Load FastText model"""
@@ -107,15 +101,12 @@ class TextProcessor:
             self.embedding_size = self.model.get_dimension()
             self.model_type = 'fasttext'
             self.logger.info(f"Loaded fasttext model: {model_path}")
-        except ImportError:
+        except ImportError as e:
             self.logger.error(
                 "fasttext not available. "
                 "Install with: pip install fasttext-wheel or fasttext"
             )
-            self.model = None
-        except Exception as e:
-            self.logger.error(f"Error loading FastText model: {e}")
-            self.model = None
+            raise e
             
     def get_embeddings(self, texts: List[str]) -> np.ndarray:
         """
@@ -159,7 +150,7 @@ class TextProcessor:
 
         except Exception as e:
             self.logger.error(f"Error during embedding generation with {self.model_type}: {e}")
-            return np.zeros((len(texts), self.embedding_size if self.embedding_size > 0 else 1))
+            raise e
 
     def reduce_dimensions(self, embeddings: np.ndarray, dimensions: int = 20) -> np.ndarray:
         """Reduce embedding dimensions using PCA."""
@@ -189,15 +180,12 @@ class TextProcessor:
                 f"Reduced embeddings from {embeddings.shape[1]} to {dimensions} dimensions using PCA."
             )
             return reduced
-        except ImportError:
+        except ImportError as e:
             self.logger.warning(
                 "scikit-learn not available for dimension reduction. "
                 "Install with: pip install scikit-learn. Using original embeddings."
             )
-            return embeddings
-        except Exception as e:
-            self.logger.error(f"Error during PCA dimensionality reduction: {e}. Using original embeddings.")
-            return embeddings
+            raise e
 
 def get_text_processor(config: Config) -> TextProcessor:
     global _text_processor_instance, _text_processor_config_cache

@@ -266,16 +266,13 @@ class CachedFeatureFactory(FeatureFactory):
     stays intact.
     """
 
-    # --------------------------------------------------------------------- #
-    # construction & helpers                                                #
-    # --------------------------------------------------------------------- #
     def __init__(self, config: Config):
         # call the parent so we inherit its logger, config, etc.
         super().__init__(config)
 
         self.enabled: bool = config.get("feature_config.caching.enabled", True)
 
-        cache_root = config.get("feature_config.cache_dir", "feature_cache")
+        cache_root = config.get("output.feature_cache_dir", "results/feature_cache")
         self.cache_dir = Path(cache_root).expanduser()
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -283,7 +280,6 @@ class CachedFeatureFactory(FeatureFactory):
         # ``feature_config`` and (for convenience below) ``data`` section.
         self.data_cfg = config.get("data", {})
 
-    # disk IO -------------------------------------------------------------- #
     def _cache_file(self, key: str) -> Path:
         """Return path <cache_dir>/<hash>.pkl"""
         return self.cache_dir / f"{key}.pkl"
@@ -316,7 +312,6 @@ class CachedFeatureFactory(FeatureFactory):
             self.logger.warning(f"Could not write cache: {path} ({exc})")
             tmp.unlink(missing_ok=True)
 
-    # key builder ---------------------------------------------------------- #
     def _feature_key(
         self,
         fgen_name: str,
@@ -325,9 +320,7 @@ class CachedFeatureFactory(FeatureFactory):
     ) -> str:
         """
         Build a *stable* hash for the ‹fgen_name› **and** the pieces of data that
-        influence its output.  You can tweak this easily – the important part is
-        that a *different* hash is produced as soon as the relevant data slice
-        changes.
+        influence its output.
         """
         # coarsely summarise the time span + row count for both inputs
         def _span(df: pl.DataFrame) -> tuple[int, int, int]:
@@ -345,10 +338,8 @@ class CachedFeatureFactory(FeatureFactory):
         raw = f"{fgen_name}|{h0}-{h1}-{hn}|{t0}-{t1}-{tn}"
         return hashlib.md5(raw.encode()).hexdigest()
 
-    # --------------------------------------------------------------------- #
-    # the ONLY override: _invoke_fgen                                       #
-    # --------------------------------------------------------------------- #
-    def _invoke_fgen(  # noqa: C901  (we deliberately keep the logic flat)
+
+    def _invoke_fgen( 
         self,
         fgen_name: str,
         history_df: pl.DataFrame,

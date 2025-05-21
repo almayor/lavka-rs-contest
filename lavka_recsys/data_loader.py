@@ -172,8 +172,7 @@ class DataPreprocessor:
         df = self._convert_timestamps(df)
         if not clean:
             return df
-        if self.config.get('data.cleaning.remove_hw2_style'):
-            df = self._remove_hw2_style(df)
+        # Additional cleaning here
         return df
 
     def _convert_timestamps(self, df: pl.DataFrame):
@@ -190,28 +189,4 @@ class DataPreprocessor:
             )
         else:
             self.logger.warning(f"Skipping timestamp conversion as `timestamp` isn't available")
-        return df
-    
-    def _remove_hw2_style(self, df):
-        """
-        Remove sessions without a single non-view action, with <10 products and ST_Catalog
-        """
-        # df = df.filter(pl.col('source_type').ne('ST_Catalog'))
-        # self.logger.info(f"Removing ST_Catalog.")
-        if 'action_type' in df.columns and 'request_id' in df.columns:
-            good_ids_df = (
-                df.group_by('request_id')
-                .agg([
-                    pl.col("action_type").ne('AT_View').any().alias("has_non_view"),
-                    pl.col("product_id").n_unique().alias("unique_products")  
-                ])
-            )
-            good_ids = good_ids_df.filter(
-                pl.col("has_non_view") &
-                pl.col("unique_products").ge(3)
-            ).select("request_id").unique()
-            df = df.join(good_ids, on="request_id", how="inner")
-            self.logger.info(f"Removing sessions without a single non-view action and <10 products.")
-        else:
-            self.logger.warning(f"Skipping removing sessions without a single non-view action, as `action_type` and `request_id` aren't available.")
         return df

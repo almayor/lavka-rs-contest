@@ -5,6 +5,26 @@ import polars as pl
 import numpy as np
 import holidays
 
+from tqdm.auto import tqdm, trange
+from datetime import timedelta
+
+IS_VIEW      = (pl.col("action_type") == "AT_View").cast(pl.Int8)
+IS_CLICK     = (pl.col("action_type") == "AT_Click").cast(pl.Int8)
+IS_PURCHASE  = pl.col("action_type").is_in(["AT_CartUpdate", "AT_Purchase"]).cast(pl.Int8)
+WINDOWS      = {
+    "1w":  timedelta(weeks=1),
+    "1mo": timedelta(days=30),
+    "3mo": timedelta(days=90),
+    "6mo": timedelta(days=180),
+    "1y":  timedelta(days=365),
+}
+PAIRS        = {
+    'u_p': ['user_id', 'product_id'],
+    'u_c': ['user_id', 'product_category'],
+    'u_c_source': ['user_id', 'product_category', 'source_type'],
+    'u_s': ['user_id', 'store_id'],
+    'u_p_source': ['user_id', 'product_id', 'source_type']
+}
 
 def register_common_fgens():
     # ========== BASIC FEATURES = ==========
@@ -25,6 +45,61 @@ def register_common_fgens():
     ) -> pl.DataFrame:
         """Source type is already present, we just needed to register it as a categorical feature."""
         return target_df
+
+    @FeatureFactory.register(
+        'time_windows',
+        num_cols=[f'{name}_{pair_label}_{dur_label}' 
+                    for name in ['views', 'clicks', 'purchases', 'interactions', 'ctr', 'purchases_view_ratio']
+                    for pair_label in PAIRS.keys()
+                    for dur_label in WINDOWS.keys()]
+    )
+    def generate_window_features(
+            history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config,
+        ) -> pl.DataFrame:
+        t0 = history_df["timestamp"].max()
+        out = target_df.clone()
+
+        for pair_label, pair_cols in PAIRS.items():
+            for win_label, delta in WINDOWS.items():
+                recent = history_df.filter(
+                    (pl.col("timestamp") > t0 - delta) &
+                    (pl.col("timestamp") <= t0)
+                )
+
+                feats = (
+                    recent
+                    .group_by(pair_cols)
+                    .agg([
+                        IS_VIEW.sum().alias(
+                            f"views_{pair_label}_{win_label}"
+                        ),
+                        IS_CLICK.sum().alias(
+                            f"clicks_{pair_label}_{win_label}"
+                        ),
+                        IS_PURCHASE.sum().alias(
+                            f"purchases_{pair_label}_{win_label}"
+                        ),
+                        pl.len().alias(
+                            f"interactions_{pair_label}_{win_label}"
+                        ),
+                    ])
+                    .with_columns([
+                        (pl.col(f"clicks_{pair_label}_{win_label}")
+                            .cast(pl.Float64) /
+                            (pl.col(f"views_{pair_label}_{win_label}")
+                            .cast(pl.Float64) + 1))
+                            .alias(f"ctr_{pair_label}_{win_label}"),
+
+                        (pl.col(f"purchases_{pair_label}_{win_label}")
+                            .cast(pl.Float64) /
+                            (pl.col(f"views_{pair_label}_{win_label}")
+                            .cast(pl.Float64) + 1))
+                            .alias(f"purchases_view_ratio_{pair_label}_{win_label}"),
+                    ])
+                )
+                out = out.join(feats, on=pair_cols, how="left")
+
+        return out
 
     @FeatureFactory.register(
         'count_purchase_user_product',
@@ -85,103 +160,6 @@ def register_common_fgens():
             on=['user_id', 'store_id'],
             how='right'
         ).fill_null(0)
-
-    @FeatureFactory.register('ctr_product', num_cols=['ctr_product'])
-    def generate_ctr_product(
-        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
-    ) -> pl.DataFrame:
-        """Calculate CTR (Click-Through Rate) for products"""
-        actions = history_df.group_by(
-            'action_type', 'product_id'
-        ).agg(
-            pl.len()
-        )
-        
-        clicks = actions.filter(pl.col('action_type') == "AT_Click")
-        views = actions.filter(pl.col('action_type') == "AT_View")
-        
-        feature = clicks.join(
-            views, on='product_id'
-        ).with_columns(
-            ctr_product=pl.col('len') / pl.col('len_right')
-        ).select(
-            'product_id', 'ctr_product'
-        )
-        return target_df.join(
-            feature,
-            on=['product_id'],
-            how='left'
-        )
-        
-    @FeatureFactory.register('cart_to_purchase_rate', num_cols=['cart_to_purchase_rate'])
-    def generate_cart_to_purchase_rate(
-        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
-    ) -> pl.DataFrame:
-        """Calculate Cart-to-Purchase conversion rate for products"""
-        actions = history_df.group_by(
-            'action_type', 'product_id'
-        ).agg(
-            pl.len()
-        )
-        
-        purchases = actions.filter(pl.col('action_type') == "AT_Purchase")
-        cart_updates = actions.filter(pl.col('action_type') == "AT_CartUpdate")
-        
-        # Only include products that have both cart updates and purchases
-        feature = cart_updates.join(
-            purchases, on='product_id', how='left'
-        ).with_columns(
-            # Fill null values to avoid division by zero
-            len_right=pl.col('len_right').fill_null(0),
-            # Calculate conversion rate: purchases / cart_updates
-            cart_to_purchase_rate=pl.col('len_right') / pl.col('len')
-        ).select(
-            'product_id', 'cart_to_purchase_rate'
-        )
-        
-        return target_df.join(
-            feature,
-            on=['product_id'],
-            how='left'
-        ).with_columns(
-            # Fill null with 0 for products that have no cart updates
-            cart_to_purchase_rate=pl.col('cart_to_purchase_rate').fill_null(0)
-        )
-        
-    @FeatureFactory.register('purchase_view_ratio', num_cols=['purchase_view_ratio'])
-    def generate_purchase_view_ratio(
-        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
-    ) -> pl.DataFrame:
-        """Calculate Purchase-to-View ratio for products"""
-        actions = history_df.group_by(
-            'action_type', 'product_id'
-        ).agg(
-            pl.len()
-        )
-        
-        purchases = actions.filter(pl.col('action_type') == "AT_Purchase")
-        views = actions.filter(pl.col('action_type') == "AT_View")
-        
-        # Join purchases and views
-        feature = purchases.join(
-            views, on='product_id', how='left'
-        ).with_columns(
-            # Fill null values to avoid division by zero issues
-            len_right=pl.col('len_right').fill_null(1),
-            # Calculate purchase to view ratio: purchases / views
-            purchase_view_ratio=pl.col('len') / pl.col('len_right')
-        ).select(
-            'product_id', 'purchase_view_ratio'
-        )
-        
-        return target_df.join(
-            feature,
-            on=['product_id'],
-            how='left'
-        ).with_columns(
-            # Fill null with 0 for products that have no purchases
-            purchase_view_ratio=pl.col('purchase_view_ratio').fill_null(0)
-        )
 
     @FeatureFactory.register('recency_user_product', num_cols=['days_since_interaction_u_p'])
     def generate_recency_user_product(
@@ -328,29 +306,30 @@ def register_common_fgens():
 
     # ========== TIME FEATURES = ==========
 
+
     @FeatureFactory.register(
-        'time_features_cycl',
-        num_cols=['hour_of_day_sin', 'hour_of_day_cos', 
-                'day_of_week_sin', 'day_of_week_cos', 
-                'month_sin', 'month_cos'], # Added cos columns
-        cat_cols=['is_weekend']
+        'time_features_cycl_v2',
+        num_cols=['hour_of_day_sin_v2', 'hour_of_day_cos_v2', 
+                'day_of_week_sin_v2', 'day_of_week_cos_v2', 
+                'month_sin_v2', 'month_cos_v2'], # Added cos columns
+        cat_cols=['is_weekend_v2']
     )
     def generate_time_features(
         history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
         """Generate time-related features (hour of day, day of week, etc.)"""
         return target_df.with_columns([
-            pl.col('timestamp').dt.hour().mul(2*np.pi/24).sin().alias('hour_of_day_sin'),
-            pl.col('timestamp').dt.hour().mul(2*np.pi/24).cos().alias('hour_of_day_cos'), # New
-            pl.col('timestamp').dt.weekday().mul(2*np.pi/7).sin().alias('day_of_week_sin'),
-            pl.col('timestamp').dt.weekday().mul(2*np.pi/7).cos().alias('day_of_week_cos'), # New
-            pl.col('timestamp').dt.month().mul(2*np.pi/12).sin().alias('month_sin'),
-            pl.col('timestamp').dt.month().mul(2*np.pi/12).cos().alias('month_cos'), # New
+            pl.col('timestamp').dt.hour().mul(2*np.pi/24).sin().alias('hour_of_day_sin_v2'),
+            pl.col('timestamp').dt.hour().mul(2*np.pi/24).cos().alias('hour_of_day_cos_v2'),
+            pl.col('timestamp').dt.weekday().mul(2*np.pi/7).sin().alias('day_of_week_sin_v2'),
+            pl.col('timestamp').dt.weekday().mul(2*np.pi/7).cos().alias('day_of_week_cos_v2'),
+            pl.col('timestamp').dt.month().mul(2*np.pi/12).sin().alias('month_sin_v2'),
+            pl.col('timestamp').dt.month().mul(2*np.pi/12).cos().alias('month_cos_v2'),
             pl.col('timestamp')
                 .dt.weekday()
                 .cast(pl.Int32)
-                .is_in([6, 7]) # Assuming 1-Monday, 7-Sunday; adjust if 0-Monday, 6-Sunday
-                .alias('is_weekend')
+                .is_in([6, 7])
+                .alias('is_weekend_v2')
         ])
 
     @FeatureFactory.register(
@@ -462,128 +441,127 @@ def register_common_fgens():
                                         'day_of_week_relevance']
         return result.select(final_cols)
 
-    # ========== TIME WINDOW FEATURES ===========
-
+       
     @FeatureFactory.register(
-        'time_window_user_product',
-        num_cols=[
-            'interactions_day_u_p', 'interactions_week_u_p', 'interactions_month_u_p',
-            'purchases_day_u_p', 'purchases_week_u_p', 'purchases_month_u_p',
-            'views_day_u_p', 'views_week_u_p', 'views_month_u_p',
-        ]
+        'category_temporal_patterns',
+        num_cols=['cat_avg_purchase_hour', 'cat_std_purchase_hour', 
+                  'cat_most_common_purchase_day',
+                  'cat_hour_relevance', 
+                  'cat_day_of_week_relevance']
     )
-    def generate_time_window_features(
+    def generate_category_temporal_patterns(
         history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
-        """Generate time-window based features for user-product pairs"""
-        latest_time = history_df['timestamp'].max()
+        """Generate features related to typical purchase times and days for categories"""
+        # Filter to only purchase events
+        purchases = (
+            history_df
+            .filter(IS_PURCHASE.eq(1))
+            .with_columns(
+                pl.col("timestamp").dt.hour().alias("hour_of_day"),
+                pl.col("timestamp").dt.weekday().alias("day_of_week"),
+            )
+        )
         
-        # 1-day, 7-day, and 30-day windows (in seconds)
-        windows = {
-            'day': pl.duration(days=1),
-            'week': pl.duration(weeks=1),
-            'month': pl.duration(days=30)
-        }
-        
-        result = target_df
-        
-        for name, seconds in windows.items():
-            cutoff_time = latest_time - seconds
-            
-            window_df = history_df.filter(pl.col('timestamp') >= cutoff_time)
-            
-            # Count interactions in this window
-            counts = window_df.group_by(['user_id', 'product_id']).agg([
-                pl.len().alias(f'interactions_{name}_u_p'),
-                pl.col('action_type').eq('AT_CartUpdate').sum().alias(f'purchases_{name}_u_p'),
-                pl.col('action_type').eq('AT_View').sum().alias(f'views_{name}_u_p')
-            ])
-            
-            result = result.join(counts, on=['user_id', 'product_id'], how='left').fill_null(0)
-        
+        hour_stats = purchases.group_by("product_category").agg([
+            pl.mean("hour_of_day").alias("cat_avg_purchase_hour"),
+            pl.std ("hour_of_day").alias("cat_std_purchase_hour"),
+        ])
+        common_day = (
+            purchases.group_by("product_category")
+                .agg(
+                    pl.col("day_of_week")
+                        .mode()
+                        .first()
+                        .cast(pl.Int32)
+                        .alias("cat_most_common_purchase_day")
+                )
+        )
+        temporal_stats = hour_stats.join(common_day, on="product_category", how="inner")
+        result = (
+        target_df.join(temporal_stats, on="product_category", how="left")
+                 .with_columns([
+                     pl.col("timestamp").dt.hour().alias("cur_hour"),
+                     pl.col("timestamp").dt.weekday().alias("cur_dow"),
+                 ])
+                 # circular distance hour:24, dow:7
+                 .with_columns([
+                     (pl.col("cur_hour") - pl.col("cat_avg_purchase_hour")).abs().alias("h_diff"),
+                     (pl.col("cur_dow")  - pl.col("cat_most_common_purchase_day")).abs().alias("d_diff"),
+                 ])
+                 .with_columns([
+                     pl.min_horizontal("h_diff", (24 - pl.col("h_diff"))).alias("h_dist"),
+                     pl.min_horizontal("d_diff", (7  - pl.col("d_diff"))).alias("d_dist"),
+                 ])
+                 .with_columns([
+                     (1 - pl.col("h_dist") / 12).alias("cat_hour_relevance"),
+                     (1 - pl.col("d_dist") / 3.5).alias("cat_day_of_week_relevance"),
+                 ])
+                 # drop helpers
+                 .drop(["cur_hour", "cur_dow", "h_diff", "d_diff", "h_dist", "d_dist"])
+        )
         return result
-
-    # ========== SESSION FEATURES = ==========
-
+    
     @FeatureFactory.register(
-        'session_features',
-        num_cols=[
-            'session_length',
-            'session_purchases',
-            'session_unique_products',
-            'session_unique_stores',
-            'session_duration_seconds'
-        ]
+        'store_temporal_patterns',
+        num_cols=['store_avg_purchase_hour', 'store_std_purchase_hour', 
+                  'store_most_common_purchase_day',
+                  'store_hour_relevance', 
+                  'store_day_of_week_relevance']
     )
-    def generate_session_features(
+    def generate_store_temporal_patterns(
         history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
     ) -> pl.DataFrame:
-        """
-        Generate session-based features.
-        A session is defined as a sequence of actions by the same user within a time window.
-        The session window duration is configurable via the config.
-        """
-        # Get session window duration from config or use default (30 minutes)
-        config = Config()
-        session_window_minutes = config.get('feature_config.session_window_minutes', 30)
+        """Generate features related to typical purchase times and days for stores"""
+        # Filter to only purchase events
+        purchases = (
+            history_df
+            .filter(IS_PURCHASE.eq(1))
+            .with_columns(
+                pl.col("timestamp").dt.hour().alias("hour_of_day"),
+                pl.col("timestamp").dt.weekday().alias("day_of_week"),
+            )
+        )
         
-        # Define session window 
-        session_window = pl.duration(minutes=session_window_minutes)
-        
-        # Sort history by user and timestamp
-        sorted_history = history_df.sort(['user_id', 'timestamp'])
-        
-        # Create session ID column
-        history_with_sessions = sorted_history.with_columns([
-            # Create a new column that's 1 when this row starts a new session
-            # (either first action by user or gap from previous action > session_window)
-            pl.when(
-                (pl.col('timestamp') - pl.col('timestamp').shift(1) > session_window) | 
-                (pl.col('user_id') != pl.col('user_id').shift(1))
-            ).then(1).otherwise(0).alias('new_session')
+        hour_stats = purchases.group_by("store_id").agg([
+            pl.mean("hour_of_day").alias("store_avg_purchase_hour"),
+            pl.std ("hour_of_day").alias("store_std_purchase_hour"),
         ])
-        
-        # Create a cumulative sum to get session IDs
-        history_with_sessions = history_with_sessions.with_columns([
-            pl.col('new_session').cum_sum().over('user_id').alias('session_id')
-        ])
-        
-        # Calculate session-level features
-        session_features = history_with_sessions.group_by(['user_id', 'session_id']).agg([
-            pl.len().alias('session_length'),
-            pl.col('action_type').eq('AT_Purchase').sum().alias('session_purchases'),
-            pl.n_unique('product_id').alias('session_unique_products'),
-            pl.n_unique('store_id').alias('session_unique_stores'),
-            pl.col('timestamp').min().alias('session_start'),
-            pl.col('timestamp').max().alias('session_end')
-        ])
-        
-        # Calculate session duration
-        session_features = session_features.with_columns([
-            (pl.col('session_end') - pl.col('session_start')).dt.total_seconds().alias('session_duration_seconds')
-        ])
-        
-        # Get the most recent session for each user
-        latest_sessions = session_features.group_by('user_id').agg([
-            pl.col('session_id').max().alias('latest_session_id')
-        ])
-        
-        latest_session_features = latest_sessions.join(
-            session_features, 
-            left_on=['user_id', 'latest_session_id'],
-            right_on=['user_id', 'session_id']
-        ).select([
-            'user_id', 
-            'session_length', 
-            'session_purchases', 
-            'session_unique_products',
-            'session_unique_stores',
-            'session_duration_seconds'
-        ])
-        
-        # Join with target data
-        return target_df.join(latest_session_features, on='user_id', how='left')
-
+        common_day = (
+            purchases.group_by("store_id")
+                .agg(
+                    pl.col("day_of_week")
+                        .mode()
+                        .first()
+                        .cast(pl.Int32)
+                        .alias("store_most_common_purchase_day")
+                )
+        )
+        temporal_stats = hour_stats.join(common_day, on="store_id", how="inner")
+        result = (
+        target_df.join(temporal_stats, on="store_id", how="left")
+                 .with_columns([
+                     pl.col("timestamp").dt.hour().alias("cur_hour"),
+                     pl.col("timestamp").dt.weekday().alias("cur_dow"),
+                 ])
+                 # circular distance hour:24, dow:7
+                 .with_columns([
+                     (pl.col("cur_hour") - pl.col("store_avg_purchase_hour")).abs().alias("h_diff"),
+                     (pl.col("cur_dow")  - pl.col("store_most_common_purchase_day")).abs().alias("d_diff"),
+                 ])
+                 .with_columns([
+                     pl.min_horizontal("h_diff", (24 - pl.col("h_diff"))).alias("h_dist"),
+                     pl.min_horizontal("d_diff", (7  - pl.col("d_diff"))).alias("d_dist"),
+                 ])
+                 .with_columns([
+                     (1 - pl.col("h_dist") / 12).alias("store_hour_relevance"),
+                     (1 - pl.col("d_dist") / 3.5).alias("store_day_of_week_relevance"),
+                 ])
+                 # drop helpers
+                 .drop(["cur_hour", "cur_dow", "h_diff", "d_diff", "h_dist", "d_dist"])
+        )
+        return result
+    
     # ========== FREQUENCY FEATURES = ==========
 
     @FeatureFactory.register('frequency_features', num_cols=['mean_interval_days'])
@@ -651,6 +629,56 @@ def register_common_fgens():
         
         return result
 
+        # ========== SESSION FEATURES = ==========
+
+    @FeatureFactory.register(
+        'session_features_v2',
+        num_cols=[
+            'session_length_v2',
+            'session_unique_products_v2',
+            'session_unique_stores_v2',
+            'session_duration_seconds_v2'
+        ]
+    )
+    def generate_session_features(
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
+    ) -> pl.DataFrame:
+        """
+        Generate session-based features.
+        A session is defined as a sequence of actions by the same user within a time window.
+        The session window duration is configurable via the config.
+        """
+        session_window_minutes = config.get('feature_config.session_window_minutes', 30)
+        window_str = f"{session_window_minutes}m"
+        
+        combo = (
+            pl.concat([history_df, target_df], how="diagonal")
+            .sort(["user_id", "timestamp", "request_id"])
+            .rolling(
+                "timestamp",
+                period=window_str,
+                closed="left",
+                group_by="user_id"
+            )
+            .agg([
+                pl.len().alias("session_length_v2"),
+                pl.col("product_id").n_unique().alias("session_unique_products_v2"),
+                pl.col("store_id").n_unique().alias("session_unique_stores_v2"),
+                pl.col("product_category").n_unique().alias("session_unique_categories_v2"),
+                (pl.col("timestamp").max() - pl.col("timestamp").min()).dt.total_seconds().alias("session_duration_seconds_v2")
+            ])
+            .unique(('user_id', 'timestamp'), keep='last')
+        )
+        return (
+            target_df
+            .join(
+               combo,
+               on=["user_id", "timestamp"],
+               how="left" 
+            )
+        )
+        
+
     # ========== PRODUCT POPULARITY TRENDING = ==========
 
     @FeatureFactory.register(
@@ -704,6 +732,113 @@ def register_common_fgens():
         return target_df.join(
             popularity_trend.select(['product_id', 'interaction_trend', 'purchase_trend']), 
             on='product_id', 
+            how='left'
+        )
+
+        
+    @FeatureFactory.register(
+        'category_popularity_trend',
+        num_cols=['cat_interaction_trend', 'cat_purchase_trend']
+    )
+    def generate_category_popularity_trend(
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
+    ) -> pl.DataFrame:
+        """Generate category popularity trend features"""
+        # Get the earliest and latest timestamp
+        max_time = history_df['timestamp'].max()
+        min_time = max_time - timedelta(days=60)
+        
+        # Split history into two time periods
+        mid_time = min_time + (max_time - min_time) / 2
+        
+        early_period = history_df.filter((pl.col('timestamp') < mid_time) & (pl.col('timestamp') >= min_time))
+        late_period = history_df.filter(pl.col('timestamp') >= mid_time)
+        
+        # Calculate popularity in each period
+        def get_period_popularity(df):
+            return df.group_by('product_category').agg([
+                pl.len().alias('interactions'),
+                IS_PURCHASE
+                    .sum()
+                    .alias('purchases')
+            ])
+        
+        early_popularity = get_period_popularity(early_period)
+        late_popularity = get_period_popularity(late_period)
+        
+        popularity_trend = early_popularity.join(
+            late_popularity, 
+            on='product_category', 
+            how='outer',
+            suffix='_late'
+        ).fill_null(0)
+        
+        popularity_trend = popularity_trend.with_columns([
+            ((pl.col('interactions_late') - pl.col('interactions')) / 
+            pl.max_horizontal(pl.lit(1), pl.col('interactions'))
+            ).alias('cat_interaction_trend'),
+            
+            ((pl.col('purchases_late') - pl.col('purchases')) / 
+            pl.max_horizontal(pl.lit(1), pl.col('purchases'))
+            ).alias('cat_purchase_trend')
+        ])
+        
+        return target_df.join(
+            popularity_trend.select(['product_category', 'cat_interaction_trend', 'cat_purchase_trend']), 
+            on='product_category', 
+            how='left'
+        )
+    
+    @FeatureFactory.register(
+        'store_popularity_trend',
+        num_cols=['store_interaction_trend', 'store_purchase_trend']
+    )
+    def generate_store_popularity_trend(
+        history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config
+    ) -> pl.DataFrame:
+        """Generate store popularity trend features"""
+        # Get the earliest and latest timestamp
+        max_time = history_df['timestamp'].max()
+        min_time = max_time - timedelta(days=60)
+        
+        # Split history into two time periods
+        mid_time = min_time + (max_time - min_time) / 2
+        
+        early_period = history_df.filter((pl.col('timestamp') < mid_time) & (pl.col('timestamp') >= min_time))
+        late_period = history_df.filter(pl.col('timestamp') >= mid_time)
+        
+        # Calculate product popularity in each period
+        def get_period_popularity(df):
+            return df.group_by('store_id').agg([
+                pl.len().alias('interactions'),
+                IS_PURCHASE
+                    .sum()
+                    .alias('purchases')
+            ])
+        
+        early_popularity = get_period_popularity(early_period)
+        late_popularity = get_period_popularity(late_period)
+        
+        popularity_trend = early_popularity.join(
+            late_popularity, 
+            on='store_id', 
+            how='outer',
+            suffix='_late'
+        ).fill_null(0)
+        
+        popularity_trend = popularity_trend.with_columns([
+            ((pl.col('interactions_late') - pl.col('interactions')) / 
+                pl.max_horizontal(pl.lit(1), pl.col('interactions'))
+                ).alias('store_interaction_trend'),
+            
+            ((pl.col('purchases_late') - pl.col('purchases')) / 
+                pl.max_horizontal(pl.lit(1), pl.col('purchases'))
+                ).alias('store_purchase_trend')
+        ])
+        
+        return target_df.join(
+            popularity_trend.select(['store_id', 'store_interaction_trend', 'store_purchase_trend']), 
+            on='store_id', 
             how='left'
         )
 

@@ -1,13 +1,10 @@
 import json
 import polars as pl
-import pandas as pd
-import numpy as np
-import hashlib # For creating cache key
-import os      # For checking if cache file exists
+import hashlib
+import os
 
-from typing import Iterable, List # Added List for type hinting
+from typing import Iterable, List
 
-# Assuming these are correctly defined elsewhere in your project
 from .utils.config import Config
 from .utils.custom_logging import get_logger
 
@@ -20,37 +17,25 @@ class FeatureSelector:
     def __call__(self, features_df: pl.DataFrame, cat_columns: Iterable) -> tuple[pl.DataFrame, List[str]]: # Added return type hint
         if not self.config.get('feature_selector.enabled', True):
             self.logger.info("Skipping feature selection as it's disabled in config.")
-            return features_df, list(cat_columns) # Ensure cat_columns is a list
+            return features_df, list(cat_columns)
 
-        # Ensure cat_columns is a list for consistent handling
         cat_columns_list = list(cat_columns)
 
-        try:
-            with open(self.config['feature_selector.importances_path'], 'r') as f:
-                importances_dict = json.load(f)
-        except FileNotFoundError:
-            self.logger.error(f"Importances file not found at: {self.config['feature_selector.importances_path']}. Skipping selection.")
-            return features_df, cat_columns_list
-        except json.JSONDecodeError:
-            self.logger.error(f"Error decoding JSON from importances file: {self.config['feature_selector.importances_path']}. Skipping selection.")
-            return features_df, cat_columns_list
+        with open(self.config['feature_selector.importances_path'], 'r') as f:
+            importances_dict = json.load(f)
         
         # Prepare numerical features DataFrame
         # Ensure cat_columns_list contains actual column names present in features_df
         numerical_feature_df_cols = [col for col in features_df.columns if col not in cat_columns_list]
         if not numerical_feature_df_cols:
-            self.logger.info("No numerical features found after excluding categorical columns. Skipping selection.")
+            self.logger.warning("No numerical features found after excluding categorical columns. Skipping selection.")
             return features_df, cat_columns_list
             
         X = features_df.select(numerical_feature_df_cols).to_pandas()
-        
         correlation_threshold = self.config.get('feature_selector.correlation_threshold', 0.9)
 
-        # --- Caching Logic ---
-        # Create a signature for the current computation
-        # Based on numerical feature names, threshold, and content of importances_dict
+        # Caching Logic
         sorted_numerical_feature_names = sorted(X.columns.tolist())
-        
         hasher = hashlib.sha256()
         hasher.update("||".join(sorted_numerical_feature_names).encode('utf-8'))
         hasher.update(str(correlation_threshold).encode('utf-8'))
@@ -59,21 +44,17 @@ class FeatureSelector:
         hasher.update(importances_content_hash.encode('utf-8'))
         input_signature_key = hasher.hexdigest()
 
-        cache_file_path = self.config.get('feature_selector.cache_file', 'feature_selector_cache.json')
+        cache_file_path = self.config.get('output.feature_selection_cache_dir', 'results/feature_selector_cache.json')
         selected_numerical_features_list = None
         cache_data = {}
 
         if self.config.get('feature_selector.cache_enabled', True): # Allow disabling cache via config
             if os.path.exists(cache_file_path):
-                try:
-                    with open(cache_file_path, 'r') as f:
-                        cache_data = json.load(f)
-                    if input_signature_key in cache_data:
-                        selected_numerical_features_list = cache_data[input_signature_key]
-                        self.logger.info(f"Loaded selected features from cache (key: {input_signature_key[:10]}...).")
-                except Exception as e:
-                    self.logger.warning(f"Could not load or parse cache file {cache_file_path}: {e}. Recomputing.")
-                    cache_data = {} # Reset cache data if file is corrupt
+                with open(cache_file_path, 'r') as f:
+                    cache_data = json.load(f)
+                if input_signature_key in cache_data:
+                    selected_numerical_features_list = cache_data[input_signature_key]
+                    self.logger.info(f"Loaded selected features from cache (key: {input_signature_key[:10]}...).")
             else:
                 self.logger.info(f"Cache file {cache_file_path} not found. Will compute features.")
         else:
@@ -114,7 +95,6 @@ class FeatureSelector:
                         if importance > max_importance_in_group:
                             max_importance_in_group = importance
                             best_feature_in_group = f_in_group
-                        # Optional: Add sophisticated tie-breaking here if needed
 
                     if best_feature_in_group: 
                         self.logger.info(f"    Best feature in group (highest importance): '{best_feature_in_group}' (Importance: {max_importance_in_group:.4f})")
@@ -149,7 +129,6 @@ class FeatureSelector:
         # Maintain original order as much as possible for kept columns
         original_order_all_cols = features_df.columns
         final_selected_columns = [col for col in original_order_all_cols if col in final_selected_columns_set]
-
 
         self.logger.info(f"Original feature count: {len(features_df.columns)}")
         self.logger.info(f"Selected numerical feature count: {len(selected_numerical_features_list)}")
