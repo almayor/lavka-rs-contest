@@ -138,6 +138,13 @@ An additional experiment was run with these optimized hyperparameters AND featur
 
 * **CatBoost Ranker (HParams Optimized, No session features, WITH Cleaned Targets, WITH Feature Selection 0.9):** Kaggle Public Score = `0.41769` (Private Score = `0.41661`). In this case, feature selection after HPO slightly decreased the score compared to HPO alone.
 
+### Weighting target by `1/log2(pos_in_request + 1)`
+
+* **CatBoost Ranker (No session features, No feature selection, WITH Cleaned Targets):** Kaggle Public Score = `0.41953` (Private Score = `0.41735`).
+
+* **CatBoost Ranker (No session features, No feature selection, WITH Cleaned Targets, WITH Target Weighing):** Kaggle Public Score = `0.41589` (Private Score = `0.41945`).
+
+So we see a big boost to the private score, but a significant decrease in the public score. This is probably because of the difference between public and private test sets (see the comment from the contest's author at the end).
 
 ## Conclusion and Best Performing Model
 
@@ -154,3 +161,8 @@ The experiments highlight several key findings:
 The best performing model on the Kaggle Public Leaderboard was the **CatBoost Ranker without session features and with cleaned targets, achieving a Public Score of `0.41953` (Private Score of `0.41735`)**. The HParam-optimized version without session features and with cleaned targets, was very close at `0.41945` (Private Score of `0.41875`).
 
 ![scores](scores.png)
+
+------
+
+Comment from the context author:
+> Да, в фичах сеанса реально известный даталик, мы не стали снова ниче менять, чтобы контест совсем не сгубить. Если посмотреть, там таргетные объекты 2 раза встречаются в тесте внутри каждого `request_id`.

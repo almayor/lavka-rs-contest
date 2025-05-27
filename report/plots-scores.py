@@ -14,6 +14,7 @@ experiments = {
     "Ranker -session_feats +clean_target": (0.41953, 0.41735),
     "Ranker -session_feats +clean_target +hparam_opt": (0.41945, 0.41875),
     "Ranker -session_feats +clean_target +hparam_opt +feat_select": (0.41769, 0.41661),
+    "Ranker -session_feats +clean_target +hparam_opt +weigh_posinreq": (0.41589, 0.41945),
 }
 
 public_scores  = [score[0] for score in experiments.values()]
