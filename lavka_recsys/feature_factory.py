@@ -127,7 +127,7 @@ class FeatureFactory:
         requested_fgens = requested_fgens or self.config.get('feature_generators')
         features, cat_columns = self.generate_features(history_df, target_df, requested_fgens)
         target = self.generate_target(history_df, target_df, requested_target)
-        mask = ~target.is_null()
+        mask = ~target.is_null() & ~target.is_nan()
         return (
             features.filter(mask),
             target.filter(mask),

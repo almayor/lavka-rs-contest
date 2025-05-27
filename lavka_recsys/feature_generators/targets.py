@@ -108,6 +108,7 @@ def register_target_fgens():
             target_series[mask] = None
         return target_series
 
+
     @FeatureFactory.register_target('CartUpdate_conversion_aware')
     def target_cartupdate_conversion_aware(history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config) -> pl.Series:
         """Assign 0 for 'AT_View' and 1 for 'AT_CartUpdate' and 'AT_Purchase'."""
@@ -184,6 +185,37 @@ def register_target_fgens():
         
         result_df = target_df.join(grouped, on=['request_id', 'product_id'], how='left')
         target_series = result_df.get_column('max_target_interaction_aware')
+
+        if config.get('target.cleaning.enabled', False):
+            mask = _get_mask(target_df, config)
+            target_series[mask] = None
+        return target_series
+    
+
+    @FeatureFactory.register_target('Weighted_pos_in_req_aware')
+    def target_weighted_pos_in_req_aware(history_df: pl.DataFrame, target_df: pl.DataFrame, config: Config) -> pl.Series:
+        """Assign different weights for 'AT_View', 'AT_CartUpdate', 'AT_Purchase', 'AT_Click'; weighted by position_in_request"""
+        if 'position_in_request' not in target_df.columns:
+            return target_weighted(history_df, target_df, config)
+        
+        mapping = {
+            'AT_View': 0.0,
+            'AT_CartUpdate': 0.85,
+            'AT_Purchase': 1.0,
+            'AT_Click': 0.3,
+        }
+        weighted = target_df.with_columns(
+            pl.col('action_type').replace_strict(mapping, default=0.0).alias('target'),
+            (pl.when(pl.col("position_in_request").is_not_nan())
+                .then(1.0 / (pl.col("position_in_request") + 1).log(2))
+                .otherwise(0.0)
+            ).alias("discount")
+        )
+        grouped = weighted.group_by(['request_id', 'product_id']).agg(
+            (pl.col('target').mul(pl.col('discount'))).max().alias('max_target')
+        )
+        result = target_df.join(grouped, on=['request_id', 'product_id'], how='left')
+        target_series = result.get_column('max_target')
 
         if config.get('target.cleaning.enabled', False):
             mask = _get_mask(target_df, config)
