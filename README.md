@@ -1,4 +1,4 @@
-*Winning solution for the [Yandex School of Data Analysis Recommender Systems Competition](https://www.kaggle.com/competitions/ysda-recsys-2025-lavka) (~50 participants)*
+*Winning solution for the [Yandex School of Data Analysis Recommender Systems Competition](https://www.kaggle.com/competitions/ysda-recsys-2025-lavka)*
 
 # Lavka Recommender System
 
