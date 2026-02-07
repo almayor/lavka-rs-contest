@@ -1,3 +1,5 @@
+*Winning solution for the [Yandex School of Data Analysis Recommender Systems Competition](https://www.kaggle.com/competitions/ysda-recsys-2025-lavka) (~50 participants)*
+
 # Lavka Recommender System
 
 A flexible and maintainable recommender system framework with configurable experiments and feature generation capabilities.
